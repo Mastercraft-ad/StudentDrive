@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { BookOpen, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
+import logoImg from "@assets/StudentDrive logo_1762056464003.png";
 
 export function PublicHeader() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -22,10 +23,12 @@ export function PublicHeader() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/">
-              <div className="flex items-center gap-2 cursor-pointer">
-                <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
-                  <BookOpen className="h-6 w-6 text-primary-foreground" />
-                </div>
+              <div className="flex items-center gap-3 cursor-pointer">
+                <img 
+                  src={logoImg} 
+                  alt="StudentDrive Logo" 
+                  className="h-10 w-10 object-contain"
+                />
                 <span className="text-xl font-heading font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">StudentDrive</span>
               </div>
             </Link>

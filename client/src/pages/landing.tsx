@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookOpen, Award, TrendingUp, Users, CheckCircle, BarChart3, Sparkles, Zap, Target, Upload, Brain, Trophy, FileText, MessageSquare, Map, GraduationCap, ChevronDown, Star, Menu, X, Mail, Phone, MapPin } from "lucide-react";
+import { Award, TrendingUp, Users, CheckCircle, BarChart3, Sparkles, Zap, Target, Upload, Brain, Trophy, FileText, MessageSquare, Map, GraduationCap, ChevronDown, Star, Menu, X, Mail, Phone, MapPin } from "lucide-react";
 import { useState } from "react";
 import heroImage from "@assets/students-studying-together-medium-shot_1761445909836.jpg";
+import logoImg from "@assets/StudentDrive logo_1762056464003.png";
 
 export default function Landing() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -83,10 +84,12 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
-                <BookOpen className="h-6 w-6 text-primary-foreground" />
-              </div>
+            <div className="flex items-center gap-3">
+              <img 
+                src={logoImg} 
+                alt="StudentDrive Logo" 
+                className="h-10 w-10 object-contain"
+              />
               <span className="text-xl font-heading font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">StudentDrive</span>
             </div>
 

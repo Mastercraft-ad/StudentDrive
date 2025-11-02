@@ -44,6 +44,7 @@ import {
   Tag,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import logoImg from "@assets/StudentDrive logo_1762056464003.png";
 
 export function AppSidebar() {
   const { user, isStudent, isInstructor, isInstitution, isAdmin } = useAuth();
@@ -125,9 +126,11 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <div className={`h-8 w-8 rounded-md ${roleStyles.bg} flex items-center justify-center`}>
-            <BookOpen className={`h-5 w-5 ${roleStyles.text}`} />
-          </div>
+          <img 
+            src={logoImg} 
+            alt="StudentDrive Logo" 
+            className="h-8 w-8 object-contain"
+          />
           <div className="group-data-[collapsible=icon]:hidden">
             <p className="font-heading font-bold">StudentDrive</p>
             <p className="text-xs text-muted-foreground">{roleName}</p>

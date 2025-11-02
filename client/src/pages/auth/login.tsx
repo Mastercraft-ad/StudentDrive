@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { BookOpen, Eye, EyeOff, Loader2, TrendingUp } from "lucide-react";
+import { Eye, EyeOff, Loader2, TrendingUp } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import logoImg from "@assets/StudentDrive logo_1762056464003.png";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email or username is required").email("Invalid email address").or(z.string().min(3, "Username must be at least 3 characters")),
@@ -110,10 +111,14 @@ export default function Login() {
       {/* Left Side - Login Form (Desktop: 40%, Mobile: Full) */}
       <div className="w-full lg:w-2/5 flex items-center justify-center bg-slate-900 dark:bg-slate-950 p-6 lg:p-12 relative overflow-y-auto">
         <div className="w-full max-w-md animate-in fade-in duration-500">
-          {/* Logo/Avatar with pulse animation */}
+          {/* Logo with animation */}
           <div className="flex justify-center mb-8">
-            <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30 transition-transform hover:scale-105 duration-300">
-              <BookOpen className="h-10 w-10 text-primary-foreground" />
+            <div className="w-24 h-24 flex items-center justify-center transition-transform hover:scale-105 duration-300">
+              <img 
+                src={logoImg} 
+                alt="StudentDrive Logo" 
+                className="w-full h-full object-contain drop-shadow-lg"
+              />
             </div>
           </div>
 
