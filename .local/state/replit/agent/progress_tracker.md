@@ -7,3 +7,6 @@
 [x] 7. Create admin account (hey@mosespius.com / MasterCraft@80)
 [x] 8. Restart workflow and verify login is working
 [x] 9. Migration completed successfully
+[x] 10. Configure workflow with correct output_type (webview) and port 5000
+[x] 11. Remove duplicate "dev" workflow
+[x] 12. Verify application is running successfully
