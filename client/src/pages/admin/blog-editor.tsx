@@ -237,7 +237,7 @@ export default function BlogEditor() {
   }, [formData, existingPost]);
 
   const createMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: typeof formData & { shouldExit?: boolean }) => {
       const response = await fetch("/api/admin/blog/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -257,15 +257,17 @@ export default function BlogEditor() {
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/blog/posts"] });
       setHasUnsavedChanges(false);
-      navigate("/admin/blog");
+      if (variables.shouldExit) {
+        navigate("/admin/blog");
+      }
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: typeof formData & { shouldExit?: boolean }) => {
       const response = await fetch(`/api/admin/blog/posts/${params?.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -285,11 +287,13 @@ export default function BlogEditor() {
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/blog/posts"] });
       queryClient.invalidateQueries({ queryKey: [`/api/admin/blog/posts/${params?.id}`] });
       setHasUnsavedChanges(false);
-      navigate("/admin/blog");
+      if (variables.shouldExit) {
+        navigate("/admin/blog");
+      }
     },
   });
 
@@ -330,7 +334,16 @@ export default function BlogEditor() {
   };
 
   const handleSaveDraft = () => {
-    const dataToSave = { ...formData, published: false };
+    const dataToSave = { ...formData, published: false, shouldExit: false };
+    if (isEditMode) {
+      updateMutation.mutate(dataToSave);
+    } else {
+      createMutation.mutate(dataToSave);
+    }
+  };
+
+  const handleSaveAndExit = () => {
+    const dataToSave = { ...formData, shouldExit: true };
     if (isEditMode) {
       updateMutation.mutate(dataToSave);
     } else {
@@ -348,7 +361,7 @@ export default function BlogEditor() {
   };
 
   const handleUpdate = () => {
-    updateMutation.mutate(formData);
+    updateMutation.mutate({ ...formData, shouldExit: false });
   };
 
   const handleBack = () => {
@@ -1218,319 +1231,242 @@ export default function BlogEditor() {
           <div className="space-y-4">
             {/* Publish Panel */}
             <Card className="border shadow-sm">
-              <Collapsible 
-                open={sidebarSections.publish} 
-                onOpenChange={(open) => setSidebarSections({...sidebarSections, publish: open})}
-              >
-                <CardHeader className="pb-3">
-                  <CollapsibleTrigger className="flex items-center justify-between w-full hover:text-blue-600 transition-colors">
-                    <CardTitle className="text-sm font-semibold flex items-center">
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Publish
-                    </CardTitle>
-                    {sidebarSections.publish ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </CollapsibleTrigger>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="space-y-4">
-                    {isEditMode && existingPost && (
-                      <>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Status:</span>
-                          <Badge variant={existingPost.published ? "default" : "secondary"} className="ml-auto">
-                            {existingPost.published ? "Published" : "Draft"}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Visibility:</span>
-                          <span className="text-sm font-medium">Public</span>
-                        </div>
-                        {existingPost.publishedAt && (
-                          <div className="flex items-start justify-between text-sm">
-                            <span className="text-muted-foreground">Publish:</span>
-                            <span className="text-sm text-right">
-                              {format(new Date(existingPost.publishedAt), "MMM d, yyyy")}
-                              <br />
-                              <span className="text-xs text-muted-foreground">
-                                {format(new Date(existingPost.publishedAt), "h:mm a")}
-                              </span>
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    <div className="pt-3 border-t space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Star className={`h-4 w-4 ${formData.featured ? 'text-yellow-500 fill-yellow-500' : 'text-slate-400'}`} />
-                          <Label className="text-sm cursor-pointer">Featured</Label>
-                        </div>
-                        <Switch
-                          checked={formData.featured}
-                          onCheckedChange={(checked) => setFormData({ ...formData, featured: checked })}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <MessageSquare className="h-4 w-4 text-slate-400" />
-                          <Label className="text-sm cursor-pointer">Comments</Label>
-                        </div>
-                        <Switch
-                          checked={formData.commentsEnabled}
-                          onCheckedChange={(checked) => setFormData({ ...formData, commentsEnabled: checked })}
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
+              <CardHeader className="pb-3 bg-slate-50 dark:bg-slate-900/50">
+                <CardTitle className="text-base font-semibold">Publish</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4">
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleSaveDraft}
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    Save
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSaveAndExit}
+                    disabled={createMutation.isPending || updateMutation.isPending}
+                    className="flex-1 border-slate-300 dark:border-slate-700"
+                  >
+                    Save & Exit
+                  </Button>
+                </div>
+
+                {/* Status Dropdown */}
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">Status</Label>
+                  <Select
+                    value={formData.published ? "published" : "draft"}
+                    onValueChange={(value) => setFormData({ ...formData, published: value === "published" })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="published">Published</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
             </Card>
 
-            {/* Category */}
+            {/* Categories */}
             <Card className="border shadow-sm">
-              <Collapsible 
-                open={sidebarSections.category} 
-                onOpenChange={(open) => setSidebarSections({...sidebarSections, category: open})}
-              >
-                <CardHeader className="pb-3">
-                  <CollapsibleTrigger className="flex items-center justify-between w-full hover:text-blue-600 transition-colors">
-                    <CardTitle className="text-sm font-semibold flex items-center">
-                      <FolderTree className="mr-2 h-4 w-4" />
-                      Categories
-                    </CardTitle>
-                    {sidebarSections.category ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </CollapsibleTrigger>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="space-y-3">
-                    <Select
-                      value={formData.category}
-                      onValueChange={(value) => setFormData({ ...formData, category: value })}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categoriesLoading ? (
-                          <SelectItem value="loading" disabled>Loading...</SelectItem>
-                        ) : categories.length === 0 ? (
-                          <SelectItem value="none" disabled>No categories yet</SelectItem>
-                        ) : (
-                          categories.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.name}>
-                              {cat.name}
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    
-                    <div className="pt-2 border-t">
-                      <Label className="text-xs font-medium mb-2 block">Add New Category</Label>
-                      <div className="flex gap-2">
-                        <Input
-                          value={newCategory}
-                          onChange={(e) => setNewCategory(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addCategory())}
-                          placeholder="Enter category name"
-                          className="flex-1"
+              <CardHeader className="pb-3 bg-slate-50 dark:bg-slate-900/50">
+                <CardTitle className="text-base font-semibold">Categories</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="flex gap-2 mb-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                  >
+                    Save & Exit
+                  </Button>
+                </div>
+                
+                {/* Category Checkboxes */}
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {categoriesLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading categories...</p>
+                  ) : categories.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No categories yet</p>
+                  ) : (
+                    categories.map((cat) => (
+                      <div key={cat.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`category-${cat.id}`}
+                          checked={formData.category === cat.name}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({ ...formData, category: cat.name });
+                            } else {
+                              setFormData({ ...formData, category: "" });
+                            }
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                         />
-                        <Button 
-                          size="sm" 
-                          onClick={addCategory}
-                          disabled={!newCategory.trim() || createCategoryMutation.isPending}
-                          className="bg-blue-600 hover:bg-blue-700"
+                        <Label
+                          htmlFor={`category-${cat.id}`}
+                          className="text-sm font-normal cursor-pointer"
                         >
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                          {cat.name}
+                        </Label>
                       </div>
-                      {createCategoryMutation.isPending && (
-                        <p className="text-xs text-muted-foreground mt-1">Creating category...</p>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-muted-foreground">
-                      Select an existing category or create a new one
-                    </p>
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
+                    ))
+                  )}
+                </div>
+              </CardContent>
             </Card>
 
             {/* Tags */}
             <Card className="border shadow-sm">
-              <Collapsible 
-                open={sidebarSections.tags} 
-                onOpenChange={(open) => setSidebarSections({...sidebarSections, tags: open})}
-              >
-                <CardHeader className="pb-3">
-                  <CollapsibleTrigger className="flex items-center justify-between w-full hover:text-blue-600 transition-colors">
-                    <CardTitle className="text-sm font-semibold flex items-center">
-                      <Tag className="mr-2 h-4 w-4" />
-                      Tags
-                    </CardTitle>
-                    {sidebarSections.tags ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </CollapsibleTrigger>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="space-y-3">
-                    <div className="flex gap-2">
-                      <Input
-                        value={newTag}
-                        onChange={(e) => setNewTag(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
-                        placeholder="Add tag (create new or select existing)"
-                        className="flex-1"
-                      />
-                      <Button 
-                        size="sm" 
-                        onClick={addTag}
-                        disabled={!newTag.trim() || createTagMutation.isPending}
-                        className="bg-blue-600 hover:bg-blue-700"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
+              <CardHeader className="pb-3 bg-slate-50 dark:bg-slate-900/50">
+                <CardTitle className="text-base font-semibold">Tags</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 space-y-3">
+                <Input
+                  value={formData.tags}
+                  onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                  placeholder="Write some tags"
+                  className="w-full"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Separate tags with commas
+                </p>
+                
+                {tags.length > 0 && (
+                  <div className="pt-2 border-t">
+                    <Label className="text-xs font-medium mb-2 block">Popular Tags</Label>
+                    <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                      {tags.map((tag) => {
+                        const currentTags = formData.tags ? formData.tags.split(",").map(t => t.trim()) : [];
+                        const isSelected = currentTags.includes(tag.name);
+                        return (
+                          <Badge 
+                            key={tag.id} 
+                            variant={isSelected ? "default" : "outline"}
+                            className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 text-xs"
+                            onClick={() => {
+                              if (!isSelected) {
+                                const updatedTags = formData.tags 
+                                  ? `${formData.tags}, ${tag.name}`
+                                  : tag.name;
+                                setFormData({ ...formData, tags: updatedTags });
+                              }
+                            }}
+                          >
+                            {tag.name}
+                          </Badge>
+                        );
+                      })}
                     </div>
-                    {createTagMutation.isPending && (
-                      <p className="text-xs text-muted-foreground">Creating tag...</p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Type to add existing tags or create new ones
-                    </p>
-                    
-                    {tags.length > 0 && (
-                      <div className="pt-2 border-t">
-                        <Label className="text-xs font-medium mb-2 block">Available Tags ({tags.length})</Label>
-                        <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
-                          {tags.map((tag) => {
-                            const currentTags = formData.tags ? formData.tags.split(",").map(t => t.trim()) : [];
-                            const isSelected = currentTags.includes(tag.name);
-                            return (
-                              <Badge 
-                                key={tag.id} 
-                                variant={isSelected ? "default" : "outline"}
-                                className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900"
-                                onClick={() => {
-                                  if (!isSelected) {
-                                    const updatedTags = [...currentTags, tag.name].join(", ");
-                                    setFormData({ ...formData, tags: updatedTags });
-                                  }
-                                }}
-                              >
-                                {tag.name}
-                              </Badge>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {formData.tags && (
-                      <div className="flex flex-wrap gap-2 pt-2 border-t">
-                        <Label className="text-xs font-medium mb-1 block w-full">Selected Tags</Label>
-                        {formData.tags.split(",").map((tag, index) => {
-                          const trimmedTag = tag.trim();
-                          return trimmedTag ? (
-                            <Badge key={index} variant="secondary" className="pl-2 pr-1">
-                              {trimmedTag}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-4 w-4 p-0 ml-1 hover:bg-transparent"
-                                onClick={() => removeTag(trimmedTag)}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </Badge>
-                          ) : null;
-                        })}
-                      </div>
-                    )}
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
+                  </div>
+                )}
+              </CardContent>
             </Card>
 
-            {/* Featured Image */}
+            {/* Allow Comments */}
             <Card className="border shadow-sm">
-              <Collapsible 
-                open={sidebarSections.featured} 
-                onOpenChange={(open) => setSidebarSections({...sidebarSections, featured: open})}
-              >
-                <CardHeader className="pb-3">
-                  <CollapsibleTrigger className="flex items-center justify-between w-full hover:text-blue-600 transition-colors">
-                    <CardTitle className="text-sm font-semibold flex items-center">
-                      <ImageIcon className="mr-2 h-4 w-4" />
-                      Featured Image
-                    </CardTitle>
-                    {sidebarSections.featured ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                  </CollapsibleTrigger>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="space-y-3">
-                    {formData.coverImageUrl && (
-                      <div className="border rounded-lg overflow-hidden mb-3 relative group">
-                        <img
-                          src={formData.coverImageUrl}
-                          alt="Cover preview"
-                          className="w-full h-40 object-cover"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => setFormData({ ...formData, coverImageUrl: "" })}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                    
-                    <Tabs value={imageUploadMode} onValueChange={(value: any) => setImageUploadMode(value)}>
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="url">URL</TabsTrigger>
-                        <TabsTrigger value="upload">Upload</TabsTrigger>
-                      </TabsList>
-                      
-                      <TabsContent value="url" className="space-y-2 mt-3">
-                        <Input
-                          value={formData.coverImageUrl}
-                          onChange={(e) => setFormData({ ...formData, coverImageUrl: e.target.value })}
-                          placeholder="https://example.com/image.jpg"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Enter the URL of your featured image
-                        </p>
-                      </TabsContent>
-                      
-                      <TabsContent value="upload" className="space-y-2 mt-3">
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                        />
-                        <Button
-                          variant="outline"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploadingImage}
-                          className="w-full"
-                        >
-                          <ImageIcon className="mr-2 h-4 w-4" />
-                          {uploadingImage ? "Uploading..." : "Choose Image"}
-                        </Button>
-                        <p className="text-xs text-muted-foreground">
-                          Upload an image file (JPEG, PNG, GIF, WebP - Max 5MB)
-                        </p>
-                      </TabsContent>
-                    </Tabs>
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
+              <CardHeader className="pb-3 bg-slate-50 dark:bg-slate-900/50">
+                <CardTitle className="text-base font-semibold">Allow comments</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="comments-enabled"
+                    checked={formData.commentsEnabled}
+                    onChange={(e) => setFormData({ ...formData, commentsEnabled: e.target.checked })}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <Label
+                    htmlFor="comments-enabled"
+                    className="text-sm font-normal cursor-pointer"
+                  >
+                    Enable comments for this post
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Image */}
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-3 bg-slate-50 dark:bg-slate-900/50">
+                <CardTitle className="text-base font-semibold">Image</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4">
+                {formData.coverImageUrl ? (
+                  <div className="border rounded-lg overflow-hidden mb-3 relative group">
+                    <img
+                      src={formData.coverImageUrl}
+                      alt="Cover preview"
+                      className="w-full h-48 object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setFormData({ ...formData, coverImageUrl: "" })}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                    <ImageIcon className="h-12 w-12 text-slate-400 mb-3" />
+                  </div>
+                )}
+                
+                <div className="space-y-2 mt-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingImage}
+                    className="w-full text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    {uploadingImage ? "Uploading..." : "Choose image"}
+                  </Button>
+                  <p className="text-center text-xs text-muted-foreground">or</p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-blue-600 hover:text-blue-700 hover:bg-transparent"
+                    onClick={() => {
+                      const url = prompt("Enter image URL:");
+                      if (url) setFormData({ ...formData, coverImageUrl: url });
+                    }}
+                  >
+                    Add from URL
+                  </Button>
+                </div>
+              </CardContent>
             </Card>
 
             {/* SEO Metadata Section */}
