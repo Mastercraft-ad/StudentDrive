@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Award, TrendingUp, Users, CheckCircle, BarChart3, Sparkles, Zap, Target, Upload, Brain, Trophy, FileText, MessageSquare, Map, GraduationCap, ChevronDown, Star, Menu, X, Mail, Phone, MapPin } from "lucide-react";
+import { Award, TrendingUp, Users, CheckCircle, BarChart3, Sparkles, Zap, Target, Upload, Brain, Trophy, FileText, MessageSquare, Map, GraduationCap, ChevronDown, Star, Menu, X, Mail, Phone, MapPin, BookOpen } from "lucide-react";
 import { useState } from "react";
 import heroImage from "@assets/students-studying-together-medium-shot_1761445909836.jpg";
 import logoImg from "@assets/StudentDrive logo_1762056464003.png";
