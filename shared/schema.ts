@@ -513,9 +513,7 @@ export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({
   authorBio: z.string().optional(),
 });
 
-export const updateBlogPostSchema = insertBlogPostSchema.partial().omit({
-  authorId: true,
-});
+export const updateBlogPostSchema = insertBlogPostSchema.partial();
 
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
 export type UpdateBlogPost = z.infer<typeof updateBlogPostSchema>;

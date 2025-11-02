@@ -170,11 +170,13 @@ export interface IStorage {
   
   // Blog Category operations
   getAllBlogCategories(): Promise<BlogCategory[]>;
+  getAllBlogCategoriesWithStats(): Promise<(BlogCategory & { postCount: number })[]>;
   getBlogCategoryById(id: string): Promise<BlogCategory | undefined>;
   getBlogCategoryBySlug(slug: string): Promise<BlogCategory | undefined>;
   createBlogCategory(category: InsertBlogCategory): Promise<BlogCategory>;
   updateBlogCategory(id: string, category: Partial<UpdateBlogCategory>): Promise<BlogCategory>;
   deleteBlogCategory(id: string): Promise<void>;
+  bulkDeleteBlogCategories(ids: string[]): Promise<void>;
   
   // Blog Tag operations
   getAllBlogTags(): Promise<BlogTag[]>;
@@ -185,6 +187,8 @@ export interface IStorage {
   deleteBlogTag(id: string): Promise<void>;
   incrementBlogTagUsage(slug: string): Promise<void>;
   decrementBlogTagUsage(slug: string): Promise<void>;
+  mergeBlogTags(sourceTagId: string, targetTagId: string): Promise<void>;
+  bulkDeleteBlogTags(ids: string[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1000,7 +1004,24 @@ export class DatabaseStorage implements IStorage {
 
   // Blog Category operations
   async getAllBlogCategories(): Promise<BlogCategory[]> {
-    return await db.select().from(blogCategories).orderBy(blogCategories.name);
+    return await db.select().from(blogCategories).orderBy(blogCategories.displayOrder, blogCategories.name);
+  }
+
+  async getAllBlogCategoriesWithStats(): Promise<(BlogCategory & { postCount: number })[]> {
+    const categories = await db.select().from(blogCategories).orderBy(blogCategories.displayOrder, blogCategories.name);
+    const categoriesWithStats = await Promise.all(
+      categories.map(async (category) => {
+        const result = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(blogPosts)
+          .where(eq(blogPosts.category, category.slug));
+        return {
+          ...category,
+          postCount: Number(result[0]?.count || 0),
+        };
+      })
+    );
+    return categoriesWithStats;
   }
 
   async getBlogCategoryById(id: string): Promise<BlogCategory | undefined> {
@@ -1029,6 +1050,12 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBlogCategory(id: string): Promise<void> {
     await db.delete(blogCategories).where(eq(blogCategories.id, id));
+  }
+
+  async bulkDeleteBlogCategories(ids: string[]): Promise<void> {
+    await db.delete(blogCategories).where(
+      sql`${blogCategories.id} = ANY(${ids})`
+    );
   }
 
   // Blog Tag operations
@@ -1076,6 +1103,69 @@ export class DatabaseStorage implements IStorage {
       .update(blogTags)
       .set({ usageCount: sql`${blogTags.usageCount} - 1` })
       .where(eq(blogTags.slug, slug));
+  }
+
+  async mergeBlogTags(sourceTagId: string, targetTagId: string): Promise<void> {
+    const sourceTag = await this.getBlogTagById(sourceTagId);
+    const targetTag = await this.getBlogTagById(targetTagId);
+    
+    if (!sourceTag || !targetTag) {
+      throw new Error("Source or target tag not found");
+    }
+
+    const postsWithSourceTag = await db
+      .select()
+      .from(blogPosts)
+      .where(sql`${sourceTag.slug} = ANY(${blogPosts.tags})`);
+
+    for (const post of postsWithSourceTag) {
+      const currentTags = post.tags || [];
+      const tagsWithoutSource = currentTags.filter(tag => tag !== sourceTag.slug);
+      
+      if (!tagsWithoutSource.includes(targetTag.slug)) {
+        tagsWithoutSource.push(targetTag.slug);
+      }
+
+      await db
+        .update(blogPosts)
+        .set({ tags: tagsWithoutSource })
+        .where(eq(blogPosts.id, post.id));
+    }
+
+    const mergedCount = postsWithSourceTag.length;
+    if (mergedCount > 0) {
+      await db
+        .update(blogTags)
+        .set({ usageCount: sql`${blogTags.usageCount} + ${mergedCount}` })
+        .where(eq(blogTags.id, targetTagId));
+    }
+
+    await this.deleteBlogTag(sourceTagId);
+  }
+
+  async bulkDeleteBlogTags(ids: string[]): Promise<void> {
+    const tags = await Promise.all(ids.map(id => this.getBlogTagById(id)));
+    
+    for (const tag of tags) {
+      if (tag && tag.usageCount > 0) {
+        const postsWithTag = await db
+          .select()
+          .from(blogPosts)
+          .where(sql`${tag.slug} = ANY(${blogPosts.tags})`);
+        
+        for (const post of postsWithTag) {
+          const currentTags = (post.tags || []).filter(t => t !== tag.slug);
+          await db
+            .update(blogPosts)
+            .set({ tags: currentTags })
+            .where(eq(blogPosts.id, post.id));
+        }
+      }
+    }
+    
+    await db.delete(blogTags).where(
+      sql`${blogTags.id} = ANY(${ids})`
+    );
   }
 }
 

@@ -2529,7 +2529,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Blog Categories API routes
   app.get("/api/blog/categories", async (req: Request, res: Response) => {
     try {
-      const categories = await storage.getAllBlogCategories();
+      const withStats = req.query.withStats === 'true';
+      const categories = withStats 
+        ? await storage.getAllBlogCategoriesWithStats()
+        : await storage.getAllBlogCategories();
       res.json(categories);
     } catch (error: any) {
       console.error("Error fetching blog categories:", error);
@@ -2586,6 +2589,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting blog category:", error);
       res.status(500).json({ message: "Failed to delete blog category" });
+    }
+  });
+
+  app.post("/api/admin/blog/categories/bulk-delete", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "Invalid ids array" });
+      }
+
+      await storage.bulkDeleteBlogCategories(ids);
+      res.json({ message: `${ids.length} categories deleted successfully` });
+    } catch (error: any) {
+      console.error("Error bulk deleting blog categories:", error);
+      res.status(500).json({ message: "Failed to bulk delete blog categories" });
     }
   });
 
@@ -2649,6 +2671,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting blog tag:", error);
       res.status(500).json({ message: "Failed to delete blog tag" });
+    }
+  });
+
+  app.post("/api/admin/blog/tags/merge", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { sourceTagId, targetTagId } = req.body;
+      if (!sourceTagId || !targetTagId) {
+        return res.status(400).json({ message: "Source and target tag IDs are required" });
+      }
+
+      if (sourceTagId === targetTagId) {
+        return res.status(400).json({ message: "Source and target tags cannot be the same" });
+      }
+
+      await storage.mergeBlogTags(sourceTagId, targetTagId);
+      res.json({ message: "Tags merged successfully" });
+    } catch (error: any) {
+      console.error("Error merging blog tags:", error);
+      res.status(500).json({ message: error.message || "Failed to merge blog tags" });
+    }
+  });
+
+  app.post("/api/admin/blog/tags/bulk-delete", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      if (req.user.role !== 'admin') {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "Invalid ids array" });
+      }
+
+      await storage.bulkDeleteBlogTags(ids);
+      res.json({ message: `${ids.length} tags deleted successfully` });
+    } catch (error: any) {
+      console.error("Error bulk deleting blog tags:", error);
+      res.status(500).json({ message: "Failed to bulk delete blog tags" });
     }
   });
 

@@ -54,6 +54,7 @@ interface Category {
   displayOrder: number;
   isDefault: boolean;
   createdAt: string;
+  postCount?: number;
   children?: Category[];
 }
 
@@ -138,6 +139,15 @@ function SortableCategory({
               Default
             </span>
           )}
+          {typeof category.postCount === 'number' && (
+            <span className={`text-xs px-2 py-0.5 rounded ${
+              category.postCount > 0 
+                ? "bg-green-500/10 text-green-600 dark:text-green-400" 
+                : "bg-orange-500/10 text-orange-600 dark:text-orange-400"
+            }`}>
+              {category.postCount} {category.postCount === 1 ? 'post' : 'posts'}
+            </span>
+          )}
           {level > 0 && (
             <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">
               Level {level}
@@ -190,7 +200,7 @@ export default function BlogCategories() {
   });
 
   const { data: categories = [], isLoading } = useQuery<Category[]>({
-    queryKey: ["/api/blog/categories"],
+    queryKey: ["/api/blog/categories?withStats=true"],
   });
 
   const sensors = useSensors(
@@ -279,7 +289,7 @@ export default function BlogCategories() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/blog/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blog/categories?withStats=true"] });
       resetForm();
       toast({ title: "Success", description: "Category created successfully" });
     },
@@ -300,7 +310,7 @@ export default function BlogCategories() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/blog/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blog/categories?withStats=true"] });
       setEditingCategory(null);
       resetForm();
       toast({ title: "Success", description: "Category updated successfully" });
@@ -319,7 +329,7 @@ export default function BlogCategories() {
       if (!response.ok) throw new Error("Failed to delete category");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/blog/categories"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blog/categories?withStats=true"] });
       setDeleteConfirmId(null);
       toast({ title: "Success", description: "Category deleted successfully" });
     },
@@ -390,7 +400,7 @@ export default function BlogCategories() {
 
       try {
         await Promise.all(promises);
-        queryClient.invalidateQueries({ queryKey: ["/api/blog/categories"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/blog/categories?withStats=true"] });
         toast({ title: "Success", description: "Categories reordered" });
       } catch (error) {
         toast({ title: "Error", description: "Failed to reorder categories", variant: "destructive" });
@@ -420,7 +430,7 @@ export default function BlogCategories() {
           credentials: "include",
         });
 
-        queryClient.invalidateQueries({ queryKey: ["/api/blog/categories"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/blog/categories?withStats=true"] });
         setExpandedCategories((prev) => new Set([...prev, newParentId]));
         toast({ title: "Success", description: `Moved "${activeCategory.name}" under "${overCategory.name}"` });
       } catch (error) {

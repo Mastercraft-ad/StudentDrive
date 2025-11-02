@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2, Plus, Tag, Search, RefreshCw, Palette } from "lucide-react";
+import { Pencil, Trash2, Plus, Tag, Search, RefreshCw, Palette, Merge } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -57,6 +57,9 @@ export default function BlogTags() {
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [editingTag, setEditingTag] = useState<BlogTag | null>(null);
   const [editForm, setEditForm] = useState({ name: "", slug: "", color: "" });
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [mergeSourceTag, setMergeSourceTag] = useState<string>("");
+  const [mergeTargetTag, setMergeTargetTag] = useState<string>("");
 
   const { data: tags = [], isLoading, refetch } = useQuery<BlogTag[]>({
     queryKey: ["/api/blog/tags"],
@@ -134,14 +137,13 @@ export default function BlogTags() {
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
-      const promises = ids.map(async id => {
-        const response = await fetch(`/api/admin/blog/tags/${id}`, {
-          method: "DELETE",
-          credentials: "include",
-        });
-        if (!response.ok) throw new Error(`Failed to delete tag ${id}`);
+      const response = await fetch("/api/admin/blog/tags/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+        credentials: "include",
       });
-      await Promise.all(promises);
+      if (!response.ok) throw new Error("Failed to bulk delete tags");
     },
     onSuccess: (_, ids) => {
       queryClient.invalidateQueries({ queryKey: ["/api/blog/tags"] });
@@ -154,6 +156,32 @@ export default function BlogTags() {
         description: error.message || "Failed to delete some tags",
         variant: "destructive"
       });
+    },
+  });
+
+  const mergeTagsMutation = useMutation({
+    mutationFn: async ({ sourceTagId, targetTagId }: { sourceTagId: string; targetTagId: string }) => {
+      const response = await fetch("/api/admin/blog/tags/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceTagId, targetTagId }),
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Failed to merge tags");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/blog/tags"] });
+      setShowMergeDialog(false);
+      setMergeSourceTag("");
+      setMergeTargetTag("");
+      toast({ title: "Success", description: "Tags merged successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to merge tags", variant: "destructive" });
     },
   });
 
@@ -211,6 +239,20 @@ export default function BlogTags() {
     } else {
       setSelectedTags(new Set(filteredTags.map(t => t.id)));
     }
+  };
+
+  const handleMergeTags = () => {
+    if (!mergeSourceTag || !mergeTargetTag) {
+      toast({ title: "Error", description: "Please select both source and target tags", variant: "destructive" });
+      return;
+    }
+
+    if (mergeSourceTag === mergeTargetTag) {
+      toast({ title: "Error", description: "Source and target tags cannot be the same", variant: "destructive" });
+      return;
+    }
+
+    mergeTagsMutation.mutate({ sourceTagId: mergeSourceTag, targetTagId: mergeTargetTag });
   };
 
   if (isLoading) {
@@ -315,6 +357,14 @@ export default function BlogTags() {
                 >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Reload
+                </Button>
+                <Button
+                  data-testid="button-merge-tags"
+                  variant="outline"
+                  onClick={() => setShowMergeDialog(true)}
+                >
+                  <Merge className="h-4 w-4 mr-2" />
+                  Merge Tags
                 </Button>
               </div>
             </CardContent>
@@ -566,6 +616,79 @@ export default function BlogTags() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Merge className="h-5 w-5" />
+                Merge Tags
+              </DialogTitle>
+              <DialogDescription>
+                Merge two tags by moving all posts from the source tag to the target tag. The source tag will be deleted.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="source-tag">Source Tag (will be deleted) *</Label>
+                <Select value={mergeSourceTag} onValueChange={setMergeSourceTag}>
+                  <SelectTrigger id="source-tag" data-testid="select-merge-source">
+                    <SelectValue placeholder="Select tag to merge from" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tags.filter(t => t.id !== mergeTargetTag).map((tag) => (
+                      <SelectItem key={tag.id} value={tag.id}>
+                        {tag.name} ({tag.usageCount} {tag.usageCount === 1 ? 'post' : 'posts'})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="target-tag">Target Tag (will receive all posts) *</Label>
+                <Select value={mergeTargetTag} onValueChange={setMergeTargetTag}>
+                  <SelectTrigger id="target-tag" data-testid="select-merge-target">
+                    <SelectValue placeholder="Select tag to merge into" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tags.filter(t => t.id !== mergeSourceTag).map((tag) => (
+                      <SelectItem key={tag.id} value={tag.id}>
+                        {tag.name} ({tag.usageCount} {tag.usageCount === 1 ? 'post' : 'posts'})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {mergeSourceTag && mergeTargetTag && (
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-md">
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    <strong>Preview:</strong> All posts tagged with "{tags.find(t => t.id === mergeSourceTag)?.name}" will be moved to "{tags.find(t => t.id === mergeTargetTag)?.name}". The "{tags.find(t => t.id === mergeSourceTag)?.name}" tag will be permanently deleted.
+                  </p>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowMergeDialog(false);
+                  setMergeSourceTag("");
+                  setMergeTargetTag("");
+                }}
+                data-testid="button-cancel-merge"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleMergeTags}
+                disabled={!mergeSourceTag || !mergeTargetTag || mergeTagsMutation.isPending}
+                data-testid="button-confirm-merge"
+              >
+                {mergeTagsMutation.isPending ? "Merging..." : "Merge Tags"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
