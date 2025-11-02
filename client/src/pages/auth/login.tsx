@@ -214,7 +214,7 @@ export default function Login() {
                 htmlFor="remember"
                 className="text-sm text-slate-300 cursor-pointer select-none hover:text-white transition-colors duration-200"
               >
-                Remember me for 30 days
+                Remember me
               </label>
             </div>
 
