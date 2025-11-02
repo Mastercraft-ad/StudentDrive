@@ -594,6 +594,7 @@ export default function BlogCategories() {
                     <Label htmlFor="name">Name *</Label>
                     <Input
                       id="name"
+                      data-testid="input-category-name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g., Tech for Entrepreneurs"
@@ -609,6 +610,7 @@ export default function BlogCategories() {
                       </span>
                       <Input
                         id="slug"
+                        data-testid="input-category-slug"
                         value={formData.slug}
                         onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                         placeholder="Auto-generated from name"
@@ -626,7 +628,7 @@ export default function BlogCategories() {
                       value={formData.parentId}
                       onValueChange={(value) => setFormData({ ...formData, parentId: value })}
                     >
-                      <SelectTrigger id="parent">
+                      <SelectTrigger id="parent" data-testid="select-category-parent">
                         <SelectValue placeholder="None (Top Level)" />
                       </SelectTrigger>
                       <SelectContent>
@@ -649,6 +651,7 @@ export default function BlogCategories() {
                     <Label htmlFor="description">Description</Label>
                     <Textarea
                       id="description"
+                      data-testid="input-category-description"
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       placeholder="Short description of this category"
@@ -660,6 +663,7 @@ export default function BlogCategories() {
                     <Label htmlFor="color">Color/Icon</Label>
                     <Input
                       id="color"
+                      data-testid="input-category-color"
                       value={formData.color}
                       onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                       placeholder="e.g., #3B82F6"
@@ -669,13 +673,14 @@ export default function BlogCategories() {
                   <div className="flex gap-3 pt-4">
                     <Button
                       type="submit"
+                      data-testid="button-submit-category"
                       disabled={createCategoryMutation.isPending || updateCategoryMutation.isPending}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       {editingCategory ? "Update Category" : "Create Category"}
                     </Button>
                     {editingCategory && (
-                      <Button type="button" variant="outline" onClick={resetForm}>
+                      <Button type="button" variant="outline" onClick={resetForm} data-testid="button-cancel-edit-category">
                         Cancel
                       </Button>
                     )}

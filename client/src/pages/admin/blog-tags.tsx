@@ -3,8 +3,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2, Plus, Tag, Search, RefreshCw } from "lucide-react";
+import { Pencil, Trash2, Plus, Tag, Search, RefreshCw, Palette } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -42,11 +51,14 @@ export default function BlogTags() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleteConfirmName, setDeleteConfirmName] = useState<string>("");
   const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [editingTag, setEditingTag] = useState<BlogTag | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", slug: "", color: "" });
 
-  const { data: tags = [], isLoading } = useQuery<BlogTag[]>({
+  const { data: tags = [], isLoading, refetch } = useQuery<BlogTag[]>({
     queryKey: ["/api/blog/tags"],
   });
 
@@ -59,12 +71,12 @@ export default function BlogTags() {
   });
 
   const createTagMutation = useMutation({
-    mutationFn: async (name: string) => {
-      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    mutationFn: async (data: { name: string; color?: string }) => {
+      const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
       const response = await fetch("/api/admin/blog/tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, slug }),
+        body: JSON.stringify({ name: data.name, slug, color: data.color || null }),
         credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to create tag");
@@ -73,10 +85,32 @@ export default function BlogTags() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/blog/tags"] });
       setNewTagName("");
+      setNewTagColor("");
       toast({ title: "Success", description: "Tag created successfully" });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create tag", variant: "destructive" });
+    },
+  });
+
+  const updateTagMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { name?: string; slug?: string; color?: string | null } }) => {
+      const response = await fetch(`/api/admin/blog/tags/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to update tag");
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/blog/tags"] });
+      setEditingTag(null);
+      toast({ title: "Success", description: "Tag updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update tag", variant: "destructive" });
     },
   });
 
@@ -125,13 +159,40 @@ export default function BlogTags() {
 
   const handleAddTag = () => {
     if (newTagName.trim()) {
-      createTagMutation.mutate(newTagName.trim());
+      createTagMutation.mutate({ name: newTagName.trim(), color: newTagColor || undefined });
     }
+  };
+
+  const handleEdit = (tag: BlogTag) => {
+    setEditingTag(tag);
+    setEditForm({
+      name: tag.name,
+      slug: tag.slug,
+      color: tag.color || "",
+    });
+  };
+
+  const handleUpdateTag = () => {
+    if (!editingTag || !editForm.name.trim()) return;
+    
+    const updates: { name?: string; slug?: string; color?: string | null } = {};
+    if (editForm.name !== editingTag.name) updates.name = editForm.name;
+    if (editForm.slug !== editingTag.slug) updates.slug = editForm.slug;
+    if (editForm.color !== editingTag.color) {
+      updates.color = editForm.color.trim() === "" ? null : editForm.color;
+    }
+    
+    updateTagMutation.mutate({ id: editingTag.id, data: updates });
   };
 
   const handleDelete = (id: string, name: string) => {
     setDeleteConfirmId(id);
     setDeleteConfirmName(name);
+  };
+
+  const handleReload = () => {
+    refetch();
+    toast({ title: "Refreshed", description: "Tags list has been reloaded" });
   };
 
   const toggleTagSelection = (id: string) => {
@@ -171,6 +232,37 @@ export default function BlogTags() {
         </div>
 
         <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Tags</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{tags.length}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Published</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {tags.filter(t => t.usageCount > 0).length}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Unused</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-orange-600">
+                  {tags.filter(t => t.usageCount === 0).length}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -179,21 +271,48 @@ export default function BlogTags() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-3">
-                <Input
-                  value={newTagName}
-                  onChange={(e) => setNewTagName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                  placeholder="Enter tag name (e.g., AI, Laravel Boost, PHP)"
-                />
+              <div className="flex gap-3 flex-wrap">
+                <div className="flex-1 min-w-[200px]">
+                  <Input
+                    data-testid="input-tag-name"
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                    placeholder="Enter tag name (e.g., AI, Laravel Boost, PHP)"
+                  />
+                </div>
+                <div className="w-32">
+                  <div className="flex gap-2">
+                    <Input
+                      data-testid="input-tag-color"
+                      type="color"
+                      value={newTagColor || "#3B82F6"}
+                      onChange={(e) => setNewTagColor(e.target.value)}
+                      className="w-12 h-10 p-1 cursor-pointer"
+                      title="Pick a color"
+                    />
+                    <Input
+                      data-testid="input-tag-color-text"
+                      value={newTagColor}
+                      onChange={(e) => setNewTagColor(e.target.value)}
+                      placeholder="#3B82F6"
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
                 <Button
+                  data-testid="button-create-tag"
                   onClick={handleAddTag}
                   disabled={!newTagName.trim() || createTagMutation.isPending}
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Create
                 </Button>
-                <Button variant="outline">
+                <Button 
+                  data-testid="button-reload-tags"
+                  variant="outline"
+                  onClick={handleReload}
+                >
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Reload
                 </Button>
@@ -206,6 +325,7 @@ export default function BlogTags() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                 <Input
+                  data-testid="input-search-tags"
                   placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -214,7 +334,7 @@ export default function BlogTags() {
               </div>
             </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger data-testid="select-filter-status" className="w-[180px]">
                 <SelectValue placeholder="Filters" />
               </SelectTrigger>
               <SelectContent>
@@ -270,10 +390,12 @@ export default function BlogTags() {
                   {filteredTags.map((tag) => (
                     <div
                       key={tag.id}
+                      data-testid={`row-tag-${tag.id}`}
                       className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-muted/30 transition-colors items-center"
                     >
                       <div className="col-span-1">
                         <Checkbox
+                          data-testid={`checkbox-tag-${tag.id}`}
                           checked={selectedTags.has(tag.id)}
                           onCheckedChange={() => toggleTagSelection(tag.id)}
                         />
@@ -283,8 +405,18 @@ export default function BlogTags() {
                       </div>
                       <div className="col-span-4">
                         <div className="flex items-center gap-2">
-                          <Tag className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium text-primary">{tag.name}</span>
+                          {tag.color ? (
+                            <div
+                              className="h-4 w-4 rounded border"
+                              style={{ backgroundColor: tag.color }}
+                              title={tag.color}
+                            />
+                          ) : (
+                            <Tag className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="font-medium text-primary" data-testid={`text-tag-name-${tag.id}`}>
+                            {tag.name}
+                          </span>
                           {tag.usageCount > 0 && (
                             <span className="text-xs text-muted-foreground">
                               ({tag.usageCount})
@@ -306,13 +438,16 @@ export default function BlogTags() {
                       <div className="col-span-1">
                         <div className="flex items-center gap-2">
                           <Button
+                            data-testid={`button-edit-tag-${tag.id}`}
                             variant="ghost"
                             size="sm"
+                            onClick={() => handleEdit(tag)}
                             className="h-8 w-8 p-0 hover:bg-primary/10"
                           >
                             <Pencil className="h-4 w-4 text-blue-600" />
                           </Button>
                           <Button
+                            data-testid={`button-delete-tag-${tag.id}`}
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(tag.id, tag.name)}
@@ -336,6 +471,81 @@ export default function BlogTags() {
           </Card>
         </div>
 
+        <Dialog open={editingTag !== null} onOpenChange={(open) => !open && setEditingTag(null)}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Pencil className="h-5 w-5" />
+                Edit Tag
+              </DialogTitle>
+              <DialogDescription>
+                Update tag name, slug, and color
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Tag Name *</Label>
+                <Input
+                  id="edit-name"
+                  data-testid="input-edit-tag-name"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder="Enter tag name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-slug">Slug</Label>
+                <Input
+                  id="edit-slug"
+                  data-testid="input-edit-tag-slug"
+                  value={editForm.slug}
+                  onChange={(e) => setEditForm({ ...editForm, slug: e.target.value })}
+                  placeholder="auto-generated-from-name"
+                />
+                <p className="text-xs text-muted-foreground">
+                  URL: /blog/tag/{editForm.slug || editForm.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-color">Color</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="edit-color"
+                    data-testid="input-edit-tag-color-picker"
+                    type="color"
+                    value={editForm.color || "#3B82F6"}
+                    onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
+                    className="w-16 h-10 p-1 cursor-pointer"
+                  />
+                  <Input
+                    data-testid="input-edit-tag-color-text"
+                    value={editForm.color}
+                    onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
+                    placeholder="#3B82F6"
+                    className="flex-1"
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setEditingTag(null)}
+                data-testid="button-cancel-edit"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdateTag}
+                disabled={!editForm.name.trim() || updateTagMutation.isPending}
+                data-testid="button-save-edit"
+              >
+                {updateTagMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <AlertDialog open={deleteConfirmId !== null} onOpenChange={() => setDeleteConfirmId(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -349,6 +559,7 @@ export default function BlogTags() {
               <AlertDialogAction
                 onClick={() => deleteConfirmId && deleteTagMutation.mutate(deleteConfirmId)}
                 className="bg-destructive hover:bg-destructive/90"
+                data-testid="button-confirm-delete"
               >
                 Delete
               </AlertDialogAction>
