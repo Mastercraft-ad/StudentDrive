@@ -112,8 +112,8 @@ export default function Login() {
         <div className="w-full max-w-md animate-in fade-in duration-500">
           {/* Logo/Avatar with pulse animation */}
           <div className="flex justify-center mb-8">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/30 transition-transform hover:scale-105 duration-300">
-              <BookOpen className="h-10 w-10 text-white" />
+            <div className="w-20 h-20 rounded-full bg-primary flex items-center justify-center shadow-lg shadow-primary/30 transition-transform hover:scale-105 duration-300">
+              <BookOpen className="h-10 w-10 text-primary-foreground" />
             </div>
           </div>
 
@@ -144,7 +144,7 @@ export default function Login() {
                 autoComplete="username"
                 placeholder="Enter your username or email address"
                 className="bg-slate-800/80 border-slate-700 text-white placeholder:text-slate-500 h-11 
-                          focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200
+                          focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200
                           hover:bg-slate-800"
                 {...register("email")}
                 data-testid="input-email"
@@ -164,7 +164,7 @@ export default function Login() {
                 </Label>
                 <button
                   type="button"
-                  className="text-sm text-blue-400 hover:text-blue-300 transition-colors duration-200 hover:underline"
+                  className="text-sm text-primary hover:text-primary/80 transition-colors duration-200 hover:underline"
                   onClick={() => setLocation("/forgot-password")}
                   data-testid="link-forgot-password"
                 >
@@ -178,7 +178,7 @@ export default function Login() {
                   autoComplete="current-password"
                   placeholder="Enter your password"
                   className="bg-slate-800/80 border-slate-700 text-white placeholder:text-slate-500 h-11 pr-11
-                            focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200
+                            focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200
                             hover:bg-slate-800"
                   {...register("password")}
                   data-testid="input-password"
@@ -207,7 +207,7 @@ export default function Login() {
                 id="remember"
                 checked={rememberMe}
                 onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                className="border-slate-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
+                className="border-slate-600 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                 data-testid="checkbox-remember"
               />
               <label
@@ -221,8 +221,8 @@ export default function Login() {
             {/* Sign In Button */}
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 
-                        text-white h-11 font-medium shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-11 font-medium 
+                        shadow-lg shadow-primary/20 hover:shadow-primary/30
                         transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={loading}
               data-testid="button-signin"
@@ -252,7 +252,7 @@ export default function Login() {
               <span className="text-slate-400 text-sm">Don't have an account? </span>
               <button
                 type="button"
-                className="text-sm text-blue-400 hover:text-blue-300 transition-colors duration-200 
+                className="text-sm text-primary hover:text-primary/80 transition-colors duration-200 
                           font-medium hover:underline"
                 onClick={() => setLocation("/register")}
                 data-testid="link-register"
@@ -283,11 +283,6 @@ export default function Login() {
               — {selectedImage.author}
             </footer>
           </blockquote>
-          
-          {/* Copyright */}
-          <div className="mt-10 text-white/50 text-sm" data-testid="text-copyright">
-            Copyright 2025 © Moses Pius - Software Engineer, Version 1.1.1
-          </div>
         </div>
 
         {/* Success Rate Badge */}
