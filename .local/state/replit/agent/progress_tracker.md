@@ -10,3 +10,6 @@
 [x] 10. Configure workflow with correct output_type (webview) and port 5000
 [x] 11. Remove duplicate "dev" workflow
 [x] 12. Verify application is running successfully
+[x] 13. Database provisioned and schema pushed successfully
+[x] 14. Admin account created with credentials provided by user
+[x] 15. Application restarted and ready for login verification
