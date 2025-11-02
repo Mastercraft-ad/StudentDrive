@@ -1282,21 +1282,25 @@ export default function BlogEditor() {
               <CardHeader className="pb-3 bg-slate-50 dark:bg-slate-900/50">
                 <CardTitle className="text-base font-semibold">Categories</CardTitle>
               </CardHeader>
-              <CardContent className="pt-4">
-                <div className="flex gap-2 mb-4">
+              <CardContent className="pt-4 space-y-3">
+                {/* Add New Category */}
+                <div className="flex gap-2">
+                  <Input
+                    data-testid="input-new-category"
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && addCategory()}
+                    placeholder="Add new category"
+                    className="flex-1"
+                  />
                   <Button
+                    data-testid="button-add-category"
                     variant="outline"
                     size="sm"
-                    className="flex-1 text-xs"
+                    onClick={addCategory}
+                    disabled={!newCategory.trim() || createCategoryMutation.isPending}
                   >
-                    Save
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 text-xs"
-                  >
-                    Save & Exit
+                    <Plus className="h-4 w-4" />
                   </Button>
                 </div>
                 
@@ -1305,13 +1309,14 @@ export default function BlogEditor() {
                   {categoriesLoading ? (
                     <p className="text-sm text-muted-foreground">Loading categories...</p>
                   ) : categories.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No categories yet</p>
+                    <p className="text-sm text-muted-foreground">No categories yet. Add one above!</p>
                   ) : (
                     categories.map((cat) => (
                       <div key={cat.id} className="flex items-center space-x-2">
                         <input
                           type="checkbox"
                           id={`category-${cat.id}`}
+                          data-testid={`checkbox-category-${cat.id}`}
                           checked={formData.category === cat.name}
                           onChange={(e) => {
                             if (e.target.checked) {

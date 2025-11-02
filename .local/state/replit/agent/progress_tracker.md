@@ -4,7 +4,7 @@
 [x] 4. Verify the project is working using screenshot
 [x] 5. Provision PostgreSQL database
 [x] 6. Push database schema to database
-[x] 7. Create admin account (hey@mosespius.com / MasterCraft@80)
+[x] 7. Create admin account (admin@studentdrive.com / MasterCraft@80)
 [x] 8. Restart workflow and verify login is working
 [x] 9. Migration completed successfully
 [x] 10. Configure workflow with correct output_type (webview) and port 5000
@@ -21,3 +21,7 @@
 [x] 21. Verified application is running successfully on port 5000
 [x] 22. Confirmed landing page displays correctly with all features
 [x] 23. Project import completed and ready for development
+[x] 24. Re-provisioned database (Nov 2, 2025)
+[x] 25. Pushed database schema with npm run db:push --force
+[x] 26. Created admin account: admin@studentdrive.com / MasterCraft@80
+[x] 27. Fixed blog category management - added input field and button to create new categories in blog editor
