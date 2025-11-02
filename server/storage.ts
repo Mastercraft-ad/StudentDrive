@@ -445,7 +445,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMaterial(materialData: InsertMaterial): Promise<Material> {
-    const [material] = await db.insert(materials).values(materialData).returning();
+    const [material] = await db.insert(materials).values(materialData as any).returning();
     return material;
   }
 
@@ -460,7 +460,7 @@ export class DatabaseStorage implements IStorage {
   async updateMaterial(id: string, materialData: Partial<InsertMaterial>): Promise<Material> {
     const [material] = await db
       .update(materials)
-      .set({ ...materialData, updatedAt: new Date() })
+      .set({ ...materialData, updatedAt: new Date() } as any)
       .where(eq(materials.id, id))
       .returning();
     return material;
@@ -797,7 +797,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBlogPost(postData: InsertBlogPost): Promise<BlogPost> {
-    const [post] = await db.insert(blogPosts).values(postData).returning();
+    const [post] = await db.insert(blogPosts).values(postData as any).returning();
     return post;
   }
 

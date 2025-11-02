@@ -2364,11 +2364,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const wordCount = validatedData.content.split(/\s+/).length;
       const readTime = Math.max(1, Math.ceil(wordCount / 200));
 
-      const post = await storage.createBlogPost({
+      const postData = {
         ...validatedData,
         authorId: req.user.id,
         readTime,
-      });
+      };
+
+      const post = await storage.createBlogPost(postData as any);
 
       res.status(201).json(post);
     } catch (error: any) {
