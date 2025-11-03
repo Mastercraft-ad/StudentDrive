@@ -8,16 +8,19 @@ import crypto from "crypto";
 import { storage } from "./storage";
 
 export function getSession() {
-  const sessionTtl = 7 * 24 * 60 * 60 * 1000;
+  const sessionTtlMs = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+  const sessionTtlSeconds = sessionTtlMs / 1000; // convert to seconds for pg store
+  
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
     createTableIfMissing: false,
-    ttl: sessionTtl,
+    ttl: sessionTtlSeconds, // connect-pg-simple expects seconds
     tableName: "sessions",
   });
   
   const isProduction = process.env.NODE_ENV === 'production';
+  const isReplit = !!process.env.REPLIT_DOMAINS;
   
   return session({
     secret: process.env.SESSION_SECRET || "studentdrive-secret-key",
@@ -26,9 +29,10 @@ export function getSession() {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'strict' : 'lax',
-      maxAge: sessionTtl,
+      secure: isProduction || isReplit,
+      sameSite: 'lax',
+      maxAge: sessionTtlMs, // cookie maxAge expects milliseconds
+      path: '/',
     },
   });
 }
