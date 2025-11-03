@@ -109,43 +109,56 @@ export function AppSidebar() {
     : { bg: "bg-primary/10", text: "text-primary", iconBg: "bg-gradient-to-br from-primary/20 to-primary/5" };
 
   return (
-    <Sidebar collapsible="icon" className="border-r-2 border-border h-full">
-      <SidebarHeader className="p-4 border-b-2 border-border/40">
-        <div className="flex items-center gap-3 min-h-[52px] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-          <div className={`p-2.5 rounded-xl ${roleStyles.iconBg} border border-border/50 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center justify-center`}>
+    <Sidebar collapsible="icon" className="border-r-2 border-border h-full bg-card">
+      <SidebarHeader className="px-3 py-4 border-b-2 border-border/40 bg-background/50">
+        <div className="flex items-center gap-3 min-h-[56px] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
+          <div className={`p-2.5 rounded-xl ${roleStyles.iconBg} border border-border/60 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center justify-center flex-shrink-0`}>
             <img 
               src={logoImg} 
               alt="StudentDrive Logo" 
-              className="h-7 w-7 object-contain"
+              className="h-8 w-8 object-contain"
             />
           </div>
-          <div className="group-data-[collapsible=icon]:hidden flex flex-col gap-0.5 min-w-0">
-            <p className="font-heading font-bold text-lg tracking-tight truncate">StudentDrive</p>
-            <p className={`text-[10px] font-bold ${roleStyles.text} uppercase tracking-wider px-2.5 py-1 rounded-md ${roleStyles.bg} inline-block w-fit`}>{roleName}</p>
+          <div className="group-data-[collapsible=icon]:hidden flex flex-col gap-1 min-w-0 flex-1">
+            <p className="font-heading font-bold text-base tracking-tight truncate">StudentDrive</p>
+            <p className={`text-[10px] font-extrabold ${roleStyles.text} uppercase tracking-widest px-2.5 py-1 rounded-md ${roleStyles.bg} inline-block w-fit shadow-sm`}>{roleName}</p>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 py-4">
+      <SidebarContent className="px-3 py-4">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url}
-                    tooltip={item.title}
-                    data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                    className="transition-all duration-200 rounded-lg h-11 group-data-[collapsible=icon]:h-11 group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:mx-auto"
-                  >
-                    <Link href={item.url} className="flex items-center gap-3 px-3 py-2.5 w-full group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:h-11 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center">
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      <span className="font-medium text-sm group-data-[collapsible=icon]:hidden truncate">{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+            <SidebarMenu className="space-y-1.5">
+              {menuItems.map((item) => {
+                const isActive = location === item.url;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.title}
+                      data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                      className={`
+                        transition-all duration-200 rounded-xl h-12
+                        hover:bg-accent/80 hover:shadow-sm
+                        group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:mx-auto
+                        ${isActive ? 'bg-primary/10 shadow-sm border border-primary/20' : 'border border-transparent'}
+                      `}
+                    >
+                      <Link 
+                        href={item.url} 
+                        className="flex items-center gap-3.5 px-4 py-3 w-full group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
+                      >
+                        <item.icon className={`h-5 w-5 flex-shrink-0 ${isActive ? 'text-primary' : ''}`} />
+                        <span className={`font-semibold text-sm group-data-[collapsible=icon]:hidden truncate ${isActive ? 'text-primary' : ''}`}>
+                          {item.title}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
               
               {isAdmin && (
                 <Collapsible open={blogOpen} onOpenChange={setBlogOpen} className="group/collapsible">
@@ -154,31 +167,45 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         tooltip="Blog"
                         data-testid="nav-blog"
-                        className="transition-all duration-200 rounded-lg h-11 group-data-[collapsible=icon]:h-11 group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:mx-auto"
+                        className={`
+                          transition-all duration-200 rounded-xl h-12
+                          hover:bg-accent/80 hover:shadow-sm
+                          group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:mx-auto
+                          border border-transparent
+                        `}
                       >
-                        <div className="flex items-center gap-3 px-3 py-2.5 w-full group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:h-11 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center">
-                          <Newspaper className="h-5 w-5 shrink-0" />
-                          <span className="font-medium text-sm group-data-[collapsible=icon]:hidden truncate">Blog</span>
-                          <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
+                        <div className="flex items-center gap-3.5 px-4 py-3 w-full group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center">
+                          <Newspaper className="h-5 w-5 flex-shrink-0" />
+                          <span className="font-semibold text-sm group-data-[collapsible=icon]:hidden truncate flex-1">Blog</span>
+                          <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden flex-shrink-0" />
                         </div>
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="transition-all duration-300 group-data-[collapsible=icon]:hidden">
-                      <SidebarMenuSub className="ml-4 mt-1 space-y-1 border-l-2 border-border/50 pl-3">
-                        {blogSubItems.map((subItem) => (
-                          <SidebarMenuSubItem key={subItem.title}>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={location === subItem.url}
-                              className="transition-colors duration-200 rounded-md h-9"
-                            >
-                              <Link href={subItem.url} className="flex items-center gap-2.5 px-3 py-2">
-                                <subItem.icon className="h-4 w-4 shrink-0" />
-                                <span className="text-sm font-medium truncate">{subItem.title}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
+                    <CollapsibleContent className="transition-all duration-300 ease-in-out group-data-[collapsible=icon]:hidden">
+                      <SidebarMenuSub className="ml-5 mt-1.5 space-y-1 border-l-2 border-primary/30 pl-4">
+                        {blogSubItems.map((subItem) => {
+                          const isSubActive = location === subItem.url;
+                          return (
+                            <SidebarMenuSubItem key={subItem.title}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={isSubActive}
+                                className={`
+                                  transition-all duration-200 rounded-lg h-10
+                                  hover:bg-accent/60
+                                  ${isSubActive ? 'bg-primary/10 border-l-2 border-primary' : ''}
+                                `}
+                              >
+                                <Link href={subItem.url} className="flex items-center gap-3 px-3 py-2.5">
+                                  <subItem.icon className={`h-4 w-4 flex-shrink-0 ${isSubActive ? 'text-primary' : ''}`} />
+                                  <span className={`text-sm font-medium truncate ${isSubActive ? 'text-primary font-semibold' : ''}`}>
+                                    {subItem.title}
+                                  </span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          );
+                        })}
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>
