@@ -1,8 +1,8 @@
-import { Bell, Search, User } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { NotificationPanel } from "@/components/notification-panel";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -21,7 +21,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { Badge } from "@/components/ui/badge";
 import { Settings, LogOut } from "lucide-react";
 
 interface BreadcrumbSegment {
@@ -135,21 +134,7 @@ export function AppHeader() {
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative"
-          data-testid="button-notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <Badge
-            variant="destructive"
-            className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-          >
-            3
-          </Badge>
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <NotificationPanel />
 
         <ThemeToggle />
 
