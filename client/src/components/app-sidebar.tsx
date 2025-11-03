@@ -14,14 +14,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
   SidebarHeader,
-  SidebarFooter,
 } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Home,
@@ -33,17 +26,14 @@ import {
   Settings,
   BarChart3,
   Shield,
-  ChevronDown,
   ChevronRight,
-  LogOut,
   Library,
-  Mail,
   Upload,
   Newspaper,
   FolderTree,
   Tag,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+// @ts-expect-error - Asset import
 import logoImg from "@assets/StudentDrive logo_1762056464003.png";
 
 export function AppSidebar() {
@@ -108,25 +98,21 @@ export function AppSidebar() {
 
   const roleName = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "User";
 
-  const initials = user?.firstName && user?.lastName
-    ? `${user.firstName[0]}${user.lastName[0]}`
-    : user?.email?.[0].toUpperCase() || "U";
-
   const roleStyles = isStudent
-    ? { bg: "bg-role-student/10", text: "text-role-student" }
+    ? { bg: "bg-role-student/10", text: "text-role-student", iconBg: "bg-gradient-to-br from-role-student/20 to-role-student/5" }
     : isInstructor
-    ? { bg: "bg-role-instructor/10", text: "text-role-instructor" }
+    ? { bg: "bg-role-instructor/10", text: "text-role-instructor", iconBg: "bg-gradient-to-br from-role-instructor/20 to-role-instructor/5" }
     : isInstitution
-    ? { bg: "bg-role-institution/10", text: "text-role-institution" }
+    ? { bg: "bg-role-institution/10", text: "text-role-institution", iconBg: "bg-gradient-to-br from-role-institution/20 to-role-institution/5" }
     : isAdmin
-    ? { bg: "bg-role-admin/10", text: "text-role-admin" }
-    : { bg: "bg-primary/10", text: "text-primary" };
+    ? { bg: "bg-role-admin/10", text: "text-role-admin", iconBg: "bg-gradient-to-br from-role-admin/20 to-role-admin/5" }
+    : { bg: "bg-primary/10", text: "text-primary", iconBg: "bg-gradient-to-br from-primary/20 to-primary/5" };
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4 border-b">
-        <div className="flex items-center gap-3">
-          <div className={`p-1.5 rounded-lg ${roleStyles.bg}`}>
+      <SidebarHeader className="p-4 border-b border-border/50">
+        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
+          <div className={`p-2 rounded-xl ${roleStyles.iconBg} border border-border/30 shadow-sm transition-transform duration-200 hover:scale-105`}>
             <img 
               src={logoImg} 
               alt="StudentDrive Logo" 
@@ -134,17 +120,17 @@ export function AppSidebar() {
             />
           </div>
           <div className="group-data-[collapsible=icon]:hidden">
-            <p className="font-heading font-bold text-base">StudentDrive</p>
-            <p className={`text-xs font-medium ${roleStyles.text}`}>{roleName}</p>
+            <p className="font-heading font-bold text-base tracking-tight">StudentDrive</p>
+            <p className={`text-xs font-semibold ${roleStyles.text} uppercase tracking-wide`}>{roleName}</p>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-3 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel>Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
@@ -152,10 +138,11 @@ export function AppSidebar() {
                     isActive={location === item.url}
                     tooltip={item.title}
                     data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                    className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                      <item.icon className="h-4 w-4 transition-transform duration-200" />
+                      <span className="font-medium">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -168,23 +155,25 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         tooltip="Blog"
                         data-testid="nav-blog"
+                        className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                       >
-                        <Newspaper className="h-4 w-4" />
-                        <span>Blog</span>
-                        <ChevronRight className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-90" />
+                        <Newspaper className="h-4 w-4 transition-transform duration-200" />
+                        <span className="font-medium">Blog</span>
+                        <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
+                    <CollapsibleContent className="transition-all duration-300">
+                      <SidebarMenuSub className="ml-4 mt-1 space-y-1 border-l-2 border-border/30 pl-2">
                         {blogSubItems.map((subItem) => (
                           <SidebarMenuSubItem key={subItem.title}>
                             <SidebarMenuSubButton
                               asChild
                               isActive={location === subItem.url}
+                              className="transition-all duration-200 hover:scale-[1.02]"
                             >
                               <Link href={subItem.url}>
-                                <subItem.icon className="h-4 w-4" />
-                                <span>{subItem.title}</span>
+                                <subItem.icon className="h-3.5 w-3.5" />
+                                <span className="text-sm">{subItem.title}</span>
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
@@ -198,47 +187,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      <SidebarFooter className="p-3 border-t mt-auto">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button 
-              className="flex items-center gap-3 w-full hover:bg-muted/50 transition-colors rounded-lg p-2.5 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:justify-center" 
-              data-testid="button-user-menu"
-            >
-              <Avatar className="h-8 w-8 border-2 border-background shadow-sm">
-                <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} style={{ objectFit: 'cover' }} />
-                <AvatarFallback className={roleStyles.bg}>{initials}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 text-left group-data-[collapsible=icon]:hidden">
-                <p className="text-sm font-semibold truncate">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-              </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={async () => {
-                await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-                window.location.href = '/login';
-              }}
-              data-testid="button-logout"
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarFooter>
     </Sidebar>
   );
 }
