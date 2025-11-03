@@ -612,15 +612,16 @@ export default function InstitutionsManagement() {
                             }}
                             placeholder={
                               institutionBulkFormat === "json"
-                                ? `[\n  {\n    "name": "University of Technology",\n    "description": "A leading tech university",\n    "website": "https://utech.edu"\n  }\n]`
-                                : "name,description,website\nUniversity of Technology,A leading tech university,https://utech.edu"
+                                ? `[\n  {\n    "name": "University of Technology",\n    "profileSlug": "university-of-technology",\n    "description": "A leading tech university",\n    "website": "https://utech.edu",\n    "country": "Ghana",\n    "city": "Accra",\n    "address": "123 University Road",\n    "email": "info@utech.edu",\n    "phone": "+233-123-456-789",\n    "type": "University",\n    "founded": 1960,\n    "studentCount": 10000\n  }\n]`
+                                : "name,profileSlug,description,website,country,city,address,email,phone,type,founded,studentCount\nUniversity of Technology,university-of-technology,A leading tech university,https://utech.edu,Ghana,Accra,123 University Road,info@utech.edu,+233-123-456-789,University,1960,10000"
                             }
-                            rows={8}
+                            rows={10}
                             className="font-mono text-sm"
                           />
                           <p className="text-sm text-muted-foreground">
-                            Required fields: <strong>name</strong>. Optional:
-                            description, website
+                            <strong>Required:</strong> name<br />
+                            <strong>Optional:</strong> profileSlug, description, website, country, city, address, postalCode, email, phone, type, founded, studentCount, logoUrl<br />
+                            <strong>Note:</strong> If profileSlug is not provided, it will be auto-generated from the institution name (lowercase, URL-friendly format)
                           </p>
                         </div>
                       </div>

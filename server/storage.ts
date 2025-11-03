@@ -286,6 +286,14 @@ export class DatabaseStorage implements IStorage {
 
     for (const institutionData of institutionsData) {
       try {
+        // Auto-generate profileSlug from name if not provided
+        if (!institutionData.profileSlug) {
+          institutionData.profileSlug = institutionData.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/(^-|-$)/g, '');
+        }
+
         // Check for existing institution by name or slug
         const existingInstitution = await db
           .select()

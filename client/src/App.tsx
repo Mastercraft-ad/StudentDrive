@@ -36,6 +36,8 @@ import Quizzes from "@/pages/quizzes";
 import QuizTake from "@/pages/quiz-take";
 import Performance from "@/pages/performance";
 import Settings from "@/pages/settings";
+import InstitutionsDirectory from "@/pages/institutions-directory";
+import InstitutionDetail from "@/pages/institution-detail";
 
 function Router({ showLanding, showOnboarding }: { showLanding?: boolean; showOnboarding?: boolean }) {
   const { isStudent, isInstructor, isInstitution, isAdmin } = useAuth();
@@ -81,6 +83,8 @@ function Router({ showLanding, showOnboarding }: { showLanding?: boolean; showOn
           <Route path="/quiz/:id" component={QuizTake} />
           <Route path="/performance" component={Performance} />
           <Route path="/bookmarks" component={Bookmarks} />
+          <Route path="/institutions" component={InstitutionsDirectory} />
+          <Route path="/institutions/:slug" component={InstitutionDetail} />
           <Route path="/settings" component={Settings} />
         </>
       )}
@@ -97,6 +101,8 @@ function Router({ showLanding, showOnboarding }: { showLanding?: boolean; showOn
           <Route path="/instructor/quizzes" component={Quizzes} />
           <Route path="/instructor/quizzes/create" component={InstructorCreateQuiz} />
           <Route path="/instructor/analytics" component={Performance} />
+          <Route path="/institutions" component={InstitutionsDirectory} />
+          <Route path="/institutions/:slug" component={InstitutionDetail} />
           <Route path="/settings" component={Settings} />
         </>
       )}
@@ -111,6 +117,8 @@ function Router({ showLanding, showOnboarding }: { showLanding?: boolean; showOn
           <Route path="/institution/courses" component={Resources} />
           <Route path="/material/:id" component={MaterialDetail} />
           <Route path="/institution/analytics" component={Performance} />
+          <Route path="/institutions" component={InstitutionsDirectory} />
+          <Route path="/institutions/:slug" component={InstitutionDetail} />
           <Route path="/institution/settings" component={Settings} />
           <Route path="/settings" component={Settings} />
         </>
@@ -132,6 +140,8 @@ function Router({ showLanding, showOnboarding }: { showLanding?: boolean; showOn
           <Route path="/admin/blog/new" component={AdminBlogEditor} />
           <Route path="/admin/blog/edit/:id" component={AdminBlogEditor} />
           <Route path="/material/:id" component={MaterialDetail} />
+          <Route path="/institutions" component={InstitutionsDirectory} />
+          <Route path="/institutions/:slug" component={InstitutionDetail} />
           <Route path="/admin/analytics" component={Performance} />
           <Route path="/admin/settings" component={Settings} />
           <Route path="/settings" component={Settings} />

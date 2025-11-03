@@ -16,6 +16,7 @@ import {
   insertQuizQuestionSchema,
   insertBookmarkSchema,
   insertInstitutionSchema,
+  insertInstitutionReviewSchema,
   insertProgrammeSchema,
   insertMaterialReviewSchema,
   insertMaterialRatingSchema,
@@ -297,8 +298,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data = institutionOnboardingSchema.parse(req.body);
         
         // Create institution in institutions table and link user
+        const profileSlug = data.institutionName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+        
         const institutionData = {
           name: data.institutionName,
+          profileSlug,
           description: data.bio,
           website: null,
           logoUrl: null,
@@ -1709,6 +1716,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching institution:", error);
       res.status(500).json({ message: "Failed to fetch institution" });
+    }
+  });
+
+  app.get("/api/institutions/slug/:slug", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const { slug } = req.params;
+      const institution = await storage.getInstitutionBySlug(slug);
+      if (!institution) {
+        return res.status(404).json({ message: "Institution not found" });
+      }
+      res.json(institution);
+    } catch (error) {
+      console.error("Error fetching institution by slug:", error);
+      res.status(500).json({ message: "Failed to fetch institution" });
+    }
+  });
+
+  app.get("/api/institutions/:id/reviews", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const reviews = await storage.getInstitutionReviews(id);
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching institution reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  app.post("/api/institutions/:id/reviews", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      const institution = await storage.getInstitution(id);
+      if (!institution) {
+        return res.status(404).json({ message: "Institution not found" });
+      }
+
+      const data = insertInstitutionReviewSchema.parse({
+        ...req.body,
+        institutionId: id,
+        userId: req.user.id,
+      });
+
+      const review = await storage.createInstitutionReview(data);
+      res.json(review);
+    } catch (error: any) {
+      console.error("Error creating institution review:", error);
+      res.status(400).json({ message: error.message || "Failed to create review" });
     }
   });
 
