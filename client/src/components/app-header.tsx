@@ -22,6 +22,8 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Settings, LogOut } from "lucide-react";
+// @ts-expect-error - Asset import
+import logoImg from "@assets/StudentDrive logo_1762056464003.png";
 
 interface BreadcrumbSegment {
   label: string;
@@ -94,46 +96,25 @@ export function AppHeader() {
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
-      <SidebarTrigger 
-        data-testid="button-sidebar-toggle" 
-        className="hidden md:flex hover:bg-accent/80 transition-all duration-200 h-9 w-9 p-0 items-center justify-center rounded-md border border-border/40 hover:border-border/80 hover:shadow-sm" 
-      />
-      
-      <div className="hidden md:flex items-center flex-1">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link href="/" data-testid="breadcrumb-home">
-                  Dashboard
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            {breadcrumbs.length > 0 && breadcrumbs[0].label !== "Dashboard" && (
-              <>
-                {breadcrumbs.map((crumb, index) => (
-                  <div key={index} className="flex items-center">
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      {crumb.href ? (
-                        <BreadcrumbLink asChild>
-                          <Link href={crumb.href} data-testid={`breadcrumb-${crumb.label.toLowerCase().replace(/\s+/g, '-')}`}>
-                            {crumb.label}
-                          </Link>
-                        </BreadcrumbLink>
-                      ) : (
-                        <BreadcrumbPage data-testid={`breadcrumb-${crumb.label.toLowerCase().replace(/\s+/g, '-')}`}>
-                          {crumb.label}
-                        </BreadcrumbPage>
-                      )}
-                    </BreadcrumbItem>
-                  </div>
-                ))}
-              </>
-            )}
-          </BreadcrumbList>
-        </Breadcrumb>
+    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b-2 border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
+      <div className="flex items-center gap-3">
+        <SidebarTrigger 
+          data-testid="button-sidebar-toggle" 
+          className="flex hover:bg-accent/80 transition-all duration-200 h-10 w-10 p-0 items-center justify-center rounded-lg border border-border/50 hover:border-border hover:shadow-md" 
+        />
+        
+        <div className="flex items-center gap-2.5 pl-2 border-l-2 border-border/40">
+          <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-border/40 shadow-sm">
+            <img 
+              src={logoImg} 
+              alt="StudentDrive Logo" 
+              className="h-6 w-6 object-contain"
+            />
+          </div>
+          <span className="font-heading font-bold text-lg tracking-tight hidden sm:inline">
+            StudentDrive
+          </span>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 ml-auto">
