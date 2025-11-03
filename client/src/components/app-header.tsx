@@ -97,21 +97,22 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b-2 border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 md:gap-4">
         <SidebarTrigger 
           data-testid="button-sidebar-toggle" 
           className="flex hover:bg-accent/80 transition-all duration-200 h-10 w-10 p-0 items-center justify-center rounded-lg border border-border/50 hover:border-border hover:shadow-md" 
         />
         
-        <div className="flex items-center gap-2.5 pl-2 border-l-2 border-border/40">
-          <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-border/40 shadow-sm">
+        <div className="flex items-center gap-2.5 pl-2 md:pl-3 border-l-2 border-border/40">
+          <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-border/40 shadow-sm flex-shrink-0">
             <img 
               src={logoImg} 
               alt="StudentDrive Logo" 
               className="h-6 w-6 object-contain"
+              data-testid="img-app-logo"
             />
           </div>
-          <span className="font-heading font-bold text-lg tracking-tight hidden sm:inline">
+          <span className="font-heading font-bold text-lg tracking-tight hidden md:inline-block whitespace-nowrap" data-testid="text-app-name">
             StudentDrive
           </span>
         </div>

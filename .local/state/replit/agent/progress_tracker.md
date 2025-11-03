@@ -122,3 +122,7 @@
 [x] 122. Preserved right side layout (notifications and profile menu)
 [x] 123. Enhanced header border to clearly demarcate from sidebar/content
 [x] 124. All header styling changes applied successfully
+[x] 125. Fixed desktop view to show logo when sidebar is hidden
+[x] 126. Added flex-shrink-0 to logo to prevent shrinking
+[x] 127. Updated responsive breakpoints for better desktop display
+[x] 128. Logo now always visible on all screen sizes
