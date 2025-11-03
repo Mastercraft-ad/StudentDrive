@@ -124,16 +124,18 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
-          <img 
-            src={logoImg} 
-            alt="StudentDrive Logo" 
-            className="h-8 w-8 object-contain"
-          />
+      <SidebarHeader className="p-4 border-b">
+        <div className="flex items-center gap-3">
+          <div className={`p-1.5 rounded-lg ${roleStyles.bg}`}>
+            <img 
+              src={logoImg} 
+              alt="StudentDrive Logo" 
+              className="h-6 w-6 object-contain"
+            />
+          </div>
           <div className="group-data-[collapsible=icon]:hidden">
-            <p className="font-heading font-bold">StudentDrive</p>
-            <p className="text-xs text-muted-foreground">{roleName}</p>
+            <p className="font-heading font-bold text-base">StudentDrive</p>
+            <p className={`text-xs font-medium ${roleStyles.text}`}>{roleName}</p>
           </div>
         </div>
       </SidebarHeader>
@@ -197,21 +199,24 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
+      <SidebarFooter className="p-3 border-t mt-auto">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-3 w-full hover-elevate active-elevate-2 rounded-md p-2" data-testid="button-user-menu">
-              <Avatar className="h-9 w-9">
+            <button 
+              className="flex items-center gap-3 w-full hover:bg-muted/50 transition-colors rounded-lg p-2.5 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:justify-center" 
+              data-testid="button-user-menu"
+            >
+              <Avatar className="h-8 w-8 border-2 border-background shadow-sm">
                 <AvatarImage src={user?.profileImageUrl || undefined} alt={user?.firstName || "User"} style={{ objectFit: 'cover' }} />
-                <AvatarFallback>{initials}</AvatarFallback>
+                <AvatarFallback className={roleStyles.bg}>{initials}</AvatarFallback>
               </Avatar>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium">
+              <div className="flex-1 text-left group-data-[collapsible=icon]:hidden">
+                <p className="text-sm font-semibold truncate">
                   {user?.firstName} {user?.lastName}
                 </p>
-                <p className="text-xs text-muted-foreground">{user?.email}</p>
+                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
               </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
