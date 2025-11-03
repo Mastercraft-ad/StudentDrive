@@ -109,7 +109,7 @@ export function AppSidebar() {
     : { bg: "bg-primary/10", text: "text-primary", iconBg: "bg-gradient-to-br from-primary/20 to-primary/5" };
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="border-r-2 border-border">
       <SidebarHeader className="p-4 border-b border-border/40">
         <div className="flex items-center gap-3 min-h-[48px] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
           <div className={`p-2 rounded-xl ${roleStyles.iconBg} border border-border/40 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center justify-center`}>

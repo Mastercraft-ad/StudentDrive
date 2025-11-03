@@ -96,7 +96,7 @@ export function AppHeader() {
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b-2 border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
+    <header className="w-full h-16 flex items-center gap-4 border-b-2 border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6 z-50">
       <div className="flex items-center gap-3 md:gap-4">
         <SidebarTrigger 
           data-testid="button-sidebar-toggle" 

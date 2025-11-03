@@ -126,3 +126,9 @@
 [x] 126. Added flex-shrink-0 to logo to prevent shrinking
 [x] 127. Updated responsive breakpoints for better desktop display
 [x] 128. Logo now always visible on all screen sizes
+[x] 129. Desktop Layout Restructure (Nov 3, 2025)
+[x] 130. Restructured App.tsx to place header at top spanning full width
+[x] 131. Moved sidebar below header on the left side
+[x] 132. Positioned main content area to the right of sidebar
+[x] 133. Added border-r-2 to sidebar for clear separation from body
+[x] 134. Layout now matches: Header (full width) → Aside (left) + Body (right)

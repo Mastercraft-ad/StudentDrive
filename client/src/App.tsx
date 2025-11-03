@@ -181,10 +181,10 @@ export default function App() {
 
   return (
     <SidebarProvider style={style as CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <AppHeader />
+      <div className="flex flex-col h-screen w-full">
+        <AppHeader />
+        <div className="flex flex-1 overflow-hidden">
+          <AppSidebar />
           <main className="flex-1 overflow-y-auto bg-muted/30">
             <Router />
           </main>
