@@ -132,3 +132,10 @@
 [x] 132. Positioned main content area to the right of sidebar
 [x] 133. Added border-r-2 to sidebar for clear separation from body
 [x] 134. Layout now matches: Header (full width) → Aside (left) + Body (right)
+[x] 135. AppSidebar Desktop Improvements (Nov 3, 2025)
+[x] 136. Fixed icon centering when sidebar is collapsed using mx-auto and explicit dimensions
+[x] 137. Increased menu item height from h-10 to h-11 for better touch targets
+[x] 138. Improved spacing between menu items and content padding
+[x] 139. Enhanced header border thickness for better visual separation
+[x] 140. Improved submenu indentation and spacing for better hierarchy
+[x] 141. Icons now properly centered both horizontally and vertically in collapsed state
