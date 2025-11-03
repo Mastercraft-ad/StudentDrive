@@ -152,3 +152,10 @@
 [x] 152. Improved collapsed state with perfect icon centering using mx-auto
 [x] 153. Added smooth transitions for all interactive elements
 [x] 154. Enhanced visual hierarchy with font weights and color contrasts
+[x] 155. Fixed Sidebar Overlapping Issue (Nov 3, 2025)
+[x] 156. Identified sidebar using fixed positioning causing overlay on content
+[x] 157. Imported SidebarInset component from shadcn/ui sidebar
+[x] 158. Restructured App.tsx layout to use SidebarInset for main content
+[x] 159. SidebarInset automatically handles spacing for fixed-position sidebar
+[x] 160. Resolved overlapping between sidebar and main content area
+[x] 161. Layout now properly adjusts for both expanded and collapsed sidebar states

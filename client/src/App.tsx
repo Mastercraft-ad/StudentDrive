@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { Switch, Route } from "wouter";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
 import { useAuth } from "@/hooks/useAuth";
@@ -181,15 +181,13 @@ export default function App() {
 
   return (
     <SidebarProvider style={style as CSSProperties}>
-      <div className="flex flex-col h-screen w-full">
+      <AppSidebar />
+      <SidebarInset className="flex flex-col h-screen overflow-hidden">
         <AppHeader />
-        <div className="flex flex-1 overflow-hidden">
-          <AppSidebar />
-          <main className="flex-1 overflow-y-auto bg-muted/30">
-            <Router />
-          </main>
-        </div>
-      </div>
+        <main className="flex-1 overflow-y-auto bg-muted/30">
+          <Router />
+        </main>
+      </SidebarInset>
     </SidebarProvider>
   );
 }
