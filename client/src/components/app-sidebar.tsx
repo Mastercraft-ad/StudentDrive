@@ -111,25 +111,25 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="p-4 border-b border-border/40">
-        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-          <div className={`p-2 rounded-xl ${roleStyles.iconBg} border border-border/40 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md`}>
+        <div className="flex items-center gap-3 min-h-[48px] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
+          <div className={`p-2 rounded-xl ${roleStyles.iconBg} border border-border/40 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center justify-center`}>
             <img 
               src={logoImg} 
               alt="StudentDrive Logo" 
               className="h-7 w-7 object-contain"
             />
           </div>
-          <div className="group-data-[collapsible=icon]:hidden flex flex-col gap-0.5">
-            <p className="font-heading font-bold text-lg tracking-tight">StudentDrive</p>
+          <div className="group-data-[collapsible=icon]:hidden flex flex-col gap-0.5 min-w-0">
+            <p className="font-heading font-bold text-lg tracking-tight truncate">StudentDrive</p>
             <p className={`text-[10px] font-bold ${roleStyles.text} uppercase tracking-wider px-2 py-0.5 rounded-md ${roleStyles.bg} inline-block w-fit`}>{roleName}</p>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-3 py-4">
+      <SidebarContent className="px-2 py-3">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1">
+            <SidebarMenu className="space-y-0.5">
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
@@ -137,11 +137,11 @@ export function AppSidebar() {
                     isActive={location === item.url}
                     tooltip={item.title}
                     data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                    className="transition-colors duration-200 rounded-lg"
+                    className="transition-all duration-200 rounded-lg h-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center"
                   >
-                    <Link href={item.url} className="flex items-center gap-3 px-3 py-2.5">
-                      <item.icon className="h-5 w-5" />
-                      <span className="font-medium text-sm">{item.title}</span>
+                    <Link href={item.url} className="flex items-center gap-3 px-3 py-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center w-full">
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      <span className="font-medium text-sm group-data-[collapsible=icon]:hidden truncate">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -154,27 +154,27 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         tooltip="Blog"
                         data-testid="nav-blog"
-                        className="transition-colors duration-200 rounded-lg"
+                        className="transition-all duration-200 rounded-lg h-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center"
                       >
-                        <div className="flex items-center gap-3 px-3 py-2.5 w-full">
-                          <Newspaper className="h-5 w-5" />
-                          <span className="font-medium text-sm">Blog</span>
-                          <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+                        <div className="flex items-center gap-3 px-3 py-2 w-full group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
+                          <Newspaper className="h-5 w-5 shrink-0" />
+                          <span className="font-medium text-sm group-data-[collapsible=icon]:hidden truncate">Blog</span>
+                          <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden" />
                         </div>
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="transition-all duration-300">
-                      <SidebarMenuSub className="ml-4 mt-1.5 space-y-0.5 border-l-2 border-border/40 pl-3 overflow-hidden">
+                    <CollapsibleContent className="transition-all duration-300 group-data-[collapsible=icon]:hidden">
+                      <SidebarMenuSub className="ml-3 mt-1 space-y-0.5 border-l-2 border-border/40 pl-3">
                         {blogSubItems.map((subItem) => (
                           <SidebarMenuSubItem key={subItem.title}>
                             <SidebarMenuSubButton
                               asChild
                               isActive={location === subItem.url}
-                              className="transition-colors duration-200 rounded-md"
+                              className="transition-colors duration-200 rounded-md h-9"
                             >
-                              <Link href={subItem.url} className="flex items-center gap-2.5 px-2.5 py-2">
-                                <subItem.icon className="h-4 w-4" />
-                                <span className="text-sm font-medium">{subItem.title}</span>
+                              <Link href={subItem.url} className="flex items-center gap-2.5 px-2.5 py-1.5">
+                                <subItem.icon className="h-4 w-4 shrink-0" />
+                                <span className="text-sm font-medium truncate">{subItem.title}</span>
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
