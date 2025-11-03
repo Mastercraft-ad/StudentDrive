@@ -2,6 +2,7 @@
 import {
   users,
   institutions,
+  institutionReviews,
   programmes,
   courses,
   materials,
@@ -22,6 +23,8 @@ import {
   type UpsertUser,
   type Institution,
   type InsertInstitution,
+  type InstitutionReview,
+  type InsertInstitutionReview,
   type Programme,
   type InsertProgramme,
   type Course,
@@ -74,12 +77,19 @@ export interface IStorage {
   // Institution operations
   getInstitutions(): Promise<Institution[]>;
   getInstitution(id: string): Promise<Institution | undefined>;
+  getInstitutionBySlug(slug: string): Promise<Institution | undefined>;
   createInstitution(institution: InsertInstitution): Promise<Institution>;
-  bulkCreateInstitutions(institutionsData: InsertInstitution[]): Promise<{ added: number; skipped: number }>;
+  updateInstitution(id: string, institution: Partial<InsertInstitution>): Promise<Institution | undefined>;
+  bulkCreateInstitutions(institutionsData: InsertInstitution[]): Promise<{ added: number; skipped: number; errors: string[] }>;
   createInstitutionWithOwner(institutionData: InsertInstitution, userId: string, onboardingData: Partial<UpsertUser>): Promise<{ institution: Institution; user: User }>;
   getUsersByInstitution(institutionId: string): Promise<User[]>;
   getInstructorsByInstitution(institutionId: string): Promise<User[]>;
   getStudentsByInstitution(institutionId: string): Promise<User[]>;
+  
+  // Institution Review operations
+  getInstitutionReviews(institutionId: string): Promise<InstitutionReview[]>;
+  createInstitutionReview(review: InsertInstitutionReview): Promise<InstitutionReview>;
+  updateInstitutionRatingStats(institutionId: string): Promise<void>;
   
   // Programme operations
   getProgrammes(): Promise<Programme[]>;
@@ -250,37 +260,57 @@ export class DatabaseStorage implements IStorage {
     return institution;
   }
 
+  async getInstitutionBySlug(slug: string): Promise<Institution | undefined> {
+    const [institution] = await db.select().from(institutions).where(eq(institutions.profileSlug, slug));
+    return institution;
+  }
+
   async createInstitution(institutionData: InsertInstitution): Promise<Institution> {
     const [institution] = await db.insert(institutions).values(institutionData).returning();
     return institution;
   }
 
-  async bulkCreateInstitutions(institutionsData: InsertInstitution[]): Promise<{ added: number; skipped: number }> {
+  async updateInstitution(id: string, institutionData: Partial<InsertInstitution>): Promise<Institution | undefined> {
+    const [institution] = await db
+      .update(institutions)
+      .set({ ...institutionData, updatedAt: new Date() })
+      .where(eq(institutions.id, id))
+      .returning();
+    return institution;
+  }
+
+  async bulkCreateInstitutions(institutionsData: InsertInstitution[]): Promise<{ added: number; skipped: number; errors: string[] }> {
     let added = 0;
     let skipped = 0;
+    const errors: string[] = [];
 
     for (const institutionData of institutionsData) {
       try {
+        // Check for existing institution by name or slug
         const existingInstitution = await db
           .select()
           .from(institutions)
-          .where(eq(institutions.name, institutionData.name))
+          .where(
+            sql`${institutions.name} = ${institutionData.name} OR ${institutions.profileSlug} = ${institutionData.profileSlug}`
+          )
           .limit(1);
 
         if (existingInstitution.length > 0) {
           skipped++;
+          errors.push(`Institution "${institutionData.name}" already exists`);
           continue;
         }
 
         await db.insert(institutions).values(institutionData);
         added++;
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error creating institution ${institutionData.name}:`, error);
         skipped++;
+        errors.push(`Error creating "${institutionData.name}": ${error.message}`);
       }
     }
 
-    return { added, skipped };
+    return { added, skipped, errors };
   }
 
   async createInstitutionWithOwner(
@@ -320,6 +350,46 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(users)
       .where(and(eq(users.institutionId, institutionId), eq(users.role, 'student')));
+  }
+
+  // Institution Review operations
+  async getInstitutionReviews(institutionId: string): Promise<InstitutionReview[]> {
+    return await db
+      .select()
+      .from(institutionReviews)
+      .where(eq(institutionReviews.institutionId, institutionId))
+      .orderBy(desc(institutionReviews.createdAt));
+  }
+
+  async createInstitutionReview(reviewData: InsertInstitutionReview): Promise<InstitutionReview> {
+    const [review] = await db.insert(institutionReviews).values(reviewData).returning();
+    
+    // Update institution rating stats
+    await this.updateInstitutionRatingStats(reviewData.institutionId);
+    
+    return review;
+  }
+
+  async updateInstitutionRatingStats(institutionId: string): Promise<void> {
+    // Calculate average rating and total reviews
+    const stats = await db
+      .select({
+        avgRating: sql<number>`AVG(${institutionReviews.rating})::FLOAT`,
+        totalReviews: sql<number>`COUNT(*)::INT`,
+      })
+      .from(institutionReviews)
+      .where(eq(institutionReviews.institutionId, institutionId));
+
+    if (stats.length > 0 && stats[0]) {
+      await db
+        .update(institutions)
+        .set({
+          averageRating: stats[0].avgRating || 0,
+          totalReviews: stats[0].totalReviews || 0,
+          updatedAt: new Date(),
+        })
+        .where(eq(institutions.id, institutionId));
+    }
   }
 
   // Programme operations

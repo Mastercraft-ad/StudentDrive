@@ -8,6 +8,7 @@ import {
   varchar,
   integer,
   boolean,
+  real,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -91,25 +92,85 @@ export type User = typeof users.$inferSelect;
 export const institutions = pgTable("institutions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: varchar("name", { length: 255 }).notNull(),
+  profileSlug: varchar("profile_slug", { length: 255 }).notNull().unique(),
   description: text("description"),
   logoUrl: varchar("logo_url"),
   website: varchar("website"),
+  
+  // Location fields
+  country: varchar("country", { length: 100 }),
+  city: varchar("city", { length: 100 }),
+  address: text("address"),
+  postalCode: varchar("postal_code", { length: 20 }),
+  
+  // Contact information
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  
+  // Additional metadata
+  type: varchar("type", { length: 100 }), // University, College, Institute, etc.
+  founded: integer("founded"), // Year founded
+  studentCount: integer("student_count"),
+  
+  // Review stats (automatically calculated)
+  averageRating: real("average_rating").default(0),
+  totalReviews: integer("total_reviews").default(0),
+  
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const institutionsRelations = relations(institutions, ({ many }) => ({
   users: many(users),
   courses: many(courses),
   programmes: many(programmes),
+  reviews: many(institutionReviews),
 }));
 
 export const insertInstitutionSchema = createInsertSchema(institutions).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
+  averageRating: true,
+  totalReviews: true,
 });
 
 export type InsertInstitution = z.infer<typeof insertInstitutionSchema>;
 export type Institution = typeof institutions.$inferSelect;
+
+// Institution Reviews table
+export const institutionReviews = pgTable("institution_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  institutionId: varchar("institution_id").references(() => institutions.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  rating: integer("rating").notNull(), // 1-5 stars
+  title: varchar("title", { length: 255 }),
+  comment: text("comment"),
+  verified: boolean("verified").default(false), // For verified students/alumni
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const institutionReviewsRelations = relations(institutionReviews, ({ one }) => ({
+  institution: one(institutions, {
+    fields: [institutionReviews.institutionId],
+    references: [institutions.id],
+  }),
+  user: one(users, {
+    fields: [institutionReviews.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertInstitutionReviewSchema = createInsertSchema(institutionReviews).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  verified: true,
+});
+
+export type InsertInstitutionReview = z.infer<typeof insertInstitutionReviewSchema>;
+export type InstitutionReview = typeof institutionReviews.$inferSelect;
 
 // Programmes table
 export const programmes = pgTable("programmes", {
