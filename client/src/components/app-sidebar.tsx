@@ -110,25 +110,24 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="p-4 border-b border-border/50">
+      <SidebarHeader className="p-4 border-b border-border/40">
         <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-          <div className={`p-2 rounded-xl ${roleStyles.iconBg} border border-border/30 shadow-sm transition-transform duration-200 hover:scale-105`}>
+          <div className={`p-2 rounded-xl ${roleStyles.iconBg} border border-border/40 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md`}>
             <img 
               src={logoImg} 
               alt="StudentDrive Logo" 
-              className="h-6 w-6 object-contain"
+              className="h-7 w-7 object-contain"
             />
           </div>
-          <div className="group-data-[collapsible=icon]:hidden">
-            <p className="font-heading font-bold text-base tracking-tight">StudentDrive</p>
-            <p className={`text-xs font-semibold ${roleStyles.text} uppercase tracking-wide`}>{roleName}</p>
+          <div className="group-data-[collapsible=icon]:hidden flex flex-col gap-0.5">
+            <p className="font-heading font-bold text-lg tracking-tight">StudentDrive</p>
+            <p className={`text-[10px] font-bold ${roleStyles.text} uppercase tracking-wider px-2 py-0.5 rounded-md ${roleStyles.bg} inline-block w-fit`}>{roleName}</p>
           </div>
         </div>
       </SidebarHeader>
 
       <SidebarContent className="px-3 py-4">
         <SidebarGroup>
-          <SidebarGroupLabel className="px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {menuItems.map((item) => (
@@ -138,11 +137,11 @@ export function AppSidebar() {
                     isActive={location === item.url}
                     tooltip={item.title}
                     data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-                    className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                    className="transition-colors duration-200 rounded-lg"
                   >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4 transition-transform duration-200" />
-                      <span className="font-medium">{item.title}</span>
+                    <Link href={item.url} className="flex items-center gap-3 px-3 py-2.5">
+                      <item.icon className="h-5 w-5" />
+                      <span className="font-medium text-sm">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -155,25 +154,27 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         tooltip="Blog"
                         data-testid="nav-blog"
-                        className="transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                        className="transition-colors duration-200 rounded-lg"
                       >
-                        <Newspaper className="h-4 w-4 transition-transform duration-200" />
-                        <span className="font-medium">Blog</span>
-                        <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+                        <div className="flex items-center gap-3 px-3 py-2.5 w-full">
+                          <Newspaper className="h-5 w-5" />
+                          <span className="font-medium text-sm">Blog</span>
+                          <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+                        </div>
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="transition-all duration-300">
-                      <SidebarMenuSub className="ml-4 mt-1 space-y-1 border-l-2 border-border/30 pl-2">
+                      <SidebarMenuSub className="ml-4 mt-1.5 space-y-0.5 border-l-2 border-border/40 pl-3 overflow-hidden">
                         {blogSubItems.map((subItem) => (
                           <SidebarMenuSubItem key={subItem.title}>
                             <SidebarMenuSubButton
                               asChild
                               isActive={location === subItem.url}
-                              className="transition-all duration-200 hover:scale-[1.02]"
+                              className="transition-colors duration-200 rounded-md"
                             >
-                              <Link href={subItem.url}>
-                                <subItem.icon className="h-3.5 w-3.5" />
-                                <span className="text-sm">{subItem.title}</span>
+                              <Link href={subItem.url} className="flex items-center gap-2.5 px-2.5 py-2">
+                                <subItem.icon className="h-4 w-4" />
+                                <span className="text-sm font-medium">{subItem.title}</span>
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>

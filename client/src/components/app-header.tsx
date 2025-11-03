@@ -96,7 +96,7 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
-      <SidebarTrigger data-testid="button-sidebar-toggle" className="-ml-1" />
+      <SidebarTrigger data-testid="button-sidebar-toggle" className="hover:bg-accent/80 transition-colors" />
       
       <div className="hidden md:flex items-center flex-1">
         <Breadcrumb>
