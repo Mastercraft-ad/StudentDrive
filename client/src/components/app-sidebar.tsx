@@ -105,8 +105,8 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon" className="border-r border-border bg-slate-900 dark:bg-slate-950">
       <SidebarHeader className="border-b border-border/40 p-4 group-data-[collapsible=icon]:p-3">
-        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
-          <Avatar className="h-10 w-10 border-2 border-primary/20">
+        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center" data-testid="sidebar-user-profile">
+          <Avatar className="h-10 w-10 border-2 border-primary/20" data-testid="avatar-user">
             <AvatarImage 
               src={user?.profileImageUrl || undefined} 
               alt={user?.firstName || "User"}
@@ -116,10 +116,10 @@ export function AppSidebar() {
             </AvatarFallback>
           </Avatar>
           <div className="group-data-[collapsible=icon]:hidden flex flex-col min-w-0">
-            <p className="text-sm font-semibold truncate text-slate-100">
+            <p className="text-sm font-semibold truncate text-slate-100" data-testid="text-user-name">
               {user?.firstName} {user?.lastName}
             </p>
-            <p className="text-xs text-slate-400 truncate">
+            <p className="text-xs text-slate-400 truncate" data-testid="text-user-role">
               {roleName}
             </p>
           </div>
@@ -187,6 +187,7 @@ export function AppSidebar() {
                               <SidebarMenuSubButton
                                 asChild
                                 isActive={isSubActive}
+                                data-testid={`nav-blog-${subItem.title.toLowerCase()}`}
                                 className={`
                                   transition-colors duration-150 h-9
                                   ${isSubActive
