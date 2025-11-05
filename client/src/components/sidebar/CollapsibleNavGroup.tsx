@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRouter } from "wouter";
 import {
   SidebarMenuButton,
   SidebarMenuItem,
@@ -30,7 +30,7 @@ const subItemActiveStyles = "bg-primary/10 text-primary hover:bg-primary/20";
 const subItemInactiveStyles = "text-slate-400 hover:bg-slate-800 hover:text-slate-200";
 
 export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(() => isPathWithin(item.url, location));
   const [popoverOpen, setPopoverOpen] = useState(false);
   const { state } = useSidebar();
@@ -41,6 +41,11 @@ export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
   }
 
   const isCollapsed = state === "collapsed";
+
+  const handleNavigation = (url: string) => {
+    setPopoverOpen(false);
+    setLocation(url);
+  };
 
   if (isCollapsed) {
     return (
@@ -69,13 +74,12 @@ export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
               {item.children.map((subItem) => {
                 const isSubActive = isPathActive(subItem.url, location);
                 return (
-                  <Link
+                  <button
                     key={subItem.title}
-                    href={subItem.url}
-                    onClick={() => setPopoverOpen(false)}
+                    onClick={() => handleNavigation(subItem.url)}
                     data-testid={`nav-${item.title.toLowerCase()}-${subItem.title.toLowerCase()}`}
                     className={cn(
-                      "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
+                      "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors cursor-pointer",
                       isSubActive 
                         ? "bg-primary/10 text-primary hover:bg-primary/20" 
                         : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
@@ -83,7 +87,7 @@ export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
                   >
                     <subItem.icon className="h-4 w-4 flex-shrink-0" />
                     <span className="truncate">{subItem.title}</span>
-                  </Link>
+                  </button>
                 );
               })}
             </div>
