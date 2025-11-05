@@ -126,7 +126,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="p-3">
+      <SidebarContent className="py-3 pl-1 pr-3">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
