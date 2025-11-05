@@ -26,7 +26,7 @@ export function NavItem({ item, isActive }: NavItemProps) {
           "group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:h-11"
         )}
       >
-        <Link href={item.url} className="flex items-center gap-3 w-full">
+        <Link href={item.url} className="flex items-center gap-3 w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
           <item.icon className="h-5 w-5 flex-shrink-0" />
           <span className="font-medium text-sm group-data-[collapsible=icon]:hidden truncate">
             {item.title}
