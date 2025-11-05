@@ -110,9 +110,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r-2 border-border h-full bg-card">
-      <SidebarHeader className="px-3 py-4 border-b-2 border-border/40 bg-background/50">
-        <div className="flex items-center gap-3 min-h-[56px] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-          <div className={`p-2.5 rounded-xl ${roleStyles.iconBg} border border-border/60 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center justify-center flex-shrink-0`}>
+      <SidebarHeader className="px-3 py-4 border-b-2 border-border/40 bg-background/50 group-data-[collapsible=icon]:py-2">
+        <div className="flex items-center gap-3 min-h-[56px] group-data-[collapsible=icon]:min-h-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
+          <div className={`p-2.5 rounded-xl ${roleStyles.iconBg} border border-border/60 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center justify-center flex-shrink-0 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:p-2`}>
             <img 
               src={logoImg} 
               alt="StudentDrive Logo" 
