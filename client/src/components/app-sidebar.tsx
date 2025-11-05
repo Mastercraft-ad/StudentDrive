@@ -6,7 +6,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -14,7 +13,9 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
   SidebarHeader,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Home,
@@ -26,19 +27,22 @@ import {
   Settings,
   BarChart3,
   Shield,
-  ChevronRight,
+  ChevronDown,
   Library,
   Upload,
   Newspaper,
   FolderTree,
   Tag,
 } from "lucide-react";
-// @ts-expect-error - Asset import
-import logoImg from "@assets/StudentDrive logo_1762056464003.png";
 
 export function AppSidebar() {
   const { user, isStudent, isInstructor, isInstitution, isAdmin } = useAuth();
   const [location] = useLocation();
+  const { state } = useSidebar();
+
+  const initials = user?.firstName && user?.lastName
+    ? `${user.firstName[0]}${user.lastName[0]}`
+    : user?.email?.[0].toUpperCase() || "U";
 
   const studentMenuItems = [
     { title: "Dashboard", url: "/", icon: Home },
@@ -98,38 +102,34 @@ export function AppSidebar() {
 
   const roleName = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "User";
 
-  const roleStyles = isStudent
-    ? { bg: "bg-role-student/10", text: "text-role-student", iconBg: "bg-gradient-to-br from-role-student/20 to-role-student/5" }
-    : isInstructor
-    ? { bg: "bg-role-instructor/10", text: "text-role-instructor", iconBg: "bg-gradient-to-br from-role-instructor/20 to-role-instructor/5" }
-    : isInstitution
-    ? { bg: "bg-role-institution/10", text: "text-role-institution", iconBg: "bg-gradient-to-br from-role-institution/20 to-role-institution/5" }
-    : isAdmin
-    ? { bg: "bg-role-admin/10", text: "text-role-admin", iconBg: "bg-gradient-to-br from-role-admin/20 to-role-admin/5" }
-    : { bg: "bg-primary/10", text: "text-primary", iconBg: "bg-gradient-to-br from-primary/20 to-primary/5" };
-
   return (
-    <Sidebar collapsible="icon" className="border-r-2 border-border h-full bg-card">
-      <SidebarHeader className="px-3 py-4 border-b-2 border-border/40 bg-background/50 group-data-[collapsible=icon]:py-2">
-        <div className="flex items-center gap-3 min-h-[56px] group-data-[collapsible=icon]:min-h-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-          <div className={`p-2.5 rounded-xl ${roleStyles.iconBg} border border-border/60 shadow-sm transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center justify-center flex-shrink-0 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:p-2`}>
-            <img 
-              src={logoImg} 
-              alt="StudentDrive Logo" 
-              className="h-8 w-8 object-contain"
+    <Sidebar collapsible="icon" className="border-r border-border bg-slate-900 dark:bg-slate-950">
+      <SidebarHeader className="border-b border-border/40 p-4 group-data-[collapsible=icon]:p-3">
+        <div className="flex items-center gap-3 group-data-[collapsible=icon]:justify-center">
+          <Avatar className="h-10 w-10 border-2 border-primary/20">
+            <AvatarImage 
+              src={user?.profileImageUrl || undefined} 
+              alt={user?.firstName || "User"}
             />
-          </div>
-          <div className="group-data-[collapsible=icon]:hidden flex flex-col gap-1 min-w-0 flex-1">
-            <p className="font-heading font-bold text-base tracking-tight truncate">StudentDrive</p>
-            <p className={`text-[10px] font-extrabold ${roleStyles.text} uppercase tracking-widest px-2.5 py-1 rounded-md ${roleStyles.bg} inline-block w-fit shadow-sm`}>{roleName}</p>
+            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="group-data-[collapsible=icon]:hidden flex flex-col min-w-0">
+            <p className="text-sm font-semibold truncate text-slate-100">
+              {user?.firstName} {user?.lastName}
+            </p>
+            <p className="text-xs text-slate-400 truncate">
+              {roleName}
+            </p>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-3 py-4">
+      <SidebarContent className="p-3">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="space-y-1.5">
+            <SidebarMenu className="space-y-1">
               {menuItems.map((item) => {
                 const isActive = location === item.url;
                 return (
@@ -140,18 +140,20 @@ export function AppSidebar() {
                       tooltip={item.title}
                       data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
                       className={`
-                        transition-all duration-200 rounded-xl h-12
-                        hover:bg-accent/80 hover:shadow-sm
-                        group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:mx-auto
-                        ${isActive ? 'bg-primary/10 shadow-sm border border-primary/20' : 'border border-transparent'}
+                        transition-colors duration-150 h-11
+                        ${isActive 
+                          ? 'bg-primary text-primary-foreground hover:bg-primary/90' 
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-slate-100'
+                        }
+                        group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:h-11
                       `}
                     >
                       <Link 
                         href={item.url} 
-                        className="flex items-center gap-3.5 px-4 py-3 w-full group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center"
+                        className="flex items-center gap-3 px-3 py-2 w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
                       >
-                        <item.icon className={`h-5 w-5 flex-shrink-0 ${isActive ? 'text-primary' : ''}`} />
-                        <span className={`font-semibold text-sm group-data-[collapsible=icon]:hidden truncate ${isActive ? 'text-primary' : ''}`}>
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="font-medium text-sm group-data-[collapsible=icon]:hidden truncate">
                           {item.title}
                         </span>
                       </Link>
@@ -167,22 +169,17 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         tooltip="Blog"
                         data-testid="nav-blog"
-                        className={`
-                          transition-all duration-200 rounded-xl h-12
-                          hover:bg-accent/80 hover:shadow-sm
-                          group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:mx-auto
-                          border border-transparent
-                        `}
+                        className="text-slate-300 hover:bg-slate-800 hover:text-slate-100 transition-colors duration-150 h-11 group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:h-11"
                       >
-                        <div className="flex items-center gap-3.5 px-4 py-3 w-full group-data-[collapsible=icon]:w-12 group-data-[collapsible=icon]:h-12 group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:items-center">
+                        <div className="flex items-center gap-3 px-3 py-2 w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0">
                           <Newspaper className="h-5 w-5 flex-shrink-0" />
-                          <span className="font-semibold text-sm group-data-[collapsible=icon]:hidden truncate flex-1">Blog</span>
-                          <ChevronRight className="ml-auto h-4 w-4 transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90 group-data-[collapsible=icon]:hidden flex-shrink-0" />
+                          <span className="font-medium text-sm group-data-[collapsible=icon]:hidden flex-1">Blog</span>
+                          <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180 group-data-[collapsible=icon]:hidden flex-shrink-0" />
                         </div>
                       </SidebarMenuButton>
                     </CollapsibleTrigger>
-                    <CollapsibleContent className="transition-all duration-300 ease-in-out group-data-[collapsible=icon]:hidden">
-                      <SidebarMenuSub className="ml-5 mt-1.5 space-y-1 border-l-2 border-primary/30 pl-4">
+                    <CollapsibleContent className="transition-all duration-200 group-data-[collapsible=icon]:hidden">
+                      <SidebarMenuSub className="ml-6 mt-1 space-y-1 border-l border-slate-700 pl-3">
                         {blogSubItems.map((subItem) => {
                           const isSubActive = location === subItem.url;
                           return (
@@ -191,14 +188,16 @@ export function AppSidebar() {
                                 asChild
                                 isActive={isSubActive}
                                 className={`
-                                  transition-all duration-200 rounded-lg h-10
-                                  hover:bg-accent/60
-                                  ${isSubActive ? 'bg-primary/10 border-l-2 border-primary' : ''}
+                                  transition-colors duration-150 h-9
+                                  ${isSubActive
+                                    ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                                  }
                                 `}
                               >
-                                <Link href={subItem.url} className="flex items-center gap-3 px-3 py-2.5">
-                                  <subItem.icon className={`h-4 w-4 flex-shrink-0 ${isSubActive ? 'text-primary' : ''}`} />
-                                  <span className={`text-sm font-medium truncate ${isSubActive ? 'text-primary font-semibold' : ''}`}>
+                                <Link href={subItem.url} className="flex items-center gap-2.5 px-2 py-1.5">
+                                  <subItem.icon className="h-4 w-4 flex-shrink-0" />
+                                  <span className="text-sm truncate">
                                     {subItem.title}
                                   </span>
                                 </Link>
