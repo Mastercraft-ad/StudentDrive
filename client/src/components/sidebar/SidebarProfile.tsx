@@ -2,10 +2,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { SidebarHeader } from "@/components/ui/sidebar";
 
 interface SidebarProfileProps {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  role?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  role?: string | null;
   profileImageUrl?: string | null;
 }
 

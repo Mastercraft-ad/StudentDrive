@@ -26,6 +26,7 @@ const subItemInactiveStyles = "text-slate-400 hover:bg-slate-800 hover:text-slat
 export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
   const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(() => isPathWithin(item.url, location));
+  const isWithinSection = isPathWithin(item.url, location);
 
   if (!item.children || item.children.length === 0) {
     return null;
@@ -34,25 +35,37 @@ export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="group/collapsible">
       <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
+        <div className="flex items-center gap-0 group-data-[collapsible=icon]:flex-col">
           <SidebarMenuButton
+            asChild
             tooltip={item.title}
             data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
             className={cn(
               baseStyles,
-              inactiveStyles,
-              "group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:h-11"
+              isWithinSection ? "bg-primary text-primary-foreground hover:bg-primary/90" : inactiveStyles,
+              "group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:h-11 flex-1"
             )}
           >
-            <div className="flex items-center gap-3 w-full">
+            <Link href={item.url} className="flex items-center gap-3 flex-1">
               <item.icon className="h-5 w-5 flex-shrink-0" />
-              <span className="font-medium text-sm group-data-[collapsible=icon]:hidden flex-1">
+              <span className="font-medium text-sm group-data-[collapsible=icon]:hidden">
                 {item.title}
               </span>
-              <ChevronDown className="ml-auto h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180 group-data-[collapsible=icon]:hidden flex-shrink-0" />
-            </div>
+            </Link>
           </SidebarMenuButton>
-        </CollapsibleTrigger>
+          <CollapsibleTrigger asChild>
+            <button
+              className={cn(
+                "p-2 rounded-md transition-colors group-data-[collapsible=icon]:hidden",
+                inactiveStyles
+              )}
+              aria-label={`Toggle ${item.title} submenu`}
+              data-testid={`toggle-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+            >
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+            </button>
+          </CollapsibleTrigger>
+        </div>
         <CollapsibleContent className="transition-all duration-200 group-data-[collapsible=icon]:hidden">
           <SidebarMenuSub className="ml-3 mt-1 space-y-1 border-l-2 border-slate-700 pl-3">
             {item.children.map((subItem) => {
