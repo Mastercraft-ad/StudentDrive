@@ -66,9 +66,6 @@ export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
             data-testid={`popover-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
           >
             <div className="space-y-1">
-              <div className="px-3 py-2 text-sm font-semibold text-slate-100">
-                {item.title}
-              </div>
               {item.children.map((subItem) => {
                 const isSubActive = isPathActive(subItem.url, location);
                 return (

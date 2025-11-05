@@ -231,3 +231,8 @@
 [x] 231. Maintained existing collapsible behavior when sidebar is expanded
 [x] 232. All changes applied successfully with no TypeScript errors
 [x] 233. Application restarted and running successfully
+[x] 234. Blog Popover Title Removal (Nov 5, 2025)
+[x] 235. Removed "Blog" title header from popover dialog
+[x] 236. Popover now shows only submenu items directly (All Posts, Create Post, Categories, Comments, Drafts)
+[x] 237. Cleaner, more streamlined popover interface
+[x] 238. Application restarted and changes applied successfully
