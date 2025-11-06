@@ -2428,6 +2428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...validatedData,
         authorId: req.user.id,
         readTime,
+        publishedAt: validatedData.published ? new Date() : null,
       };
 
       const post = await storage.createBlogPost(postData as any);
