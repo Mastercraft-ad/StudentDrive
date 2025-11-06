@@ -29,7 +29,7 @@ export function AppSidebar() {
         profileImageUrl={user?.profileImageUrl}
       />
 
-      <SidebarContent className="p-4">
+      <SidebarContent className="p-4 group-data-[collapsible=icon]:p-2">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
