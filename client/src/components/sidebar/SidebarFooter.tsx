@@ -52,7 +52,7 @@ export function SidebarFooter({ footerItems = [] }: SidebarFooterProps) {
   };
 
   return (
-    <BaseSidebarFooter className="mt-auto border-t border-border/40 p-2">
+    <BaseSidebarFooter className="mt-auto border-t border-border/40 px-3 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2">
       {footerItems.length > 0 && (
         <>
           <SidebarMenu className="space-y-1">
@@ -61,7 +61,7 @@ export function SidebarFooter({ footerItems = [] }: SidebarFooterProps) {
               return <NavItem key={item.title} item={item} isActive={isActive} />;
             })}
           </SidebarMenu>
-          <Separator className="my-2 bg-slate-700/50 group-data-[collapsible=icon]:hidden" />
+          <Separator className="my-3 bg-slate-700/50 group-data-[collapsible=icon]:hidden" />
         </>
       )}
       
@@ -71,11 +71,11 @@ export function SidebarFooter({ footerItems = [] }: SidebarFooterProps) {
             onClick={handleLogout}
             tooltip="Logout"
             data-testid="button-logout"
-            className="text-slate-300 hover:bg-red-500/10 hover:text-red-400 transition-colors duration-150 h-11 group-data-[collapsible=icon]:w-11 group-data-[collapsible=icon]:h-11"
+            className="text-slate-300 hover:bg-red-500/10 hover:text-red-400 transition-colors duration-150 h-10 px-2.5 rounded-lg group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:px-0"
           >
             <div className="flex items-center gap-3 w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-              <LogOut className="h-5 w-5 flex-shrink-0" />
-              <span className="font-medium text-sm group-data-[collapsible=icon]:hidden">
+              <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
+              <span className="font-medium text-[13px] group-data-[collapsible=icon]:hidden">
                 Logout
               </span>
             </div>

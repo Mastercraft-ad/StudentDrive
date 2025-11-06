@@ -28,7 +28,7 @@ export function AppSidebar() {
         profileImageUrl={user?.profileImageUrl}
       />
 
-      <SidebarContent className="p-4 group-data-[collapsible=icon]:p-2">
+      <SidebarContent className="px-3 py-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
         <SidebarSection section={roleConfig.primary} showSeparator={!!roleConfig.secondary} />
         
         {roleConfig.secondary && (
