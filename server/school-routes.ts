@@ -178,12 +178,18 @@ router.post("/api/school/auth/login", requireSchoolContext, async (req: Request,
       return;
     }
     
-    // Update last login
-    await storage.updateSchoolUser(user.id, { 
-      // lastLoginAt is tracked separately via schema default
+    // Set school user session
+    req.session.schoolUserId = user.id;
+    req.session.schoolId = schoolId;
+    
+    // Save session explicitly
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
     });
     
-    // Return user info (session management can be added later)
     res.json({
       user: {
         id: user.id,
@@ -206,6 +212,60 @@ router.post("/api/school/auth/login", requireSchoolContext, async (req: Request,
       return;
     }
     res.status(500).json({ message: "Login failed" });
+  }
+});
+
+// School logout
+router.post("/api/school/auth/logout", requireSchoolContext, async (req: Request, res: Response) => {
+  try {
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Error destroying session:", err);
+        res.status(500).json({ message: "Logout failed" });
+        return;
+      }
+      res.clearCookie("connect.sid");
+      res.json({ message: "Logged out successfully" });
+    });
+  } catch (error: any) {
+    console.error("School logout error:", error);
+    res.status(500).json({ message: "Logout failed" });
+  }
+});
+
+// Get current school user session
+router.get("/api/school/auth/me", requireSchoolContext, async (req: Request, res: Response) => {
+  try {
+    if (!req.session.schoolUserId || !req.session.schoolId) {
+      res.status(401).json({ message: "Not authenticated" });
+      return;
+    }
+    
+    if (req.session.schoolId !== req.school!.id) {
+      res.status(403).json({ message: "School mismatch" });
+      return;
+    }
+    
+    const user = await storage.getSchoolUser(req.session.schoolUserId);
+    if (!user || !user.isActive) {
+      req.session.destroy(() => {});
+      res.status(401).json({ message: "Session invalid" });
+      return;
+    }
+    
+    const { password, ...safeUser } = user;
+    res.json({
+      user: safeUser,
+      school: {
+        id: req.school!.id,
+        name: req.school!.name,
+        subdomain: req.school!.subdomain,
+        logoUrl: req.school!.logoUrl,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error fetching current user:", error);
+    res.status(500).json({ message: "Failed to fetch user" });
   }
 });
 
@@ -417,6 +477,68 @@ router.get("/api/school/parent/:parentId/students", requireSchoolContext, checkT
   } catch (error: any) {
     console.error("Error fetching parent's students:", error);
     res.status(500).json({ message: "Failed to fetch linked students" });
+  }
+});
+
+// Get all parents with their linked students
+router.get("/api/school/parents-with-students", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const schoolId = req.school!.id;
+    const parents = await storage.getSchoolUsersByRole(schoolId, 'parent');
+    
+    const parentsWithStudents = await Promise.all(
+      parents.map(async (parent) => {
+        const links = await storage.getParentStudentLinks(parent.id);
+        const linkedStudents = await Promise.all(
+          links.map(async (link) => {
+            const student = await storage.getSchoolUser(link.studentId);
+            if (student) {
+              const { password, ...safeStudent } = student;
+              return { ...safeStudent, relationship: link.relationship };
+            }
+            return null;
+          })
+        );
+        const { password, ...safeParent } = parent;
+        return {
+          ...safeParent,
+          linkedStudents: linkedStudents.filter(Boolean),
+        };
+      })
+    );
+    
+    res.json(parentsWithStudents);
+  } catch (error: any) {
+    console.error("Error fetching parents with students:", error);
+    res.status(500).json({ message: "Failed to fetch parents with students" });
+  }
+});
+
+// Delete parent-student link
+router.delete("/api/school/parent-student-link/:parentId/:studentId", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { parentId, studentId } = req.params;
+    const schoolId = req.school!.id;
+    
+    // Verify both users belong to this school
+    const parent = await storage.getSchoolUser(parentId);
+    const student = await storage.getSchoolUser(studentId);
+    
+    if (!parent || parent.schoolId !== schoolId) {
+      res.status(404).json({ message: "Parent not found" });
+      return;
+    }
+    
+    if (!student || student.schoolId !== schoolId) {
+      res.status(404).json({ message: "Student not found" });
+      return;
+    }
+    
+    await storage.deleteParentStudentLink(parentId, studentId);
+    res.json({ message: "Link removed successfully" });
+  } catch (error: any) {
+    console.error("Error deleting parent-student link:", error);
+    res.status(500).json({ message: "Failed to remove link" });
   }
 });
 

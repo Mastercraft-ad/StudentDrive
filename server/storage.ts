@@ -316,7 +316,7 @@ export interface IStorage {
   getParentStudentLinks(parentId: string): Promise<ParentStudentLink[]>;
   getStudentParentLinks(studentId: string): Promise<ParentStudentLink[]>;
   createParentStudentLink(link: InsertParentStudentLink): Promise<ParentStudentLink>;
-  deleteParentStudentLink(id: string): Promise<void>;
+  deleteParentStudentLink(parentId: string, studentId: string): Promise<void>;
   
   // ============================================
   // ACADEMIC STRUCTURE OPERATIONS
@@ -1793,8 +1793,13 @@ export class DatabaseStorage implements IStorage {
     return link;
   }
 
-  async deleteParentStudentLink(id: string): Promise<void> {
-    await db.delete(parentStudentLinks).where(eq(parentStudentLinks.id, id));
+  async deleteParentStudentLink(parentId: string, studentId: string): Promise<void> {
+    await db.delete(parentStudentLinks).where(
+      and(
+        eq(parentStudentLinks.parentId, parentId),
+        eq(parentStudentLinks.studentId, studentId)
+      )
+    );
   }
 
   // ============================================

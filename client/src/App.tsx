@@ -42,6 +42,7 @@ import SchoolAnnouncements from "@/pages/school/announcements";
 import SchoolResources from "@/pages/school/resources";
 import SchoolStudents from "@/pages/school/students";
 import SchoolTeachers from "@/pages/school/teachers";
+import SchoolParents from "@/pages/school/parents";
 import ParentDashboard from "@/pages/school/parent-dashboard";
 import MyLibrary from "@/pages/my-library";
 import Bookmarks from "@/pages/bookmarks";
@@ -51,6 +52,7 @@ import Performance from "@/pages/performance";
 import Settings from "@/pages/settings";
 import InstitutionsDirectory from "@/pages/institutions-directory";
 import InstitutionDetail from "@/pages/institution-detail";
+import SchoolLogin from "@/pages/school/login";
 
 function Router({
   showLanding,
@@ -82,6 +84,7 @@ function Router({
         <Route path="/verify-email" component={VerifyEmail} />
         <Route path="/blog" component={Blog} />
         <Route path="/blog/:slug" component={BlogDetail} />
+        <Route path="/school/login" component={SchoolLogin} />
         <Route component={Login} />
       </Switch>
     );
@@ -166,6 +169,7 @@ function Router({
           <Route path="/school/resources" component={SchoolResources} />
           <Route path="/school/students" component={SchoolStudents} />
           <Route path="/school/teachers" component={SchoolTeachers} />
+          <Route path="/school/parents" component={SchoolParents} />
           <Route path="/school/parent-dashboard" component={ParentDashboard} />
         </>
       )}
