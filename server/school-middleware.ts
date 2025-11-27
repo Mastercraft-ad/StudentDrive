@@ -18,8 +18,24 @@ declare global {
         primaryColor: string | null;
         secondaryColor: string | null;
       };
+      schoolUser?: {
+        id: string;
+        schoolId: string;
+        email: string;
+        firstName: string;
+        lastName: string;
+        role: string;
+        isActive: boolean;
+      };
       isSchoolContext?: boolean;
     }
+  }
+}
+
+declare module 'express-session' {
+  interface SessionData {
+    schoolUserId?: string;
+    schoolId?: string;
   }
 }
 
@@ -168,4 +184,90 @@ export function checkTrialStatus(
 
 export function getSchoolFromRequest(req: Request) {
   return req.school || null;
+}
+
+import { storage } from "./storage";
+
+/**
+ * Authentication middleware for school users.
+ * Checks if the user has a valid school session and loads the user info.
+ */
+export async function requireSchoolAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    if (!req.session?.schoolUserId || !req.session?.schoolId) {
+      res.status(401).json({ 
+        message: "Authentication required. Please log in to access this resource." 
+      });
+      return;
+    }
+
+    if (req.school && req.session.schoolId !== req.school.id) {
+      res.status(403).json({ 
+        message: "You are not authorized to access this school's resources." 
+      });
+      return;
+    }
+
+    const user = await storage.getSchoolUser(req.session.schoolUserId);
+    
+    if (!user || !user.isActive) {
+      req.session.destroy(() => {});
+      res.status(401).json({ 
+        message: "Your account is inactive or no longer exists. Please contact your school administrator." 
+      });
+      return;
+    }
+
+    if (user.schoolId !== req.session.schoolId) {
+      req.session.destroy(() => {});
+      res.status(403).json({ 
+        message: "Session mismatch. Please log in again." 
+      });
+      return;
+    }
+
+    req.schoolUser = {
+      id: user.id,
+      schoolId: user.schoolId,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      isActive: user.isActive,
+    };
+
+    next();
+  } catch (error) {
+    console.error('Error in school auth middleware:', error);
+    res.status(500).json({ message: "Authentication error occurred." });
+  }
+}
+
+/**
+ * Role-based authorization middleware for school users.
+ * Checks if the authenticated user has one of the required roles.
+ * Must be used AFTER requireSchoolAuth middleware.
+ */
+export function requireSchoolRole(...allowedRoles: string[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.schoolUser) {
+      res.status(401).json({ 
+        message: "Authentication required." 
+      });
+      return;
+    }
+
+    if (!allowedRoles.includes(req.schoolUser.role)) {
+      res.status(403).json({ 
+        message: `Access denied. This action requires one of the following roles: ${allowedRoles.join(', ')}.` 
+      });
+      return;
+    }
+
+    next();
+  };
 }

@@ -1070,3 +1070,772 @@ export const schoolSessions = pgTable("school_sessions", {
   index("IDX_school_session_expire").on(table.expire),
   index("IDX_school_session_school").on(table.schoolId),
 ]);
+
+// ============================================
+// ACADEMIC STRUCTURE TABLES
+// ============================================
+
+// Academic Terms table - Define academic terms and dates
+export const academicTerms = pgTable("academic_terms", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name", { length: 100 }).notNull(), // First Term, Second Term, Third Term
+  sessionYear: varchar("session_year", { length: 20 }).notNull(), // 2024/2025
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  isCurrent: boolean("is_current").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueSchoolTerm: index("unique_school_term").on(table.schoolId, table.name, table.sessionYear),
+}));
+
+export const academicTermsRelations = relations(academicTerms, ({ one }) => ({
+  school: one(schools, {
+    fields: [academicTerms.schoolId],
+    references: [schools.id],
+  }),
+}));
+
+export const insertAcademicTermSchema = createInsertSchema(academicTerms).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAcademicTerm = z.infer<typeof insertAcademicTermSchema>;
+export type AcademicTerm = typeof academicTerms.$inferSelect;
+
+// School Classes table - Create school class lists
+export const schoolClasses = pgTable("school_classes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name", { length: 100 }).notNull(), // JSS 1, SS 2, Grade 5
+  level: integer("level"), // Numeric level for ordering (1, 2, 3, etc.)
+  section: varchar("section", { length: 20 }), // A, B, C or Science, Arts
+  capacity: integer("capacity"), // Maximum students
+  classTeacherId: varchar("class_teacher_id").references(() => schoolUsers.id),
+  description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueClassName: index("unique_class_name").on(table.schoolId, table.name, table.section),
+}));
+
+export const schoolClassesRelations = relations(schoolClasses, ({ one, many }) => ({
+  school: one(schools, {
+    fields: [schoolClasses.schoolId],
+    references: [schools.id],
+  }),
+  classTeacher: one(schoolUsers, {
+    fields: [schoolClasses.classTeacherId],
+    references: [schoolUsers.id],
+  }),
+  subjects: many(schoolSubjects),
+  students: many(classEnrollments),
+}));
+
+export const insertSchoolClassSchema = createInsertSchema(schoolClasses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSchoolClass = z.infer<typeof insertSchoolClassSchema>;
+export type SchoolClass = typeof schoolClasses.$inferSelect;
+
+// School Subjects table - Set up subjects for classes
+export const schoolSubjects = pgTable("school_subjects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name", { length: 100 }).notNull(), // Mathematics, English, Physics
+  code: varchar("code", { length: 20 }), // MTH, ENG, PHY
+  description: text("description"),
+  creditUnits: integer("credit_units").default(1),
+  isCompulsory: boolean("is_compulsory").default(true).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueSubjectCode: index("unique_subject_code").on(table.schoolId, table.code),
+}));
+
+export const schoolSubjectsRelations = relations(schoolSubjects, ({ one }) => ({
+  school: one(schools, {
+    fields: [schoolSubjects.schoolId],
+    references: [schools.id],
+  }),
+}));
+
+export const insertSchoolSubjectSchema = createInsertSchema(schoolSubjects).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSchoolSubject = z.infer<typeof insertSchoolSubjectSchema>;
+export type SchoolSubject = typeof schoolSubjects.$inferSelect;
+
+// Class Subjects table - Link subjects to specific classes
+export const classSubjects = pgTable("class_subjects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  classId: varchar("class_id").references(() => schoolClasses.id, { onDelete: 'cascade' }).notNull(),
+  subjectId: varchar("subject_id").references(() => schoolSubjects.id, { onDelete: 'cascade' }).notNull(),
+  isCompulsory: boolean("is_compulsory").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueClassSubject: index("unique_class_subject").on(table.classId, table.subjectId),
+}));
+
+export const classSubjectsRelations = relations(classSubjects, ({ one }) => ({
+  class: one(schoolClasses, {
+    fields: [classSubjects.classId],
+    references: [schoolClasses.id],
+  }),
+  subject: one(schoolSubjects, {
+    fields: [classSubjects.subjectId],
+    references: [schoolSubjects.id],
+  }),
+}));
+
+export const insertClassSubjectSchema = createInsertSchema(classSubjects).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertClassSubject = z.infer<typeof insertClassSubjectSchema>;
+export type ClassSubject = typeof classSubjects.$inferSelect;
+
+// Teacher Assignments table - Assign teachers to subjects/classes
+export const teacherAssignments = pgTable("teacher_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  teacherId: varchar("teacher_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  classId: varchar("class_id").references(() => schoolClasses.id, { onDelete: 'cascade' }).notNull(),
+  subjectId: varchar("subject_id").references(() => schoolSubjects.id, { onDelete: 'cascade' }).notNull(),
+  termId: varchar("term_id").references(() => academicTerms.id),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueAssignment: index("unique_teacher_assignment").on(table.teacherId, table.classId, table.subjectId, table.termId),
+}));
+
+export const teacherAssignmentsRelations = relations(teacherAssignments, ({ one }) => ({
+  school: one(schools, {
+    fields: [teacherAssignments.schoolId],
+    references: [schools.id],
+  }),
+  teacher: one(schoolUsers, {
+    fields: [teacherAssignments.teacherId],
+    references: [schoolUsers.id],
+  }),
+  class: one(schoolClasses, {
+    fields: [teacherAssignments.classId],
+    references: [schoolClasses.id],
+  }),
+  subject: one(schoolSubjects, {
+    fields: [teacherAssignments.subjectId],
+    references: [schoolSubjects.id],
+  }),
+  term: one(academicTerms, {
+    fields: [teacherAssignments.termId],
+    references: [academicTerms.id],
+  }),
+}));
+
+export const insertTeacherAssignmentSchema = createInsertSchema(teacherAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTeacherAssignment = z.infer<typeof insertTeacherAssignmentSchema>;
+export type TeacherAssignment = typeof teacherAssignments.$inferSelect;
+
+// Class Enrollments table - Link students to classes
+export const classEnrollments = pgTable("class_enrollments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  classId: varchar("class_id").references(() => schoolClasses.id, { onDelete: 'cascade' }).notNull(),
+  termId: varchar("term_id").references(() => academicTerms.id),
+  enrollmentDate: timestamp("enrollment_date").defaultNow(),
+  status: varchar("status", { length: 20 }).default("active").notNull(), // active, transferred, graduated, withdrawn
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueEnrollment: index("unique_student_class_term").on(table.studentId, table.classId, table.termId),
+}));
+
+export const classEnrollmentsRelations = relations(classEnrollments, ({ one }) => ({
+  student: one(schoolUsers, {
+    fields: [classEnrollments.studentId],
+    references: [schoolUsers.id],
+  }),
+  class: one(schoolClasses, {
+    fields: [classEnrollments.classId],
+    references: [schoolClasses.id],
+  }),
+  term: one(academicTerms, {
+    fields: [classEnrollments.termId],
+    references: [academicTerms.id],
+  }),
+}));
+
+export const insertClassEnrollmentSchema = createInsertSchema(classEnrollments).omit({
+  id: true,
+  createdAt: true,
+  enrollmentDate: true,
+});
+
+export type InsertClassEnrollment = z.infer<typeof insertClassEnrollmentSchema>;
+export type ClassEnrollment = typeof classEnrollments.$inferSelect;
+
+// ============================================
+// ATTENDANCE SYSTEM TABLES
+// ============================================
+
+// Attendance Records table - Create school attendance records
+export const attendanceRecords = pgTable("attendance_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  classId: varchar("class_id").references(() => schoolClasses.id, { onDelete: 'cascade' }).notNull(),
+  studentId: varchar("student_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  termId: varchar("term_id").references(() => academicTerms.id).notNull(),
+  date: timestamp("date").notNull(),
+  status: varchar("status", { length: 20 }).notNull(), // present, absent, late, excused
+  markedById: varchar("marked_by_id").references(() => schoolUsers.id),
+  remarks: text("remarks"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueAttendance: index("unique_student_attendance").on(table.studentId, table.classId, table.date),
+}));
+
+export const attendanceRecordsRelations = relations(attendanceRecords, ({ one }) => ({
+  school: one(schools, {
+    fields: [attendanceRecords.schoolId],
+    references: [schools.id],
+  }),
+  class: one(schoolClasses, {
+    fields: [attendanceRecords.classId],
+    references: [schoolClasses.id],
+  }),
+  student: one(schoolUsers, {
+    fields: [attendanceRecords.studentId],
+    references: [schoolUsers.id],
+    relationName: "studentAttendance",
+  }),
+  term: one(academicTerms, {
+    fields: [attendanceRecords.termId],
+    references: [academicTerms.id],
+  }),
+  markedBy: one(schoolUsers, {
+    fields: [attendanceRecords.markedById],
+    references: [schoolUsers.id],
+    relationName: "markedAttendance",
+  }),
+}));
+
+export const insertAttendanceRecordSchema = createInsertSchema(attendanceRecords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAttendanceRecord = z.infer<typeof insertAttendanceRecordSchema>;
+export type AttendanceRecord = typeof attendanceRecords.$inferSelect;
+
+// ============================================
+// GRADES & ASSESSMENTS TABLES
+// ============================================
+
+// Assessment Types table - Define assessment categories
+export const assessmentTypes = pgTable("assessment_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name", { length: 100 }).notNull(), // First CA, Second CA, Exam, Assignment
+  code: varchar("code", { length: 20 }),
+  weight: integer("weight").notNull(), // Percentage weight (e.g., 30 for 30%)
+  maxScore: integer("max_score").default(100).notNull(),
+  description: text("description"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const assessmentTypesRelations = relations(assessmentTypes, ({ one }) => ({
+  school: one(schools, {
+    fields: [assessmentTypes.schoolId],
+    references: [schools.id],
+  }),
+}));
+
+export const insertAssessmentTypeSchema = createInsertSchema(assessmentTypes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAssessmentType = z.infer<typeof insertAssessmentTypeSchema>;
+export type AssessmentType = typeof assessmentTypes.$inferSelect;
+
+// Student Grades table - Enter and manage student grades
+export const studentGrades = pgTable("student_grades", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  studentId: varchar("student_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  classId: varchar("class_id").references(() => schoolClasses.id, { onDelete: 'cascade' }).notNull(),
+  subjectId: varchar("subject_id").references(() => schoolSubjects.id, { onDelete: 'cascade' }).notNull(),
+  termId: varchar("term_id").references(() => academicTerms.id, { onDelete: 'cascade' }).notNull(),
+  assessmentTypeId: varchar("assessment_type_id").references(() => assessmentTypes.id, { onDelete: 'cascade' }).notNull(),
+  score: integer("score").notNull(),
+  maxScore: integer("max_score").notNull(),
+  remarks: text("remarks"),
+  gradedById: varchar("graded_by_id").references(() => schoolUsers.id),
+  gradedAt: timestamp("graded_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueGrade: index("unique_student_grade").on(table.studentId, table.subjectId, table.termId, table.assessmentTypeId),
+}));
+
+export const studentGradesRelations = relations(studentGrades, ({ one }) => ({
+  school: one(schools, {
+    fields: [studentGrades.schoolId],
+    references: [schools.id],
+  }),
+  student: one(schoolUsers, {
+    fields: [studentGrades.studentId],
+    references: [schoolUsers.id],
+  }),
+  class: one(schoolClasses, {
+    fields: [studentGrades.classId],
+    references: [schoolClasses.id],
+  }),
+  subject: one(schoolSubjects, {
+    fields: [studentGrades.subjectId],
+    references: [schoolSubjects.id],
+  }),
+  term: one(academicTerms, {
+    fields: [studentGrades.termId],
+    references: [academicTerms.id],
+  }),
+  assessmentType: one(assessmentTypes, {
+    fields: [studentGrades.assessmentTypeId],
+    references: [assessmentTypes.id],
+  }),
+  gradedBy: one(schoolUsers, {
+    fields: [studentGrades.gradedById],
+    references: [schoolUsers.id],
+  }),
+}));
+
+export const insertStudentGradeSchema = createInsertSchema(studentGrades).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  gradedAt: true,
+});
+
+export type InsertStudentGrade = z.infer<typeof insertStudentGradeSchema>;
+export type StudentGrade = typeof studentGrades.$inferSelect;
+
+// Term Results table - Calculate student term and final scores
+export const termResults = pgTable("term_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  studentId: varchar("student_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  classId: varchar("class_id").references(() => schoolClasses.id, { onDelete: 'cascade' }).notNull(),
+  subjectId: varchar("subject_id").references(() => schoolSubjects.id, { onDelete: 'cascade' }).notNull(),
+  termId: varchar("term_id").references(() => academicTerms.id, { onDelete: 'cascade' }).notNull(),
+  totalScore: integer("total_score").notNull(),
+  grade: varchar("grade", { length: 5 }), // A, B, C, D, E, F
+  gradePoint: real("grade_point"), // 4.0, 3.5, etc.
+  remarks: text("remarks"),
+  position: integer("position"), // Class position for subject
+  classAverage: real("class_average"),
+  highestScore: integer("highest_score"),
+  lowestScore: integer("lowest_score"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueTermResult: index("unique_term_result").on(table.studentId, table.subjectId, table.termId),
+}));
+
+export const termResultsRelations = relations(termResults, ({ one }) => ({
+  school: one(schools, {
+    fields: [termResults.schoolId],
+    references: [schools.id],
+  }),
+  student: one(schoolUsers, {
+    fields: [termResults.studentId],
+    references: [schoolUsers.id],
+  }),
+  class: one(schoolClasses, {
+    fields: [termResults.classId],
+    references: [schoolClasses.id],
+  }),
+  subject: one(schoolSubjects, {
+    fields: [termResults.subjectId],
+    references: [schoolSubjects.id],
+  }),
+  term: one(academicTerms, {
+    fields: [termResults.termId],
+    references: [academicTerms.id],
+  }),
+}));
+
+export const insertTermResultSchema = createInsertSchema(termResults).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTermResult = z.infer<typeof insertTermResultSchema>;
+export type TermResult = typeof termResults.$inferSelect;
+
+// ============================================
+// FEES & PAYMENTS TABLES
+// ============================================
+
+// Fee Types table - Define school fee types
+export const feeTypes = pgTable("fee_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name", { length: 100 }).notNull(), // Tuition Fee, Exam Fee, Lab Fee
+  code: varchar("code", { length: 20 }),
+  amount: integer("amount").notNull(), // Amount in kobo/cents
+  description: text("description"),
+  isRecurring: boolean("is_recurring").default(true).notNull(),
+  frequency: varchar("frequency", { length: 20 }), // termly, yearly, one-time
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const feeTypesRelations = relations(feeTypes, ({ one }) => ({
+  school: one(schools, {
+    fields: [feeTypes.schoolId],
+    references: [schools.id],
+  }),
+}));
+
+export const insertFeeTypeSchema = createInsertSchema(feeTypes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertFeeType = z.infer<typeof insertFeeTypeSchema>;
+export type FeeType = typeof feeTypes.$inferSelect;
+
+// Class Fees table - Assign fees to specific classes
+export const classFees = pgTable("class_fees", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  classId: varchar("class_id").references(() => schoolClasses.id, { onDelete: 'cascade' }).notNull(),
+  feeTypeId: varchar("fee_type_id").references(() => feeTypes.id, { onDelete: 'cascade' }).notNull(),
+  termId: varchar("term_id").references(() => academicTerms.id),
+  amount: integer("amount").notNull(), // Can override default fee amount
+  dueDate: timestamp("due_date"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueClassFee: index("unique_class_fee").on(table.classId, table.feeTypeId, table.termId),
+}));
+
+export const classFeesRelations = relations(classFees, ({ one }) => ({
+  class: one(schoolClasses, {
+    fields: [classFees.classId],
+    references: [schoolClasses.id],
+  }),
+  feeType: one(feeTypes, {
+    fields: [classFees.feeTypeId],
+    references: [feeTypes.id],
+  }),
+  term: one(academicTerms, {
+    fields: [classFees.termId],
+    references: [academicTerms.id],
+  }),
+}));
+
+export const insertClassFeeSchema = createInsertSchema(classFees).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertClassFee = z.infer<typeof insertClassFeeSchema>;
+export type ClassFee = typeof classFees.$inferSelect;
+
+// Fee Payments table - Record school fee payments
+export const feePayments = pgTable("fee_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  studentId: varchar("student_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  feeTypeId: varchar("fee_type_id").references(() => feeTypes.id).notNull(),
+  termId: varchar("term_id").references(() => academicTerms.id),
+  amount: integer("amount").notNull(), // Amount paid in kobo/cents
+  paymentMethod: varchar("payment_method", { length: 50 }).notNull(), // cash, bank_transfer, card, online
+  paymentReference: varchar("payment_reference", { length: 100 }),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
+  stripeSessionId: varchar("stripe_session_id"),
+  status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, completed, failed, refunded
+  paidById: varchar("paid_by_id").references(() => schoolUsers.id), // Parent or student who paid
+  receiptNumber: varchar("receipt_number", { length: 50 }),
+  notes: text("notes"),
+  paidAt: timestamp("paid_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const feePaymentsRelations = relations(feePayments, ({ one }) => ({
+  school: one(schools, {
+    fields: [feePayments.schoolId],
+    references: [schools.id],
+  }),
+  student: one(schoolUsers, {
+    fields: [feePayments.studentId],
+    references: [schoolUsers.id],
+    relationName: "studentPayments",
+  }),
+  feeType: one(feeTypes, {
+    fields: [feePayments.feeTypeId],
+    references: [feeTypes.id],
+  }),
+  term: one(academicTerms, {
+    fields: [feePayments.termId],
+    references: [academicTerms.id],
+  }),
+  paidBy: one(schoolUsers, {
+    fields: [feePayments.paidById],
+    references: [schoolUsers.id],
+    relationName: "madePayments",
+  }),
+}));
+
+export const insertFeePaymentSchema = createInsertSchema(feePayments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  paidAt: true,
+});
+
+export type InsertFeePayment = z.infer<typeof insertFeePaymentSchema>;
+export type FeePayment = typeof feePayments.$inferSelect;
+
+// ============================================
+// TIMETABLE TABLES
+// ============================================
+
+// Timetable Periods table - Define time slots
+export const timetablePeriods = pgTable("timetable_periods", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar("name", { length: 50 }).notNull(), // Period 1, Break, Lunch
+  startTime: varchar("start_time", { length: 10 }).notNull(), // HH:MM format
+  endTime: varchar("end_time", { length: 10 }).notNull(),
+  orderIndex: integer("order_index").notNull(),
+  isBreak: boolean("is_break").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const timetablePeriodsRelations = relations(timetablePeriods, ({ one }) => ({
+  school: one(schools, {
+    fields: [timetablePeriods.schoolId],
+    references: [schools.id],
+  }),
+}));
+
+export const insertTimetablePeriodSchema = createInsertSchema(timetablePeriods).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTimetablePeriod = z.infer<typeof insertTimetablePeriodSchema>;
+export type TimetablePeriod = typeof timetablePeriods.$inferSelect;
+
+// Timetable Entries table - Weekly schedule
+export const timetableEntries = pgTable("timetable_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  classId: varchar("class_id").references(() => schoolClasses.id, { onDelete: 'cascade' }).notNull(),
+  subjectId: varchar("subject_id").references(() => schoolSubjects.id, { onDelete: 'cascade' }),
+  teacherId: varchar("teacher_id").references(() => schoolUsers.id),
+  periodId: varchar("period_id").references(() => timetablePeriods.id, { onDelete: 'cascade' }).notNull(),
+  dayOfWeek: integer("day_of_week").notNull(), // 0-6 (Sunday-Saturday)
+  termId: varchar("term_id").references(() => academicTerms.id),
+  room: varchar("room", { length: 50 }), // Room/Lab name
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueTimetableEntry: index("unique_timetable_entry").on(table.classId, table.periodId, table.dayOfWeek, table.termId),
+}));
+
+export const timetableEntriesRelations = relations(timetableEntries, ({ one }) => ({
+  school: one(schools, {
+    fields: [timetableEntries.schoolId],
+    references: [schools.id],
+  }),
+  class: one(schoolClasses, {
+    fields: [timetableEntries.classId],
+    references: [schoolClasses.id],
+  }),
+  subject: one(schoolSubjects, {
+    fields: [timetableEntries.subjectId],
+    references: [schoolSubjects.id],
+  }),
+  teacher: one(schoolUsers, {
+    fields: [timetableEntries.teacherId],
+    references: [schoolUsers.id],
+  }),
+  period: one(timetablePeriods, {
+    fields: [timetableEntries.periodId],
+    references: [timetablePeriods.id],
+  }),
+  term: one(academicTerms, {
+    fields: [timetableEntries.termId],
+    references: [academicTerms.id],
+  }),
+}));
+
+export const insertTimetableEntrySchema = createInsertSchema(timetableEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTimetableEntry = z.infer<typeof insertTimetableEntrySchema>;
+export type TimetableEntry = typeof timetableEntries.$inferSelect;
+
+// ============================================
+// COMMUNICATION TABLES
+// ============================================
+
+// School Announcements table
+export const schoolAnnouncements = pgTable("school_announcements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  type: varchar("type", { length: 50 }).default("general").notNull(), // general, urgent, event, holiday
+  targetAudience: varchar("target_audience", { length: 50 }).default("all").notNull(), // all, students, teachers, parents
+  targetClassIds: text("target_class_ids").array(), // Specific classes
+  authorId: varchar("author_id").references(() => schoolUsers.id).notNull(),
+  attachmentUrl: varchar("attachment_url"),
+  isPublished: boolean("is_published").default(false).notNull(),
+  publishedAt: timestamp("published_at"),
+  expiresAt: timestamp("expires_at"),
+  isPinned: boolean("is_pinned").default(false).notNull(),
+  viewCount: integer("view_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const schoolAnnouncementsRelations = relations(schoolAnnouncements, ({ one }) => ({
+  school: one(schools, {
+    fields: [schoolAnnouncements.schoolId],
+    references: [schools.id],
+  }),
+  author: one(schoolUsers, {
+    fields: [schoolAnnouncements.authorId],
+    references: [schoolUsers.id],
+  }),
+}));
+
+export const insertSchoolAnnouncementSchema = createInsertSchema(schoolAnnouncements).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  viewCount: true,
+  publishedAt: true,
+});
+
+export type InsertSchoolAnnouncement = z.infer<typeof insertSchoolAnnouncementSchema>;
+export type SchoolAnnouncement = typeof schoolAnnouncements.$inferSelect;
+
+// School Notifications table - User-specific notifications within school
+export const schoolNotifications = pgTable("school_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // fee_reminder, attendance, grade_update, announcement, etc.
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  link: varchar("link"),
+  isRead: boolean("is_read").default(false).notNull(),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const schoolNotificationsRelations = relations(schoolNotifications, ({ one }) => ({
+  school: one(schools, {
+    fields: [schoolNotifications.schoolId],
+    references: [schools.id],
+  }),
+  user: one(schoolUsers, {
+    fields: [schoolNotifications.userId],
+    references: [schoolUsers.id],
+  }),
+}));
+
+export const insertSchoolNotificationSchema = createInsertSchema(schoolNotifications).omit({
+  id: true,
+  createdAt: true,
+  isRead: true,
+});
+
+export type InsertSchoolNotification = z.infer<typeof insertSchoolNotificationSchema>;
+export type SchoolNotification = typeof schoolNotifications.$inferSelect;
+
+// ============================================
+// SCHOOL RESOURCES TABLES
+// ============================================
+
+// School Materials table - Private school resource library
+export const schoolMaterials = pgTable("school_materials", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  fileUrl: varchar("file_url").notNull(),
+  fileType: varchar("file_type", { length: 50 }), // pdf, doc, video, etc.
+  fileSize: integer("file_size"), // Size in bytes
+  originalFilename: varchar("original_filename", { length: 255 }),
+  subjectId: varchar("subject_id").references(() => schoolSubjects.id),
+  classId: varchar("class_id").references(() => schoolClasses.id),
+  uploadedById: varchar("uploaded_by_id").references(() => schoolUsers.id).notNull(),
+  isPublic: boolean("is_public").default(false).notNull(), // Visible to all in school
+  viewCount: integer("view_count").default(0).notNull(),
+  downloadCount: integer("download_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const schoolMaterialsRelations = relations(schoolMaterials, ({ one }) => ({
+  school: one(schools, {
+    fields: [schoolMaterials.schoolId],
+    references: [schools.id],
+  }),
+  subject: one(schoolSubjects, {
+    fields: [schoolMaterials.subjectId],
+    references: [schoolSubjects.id],
+  }),
+  class: one(schoolClasses, {
+    fields: [schoolMaterials.classId],
+    references: [schoolClasses.id],
+  }),
+  uploadedBy: one(schoolUsers, {
+    fields: [schoolMaterials.uploadedById],
+    references: [schoolUsers.id],
+  }),
+}));
+
+export const insertSchoolMaterialSchema = createInsertSchema(schoolMaterials).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  viewCount: true,
+  downloadCount: true,
+});
+
+export type InsertSchoolMaterial = z.infer<typeof insertSchoolMaterialSchema>;
+export type SchoolMaterial = typeof schoolMaterials.$inferSelect;

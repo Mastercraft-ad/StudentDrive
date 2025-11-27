@@ -492,11 +492,13 @@ router.get("/api/school/dashboard/stats", requireSchoolContext, checkTrialStatus
   try {
     const schoolId = req.school!.id;
     
-    const [students, teachers, parents, admins] = await Promise.all([
+    const [students, teachers, parents, admins, classes, subjects] = await Promise.all([
       storage.getSchoolUsersByRole(schoolId, 'student'),
       storage.getSchoolUsersByRole(schoolId, 'teacher'),
       storage.getSchoolUsersByRole(schoolId, 'parent'),
       storage.getSchoolUsersByRole(schoolId, 'school_admin'),
+      storage.getSchoolClasses(schoolId),
+      storage.getSchoolSubjects(schoolId),
     ]);
     
     res.json({
@@ -505,10 +507,1193 @@ router.get("/api/school/dashboard/stats", requireSchoolContext, checkTrialStatus
       totalParents: parents.length,
       totalAdmins: admins.length,
       totalUsers: students.length + teachers.length + parents.length + admins.length,
+      totalClasses: classes.length,
+      totalSubjects: subjects.length,
     });
   } catch (error: any) {
     console.error("Error fetching dashboard stats:", error);
     res.status(500).json({ message: "Failed to fetch dashboard stats" });
+  }
+});
+
+// ============================================
+// ACADEMIC TERM ROUTES
+// ============================================
+
+const academicTermSchema = z.object({
+  name: z.string().min(1, "Term name is required"),
+  sessionYear: z.string().min(1, "Session year is required"),
+  startDate: z.string().transform(s => new Date(s)),
+  endDate: z.string().transform(s => new Date(s)),
+  isCurrent: z.boolean().optional(),
+});
+
+router.get("/api/school/terms", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const terms = await storage.getAcademicTerms(req.school!.id);
+    res.json(terms);
+  } catch (error: any) {
+    console.error("Error fetching terms:", error);
+    res.status(500).json({ message: "Failed to fetch academic terms" });
+  }
+});
+
+router.get("/api/school/terms/current", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const term = await storage.getCurrentAcademicTerm(req.school!.id);
+    res.json(term || null);
+  } catch (error: any) {
+    console.error("Error fetching current term:", error);
+    res.status(500).json({ message: "Failed to fetch current term" });
+  }
+});
+
+router.get("/api/school/terms/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const term = await storage.getAcademicTerm(req.params.id);
+    if (!term || term.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Term not found" });
+      return;
+    }
+    res.json(term);
+  } catch (error: any) {
+    console.error("Error fetching term:", error);
+    res.status(500).json({ message: "Failed to fetch term" });
+  }
+});
+
+router.post("/api/school/terms", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const data = academicTermSchema.parse(req.body);
+    const term = await storage.createAcademicTerm({
+      schoolId: req.school!.id,
+      name: data.name,
+      sessionYear: data.sessionYear,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      isCurrent: data.isCurrent || false,
+    });
+    
+    if (data.isCurrent) {
+      await storage.setCurrentAcademicTerm(req.school!.id, term.id);
+    }
+    
+    res.status(201).json(term);
+  } catch (error: any) {
+    console.error("Error creating term:", error);
+    if (error.name === "ZodError") {
+      res.status(400).json({ message: "Validation error", errors: error.errors });
+      return;
+    }
+    res.status(500).json({ message: "Failed to create term" });
+  }
+});
+
+router.patch("/api/school/terms/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getAcademicTerm(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Term not found" });
+      return;
+    }
+    
+    const updateData: any = {};
+    if (req.body.name) updateData.name = req.body.name;
+    if (req.body.sessionYear) updateData.sessionYear = req.body.sessionYear;
+    if (req.body.startDate) updateData.startDate = new Date(req.body.startDate);
+    if (req.body.endDate) updateData.endDate = new Date(req.body.endDate);
+    
+    const term = await storage.updateAcademicTerm(req.params.id, updateData);
+    
+    if (req.body.isCurrent === true) {
+      await storage.setCurrentAcademicTerm(req.school!.id, term.id);
+    }
+    
+    res.json(term);
+  } catch (error: any) {
+    console.error("Error updating term:", error);
+    res.status(500).json({ message: "Failed to update term" });
+  }
+});
+
+router.delete("/api/school/terms/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getAcademicTerm(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Term not found" });
+      return;
+    }
+    await storage.deleteAcademicTerm(req.params.id);
+    res.json({ message: "Term deleted successfully" });
+  } catch (error: any) {
+    console.error("Error deleting term:", error);
+    res.status(500).json({ message: "Failed to delete term" });
+  }
+});
+
+// ============================================
+// SCHOOL CLASS ROUTES
+// ============================================
+
+const schoolClassSchema = z.object({
+  name: z.string().min(1, "Class name is required"),
+  level: z.number().optional(),
+  section: z.string().optional(),
+  capacity: z.number().optional(),
+  classTeacherId: z.string().optional(),
+  description: z.string().optional(),
+});
+
+router.get("/api/school/classes", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const classes = await storage.getSchoolClasses(req.school!.id);
+    res.json(classes);
+  } catch (error: any) {
+    console.error("Error fetching classes:", error);
+    res.status(500).json({ message: "Failed to fetch classes" });
+  }
+});
+
+router.get("/api/school/classes/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const cls = await storage.getSchoolClass(req.params.id);
+    if (!cls || cls.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Class not found" });
+      return;
+    }
+    res.json(cls);
+  } catch (error: any) {
+    console.error("Error fetching class:", error);
+    res.status(500).json({ message: "Failed to fetch class" });
+  }
+});
+
+router.post("/api/school/classes", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const data = schoolClassSchema.parse(req.body);
+    const cls = await storage.createSchoolClass({
+      schoolId: req.school!.id,
+      name: data.name,
+      level: data.level || null,
+      section: data.section || null,
+      capacity: data.capacity || null,
+      classTeacherId: data.classTeacherId || null,
+      description: data.description || null,
+    });
+    res.status(201).json(cls);
+  } catch (error: any) {
+    console.error("Error creating class:", error);
+    if (error.name === "ZodError") {
+      res.status(400).json({ message: "Validation error", errors: error.errors });
+      return;
+    }
+    res.status(500).json({ message: "Failed to create class" });
+  }
+});
+
+router.patch("/api/school/classes/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getSchoolClass(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Class not found" });
+      return;
+    }
+    
+    const updateData: any = {};
+    if (req.body.name) updateData.name = req.body.name;
+    if (req.body.level !== undefined) updateData.level = req.body.level;
+    if (req.body.section !== undefined) updateData.section = req.body.section;
+    if (req.body.capacity !== undefined) updateData.capacity = req.body.capacity;
+    if (req.body.classTeacherId !== undefined) updateData.classTeacherId = req.body.classTeacherId;
+    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.isActive !== undefined) updateData.isActive = req.body.isActive;
+    
+    const cls = await storage.updateSchoolClass(req.params.id, updateData);
+    res.json(cls);
+  } catch (error: any) {
+    console.error("Error updating class:", error);
+    res.status(500).json({ message: "Failed to update class" });
+  }
+});
+
+router.delete("/api/school/classes/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getSchoolClass(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Class not found" });
+      return;
+    }
+    await storage.deleteSchoolClass(req.params.id);
+    res.json({ message: "Class deleted successfully" });
+  } catch (error: any) {
+    console.error("Error deleting class:", error);
+    res.status(500).json({ message: "Failed to delete class" });
+  }
+});
+
+// ============================================
+// SCHOOL SUBJECT ROUTES
+// ============================================
+
+const schoolSubjectSchema = z.object({
+  name: z.string().min(1, "Subject name is required"),
+  code: z.string().optional(),
+  description: z.string().optional(),
+  creditUnits: z.number().optional(),
+  isCompulsory: z.boolean().optional(),
+});
+
+router.get("/api/school/subjects", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const subjects = await storage.getSchoolSubjects(req.school!.id);
+    res.json(subjects);
+  } catch (error: any) {
+    console.error("Error fetching subjects:", error);
+    res.status(500).json({ message: "Failed to fetch subjects" });
+  }
+});
+
+router.get("/api/school/subjects/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const subject = await storage.getSchoolSubject(req.params.id);
+    if (!subject || subject.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Subject not found" });
+      return;
+    }
+    res.json(subject);
+  } catch (error: any) {
+    console.error("Error fetching subject:", error);
+    res.status(500).json({ message: "Failed to fetch subject" });
+  }
+});
+
+router.post("/api/school/subjects", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const data = schoolSubjectSchema.parse(req.body);
+    const subject = await storage.createSchoolSubject({
+      schoolId: req.school!.id,
+      name: data.name,
+      code: data.code || null,
+      description: data.description || null,
+      creditUnits: data.creditUnits || 1,
+      isCompulsory: data.isCompulsory ?? true,
+    });
+    res.status(201).json(subject);
+  } catch (error: any) {
+    console.error("Error creating subject:", error);
+    if (error.name === "ZodError") {
+      res.status(400).json({ message: "Validation error", errors: error.errors });
+      return;
+    }
+    res.status(500).json({ message: "Failed to create subject" });
+  }
+});
+
+router.patch("/api/school/subjects/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getSchoolSubject(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Subject not found" });
+      return;
+    }
+    
+    const updateData: any = {};
+    if (req.body.name) updateData.name = req.body.name;
+    if (req.body.code !== undefined) updateData.code = req.body.code;
+    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.creditUnits !== undefined) updateData.creditUnits = req.body.creditUnits;
+    if (req.body.isCompulsory !== undefined) updateData.isCompulsory = req.body.isCompulsory;
+    if (req.body.isActive !== undefined) updateData.isActive = req.body.isActive;
+    
+    const subject = await storage.updateSchoolSubject(req.params.id, updateData);
+    res.json(subject);
+  } catch (error: any) {
+    console.error("Error updating subject:", error);
+    res.status(500).json({ message: "Failed to update subject" });
+  }
+});
+
+router.delete("/api/school/subjects/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getSchoolSubject(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Subject not found" });
+      return;
+    }
+    await storage.deleteSchoolSubject(req.params.id);
+    res.json({ message: "Subject deleted successfully" });
+  } catch (error: any) {
+    console.error("Error deleting subject:", error);
+    res.status(500).json({ message: "Failed to delete subject" });
+  }
+});
+
+// Class-Subject associations
+router.get("/api/school/classes/:classId/subjects", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const classSubjectsList = await storage.getClassSubjects(req.params.classId);
+    const subjectsWithDetails = await Promise.all(
+      classSubjectsList.map(async (cs) => {
+        const subject = await storage.getSchoolSubject(cs.subjectId);
+        return { ...cs, subject };
+      })
+    );
+    res.json(subjectsWithDetails);
+  } catch (error: any) {
+    console.error("Error fetching class subjects:", error);
+    res.status(500).json({ message: "Failed to fetch class subjects" });
+  }
+});
+
+router.post("/api/school/classes/:classId/subjects", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { subjectId, isCompulsory } = req.body;
+    const cs = await storage.addSubjectToClass({
+      classId: req.params.classId,
+      subjectId,
+      isCompulsory: isCompulsory ?? true,
+    });
+    res.status(201).json(cs);
+  } catch (error: any) {
+    console.error("Error adding subject to class:", error);
+    res.status(500).json({ message: "Failed to add subject to class" });
+  }
+});
+
+router.delete("/api/school/classes/:classId/subjects/:subjectId", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    await storage.removeSubjectFromClass(req.params.classId, req.params.subjectId);
+    res.json({ message: "Subject removed from class" });
+  } catch (error: any) {
+    console.error("Error removing subject from class:", error);
+    res.status(500).json({ message: "Failed to remove subject from class" });
+  }
+});
+
+// ============================================
+// TEACHER ASSIGNMENT ROUTES
+// ============================================
+
+router.get("/api/school/assignments", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    const assignments = await storage.getTeacherAssignments(req.school!.id, termId as string | undefined);
+    res.json(assignments);
+  } catch (error: any) {
+    console.error("Error fetching assignments:", error);
+    res.status(500).json({ message: "Failed to fetch teacher assignments" });
+  }
+});
+
+router.get("/api/school/teachers/:teacherId/assignments", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const assignments = await storage.getTeacherAssignmentsByTeacher(req.params.teacherId);
+    res.json(assignments);
+  } catch (error: any) {
+    console.error("Error fetching teacher assignments:", error);
+    res.status(500).json({ message: "Failed to fetch teacher assignments" });
+  }
+});
+
+router.post("/api/school/assignments", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { teacherId, classId, subjectId, termId } = req.body;
+    const assignment = await storage.createTeacherAssignment({
+      schoolId: req.school!.id,
+      teacherId,
+      classId,
+      subjectId,
+      termId: termId || null,
+    });
+    res.status(201).json(assignment);
+  } catch (error: any) {
+    console.error("Error creating assignment:", error);
+    res.status(500).json({ message: "Failed to create teacher assignment" });
+  }
+});
+
+router.delete("/api/school/assignments/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    await storage.deleteTeacherAssignment(req.params.id);
+    res.json({ message: "Assignment deleted successfully" });
+  } catch (error: any) {
+    console.error("Error deleting assignment:", error);
+    res.status(500).json({ message: "Failed to delete assignment" });
+  }
+});
+
+// ============================================
+// CLASS ENROLLMENT ROUTES
+// ============================================
+
+router.get("/api/school/classes/:classId/enrollments", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    const enrollments = await storage.getClassEnrollments(req.params.classId, termId as string | undefined);
+    const enrollmentsWithStudents = await Promise.all(
+      enrollments.map(async (e) => {
+        const student = await storage.getSchoolUser(e.studentId);
+        if (student) {
+          const { password, ...safeStudent } = student;
+          return { ...e, student: safeStudent };
+        }
+        return e;
+      })
+    );
+    res.json(enrollmentsWithStudents);
+  } catch (error: any) {
+    console.error("Error fetching enrollments:", error);
+    res.status(500).json({ message: "Failed to fetch enrollments" });
+  }
+});
+
+router.get("/api/school/students/:studentId/enrollments", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const enrollments = await storage.getStudentEnrollments(req.params.studentId);
+    res.json(enrollments);
+  } catch (error: any) {
+    console.error("Error fetching student enrollments:", error);
+    res.status(500).json({ message: "Failed to fetch student enrollments" });
+  }
+});
+
+router.post("/api/school/enrollments", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { studentId, classId, termId } = req.body;
+    const enrollment = await storage.enrollStudent({
+      studentId,
+      classId,
+      termId: termId || null,
+      status: "active",
+    });
+    res.status(201).json(enrollment);
+  } catch (error: any) {
+    console.error("Error creating enrollment:", error);
+    res.status(500).json({ message: "Failed to enroll student" });
+  }
+});
+
+router.patch("/api/school/enrollments/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { status } = req.body;
+    const enrollment = await storage.updateEnrollment(req.params.id, { status });
+    res.json(enrollment);
+  } catch (error: any) {
+    console.error("Error updating enrollment:", error);
+    res.status(500).json({ message: "Failed to update enrollment" });
+  }
+});
+
+router.delete("/api/school/enrollments/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    await storage.deleteEnrollment(req.params.id);
+    res.json({ message: "Enrollment deleted" });
+  } catch (error: any) {
+    console.error("Error deleting enrollment:", error);
+    res.status(500).json({ message: "Failed to delete enrollment" });
+  }
+});
+
+// ============================================
+// ATTENDANCE ROUTES
+// ============================================
+
+router.get("/api/school/attendance", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { classId, date } = req.query;
+    if (!classId || !date) {
+      res.status(400).json({ message: "classId and date are required" });
+      return;
+    }
+    const records = await storage.getAttendanceRecords(classId as string, new Date(date as string));
+    res.json(records);
+  } catch (error: any) {
+    console.error("Error fetching attendance:", error);
+    res.status(500).json({ message: "Failed to fetch attendance records" });
+  }
+});
+
+router.get("/api/school/students/:studentId/attendance", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    if (!termId) {
+      res.status(400).json({ message: "termId is required" });
+      return;
+    }
+    const records = await storage.getStudentAttendance(req.params.studentId, termId as string);
+    res.json(records);
+  } catch (error: any) {
+    console.error("Error fetching student attendance:", error);
+    res.status(500).json({ message: "Failed to fetch student attendance" });
+  }
+});
+
+router.post("/api/school/attendance", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { classId, studentId, termId, date, status, markedById, remarks } = req.body;
+    const record = await storage.markAttendance({
+      schoolId: req.school!.id,
+      classId,
+      studentId,
+      termId,
+      date: new Date(date),
+      status,
+      markedById: markedById || null,
+      remarks: remarks || null,
+    });
+    res.status(201).json(record);
+  } catch (error: any) {
+    console.error("Error marking attendance:", error);
+    res.status(500).json({ message: "Failed to mark attendance" });
+  }
+});
+
+router.post("/api/school/attendance/bulk", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { classId, termId, date, markedById, records } = req.body;
+    const attendanceRecords = records.map((r: any) => ({
+      schoolId: req.school!.id,
+      classId,
+      termId,
+      date: new Date(date),
+      studentId: r.studentId,
+      status: r.status,
+      markedById: markedById || null,
+      remarks: r.remarks || null,
+    }));
+    const result = await storage.bulkMarkAttendance(attendanceRecords);
+    res.status(201).json(result);
+  } catch (error: any) {
+    console.error("Error bulk marking attendance:", error);
+    res.status(500).json({ message: "Failed to mark attendance" });
+  }
+});
+
+router.patch("/api/school/attendance/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { status, remarks } = req.body;
+    const record = await storage.updateAttendance(req.params.id, { status, remarks });
+    res.json(record);
+  } catch (error: any) {
+    console.error("Error updating attendance:", error);
+    res.status(500).json({ message: "Failed to update attendance" });
+  }
+});
+
+router.get("/api/school/classes/:classId/attendance-summary", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    if (!termId) {
+      res.status(400).json({ message: "termId is required" });
+      return;
+    }
+    const summary = await storage.getAttendanceSummary(req.params.classId, termId as string);
+    res.json(summary);
+  } catch (error: any) {
+    console.error("Error fetching attendance summary:", error);
+    res.status(500).json({ message: "Failed to fetch attendance summary" });
+  }
+});
+
+// ============================================
+// ASSESSMENT TYPE ROUTES
+// ============================================
+
+router.get("/api/school/assessment-types", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const types = await storage.getAssessmentTypes(req.school!.id);
+    res.json(types);
+  } catch (error: any) {
+    console.error("Error fetching assessment types:", error);
+    res.status(500).json({ message: "Failed to fetch assessment types" });
+  }
+});
+
+router.post("/api/school/assessment-types", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { name, code, weight, maxScore, description } = req.body;
+    const type = await storage.createAssessmentType({
+      schoolId: req.school!.id,
+      name,
+      code: code || null,
+      weight,
+      maxScore: maxScore || 100,
+      description: description || null,
+    });
+    res.status(201).json(type);
+  } catch (error: any) {
+    console.error("Error creating assessment type:", error);
+    res.status(500).json({ message: "Failed to create assessment type" });
+  }
+});
+
+router.patch("/api/school/assessment-types/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const type = await storage.updateAssessmentType(req.params.id, req.body);
+    res.json(type);
+  } catch (error: any) {
+    console.error("Error updating assessment type:", error);
+    res.status(500).json({ message: "Failed to update assessment type" });
+  }
+});
+
+router.delete("/api/school/assessment-types/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    await storage.deleteAssessmentType(req.params.id);
+    res.json({ message: "Assessment type deleted" });
+  } catch (error: any) {
+    console.error("Error deleting assessment type:", error);
+    res.status(500).json({ message: "Failed to delete assessment type" });
+  }
+});
+
+// ============================================
+// STUDENT GRADES ROUTES
+// ============================================
+
+router.get("/api/school/students/:studentId/grades", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    if (!termId) {
+      res.status(400).json({ message: "termId is required" });
+      return;
+    }
+    const grades = await storage.getStudentGrades(req.params.studentId, termId as string);
+    res.json(grades);
+  } catch (error: any) {
+    console.error("Error fetching student grades:", error);
+    res.status(500).json({ message: "Failed to fetch student grades" });
+  }
+});
+
+router.get("/api/school/classes/:classId/subjects/:subjectId/grades", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    if (!termId) {
+      res.status(400).json({ message: "termId is required" });
+      return;
+    }
+    const grades = await storage.getClassGrades(req.params.classId, req.params.subjectId, termId as string);
+    res.json(grades);
+  } catch (error: any) {
+    console.error("Error fetching class grades:", error);
+    res.status(500).json({ message: "Failed to fetch class grades" });
+  }
+});
+
+router.post("/api/school/grades", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { studentId, classId, subjectId, termId, assessmentTypeId, score, maxScore, remarks, gradedById } = req.body;
+    const grade = await storage.createStudentGrade({
+      schoolId: req.school!.id,
+      studentId,
+      classId,
+      subjectId,
+      termId,
+      assessmentTypeId,
+      score,
+      maxScore,
+      remarks: remarks || null,
+      gradedById: gradedById || null,
+    });
+    res.status(201).json(grade);
+  } catch (error: any) {
+    console.error("Error creating grade:", error);
+    res.status(500).json({ message: "Failed to create grade" });
+  }
+});
+
+router.patch("/api/school/grades/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { score, remarks } = req.body;
+    const grade = await storage.updateStudentGrade(req.params.id, { score, remarks });
+    res.json(grade);
+  } catch (error: any) {
+    console.error("Error updating grade:", error);
+    res.status(500).json({ message: "Failed to update grade" });
+  }
+});
+
+router.delete("/api/school/grades/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    await storage.deleteStudentGrade(req.params.id);
+    res.json({ message: "Grade deleted" });
+  } catch (error: any) {
+    console.error("Error deleting grade:", error);
+    res.status(500).json({ message: "Failed to delete grade" });
+  }
+});
+
+// ============================================
+// TERM RESULTS ROUTES
+// ============================================
+
+router.get("/api/school/students/:studentId/results", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    if (!termId) {
+      res.status(400).json({ message: "termId is required" });
+      return;
+    }
+    const results = await storage.getTermResults(req.params.studentId, termId as string);
+    res.json(results);
+  } catch (error: any) {
+    console.error("Error fetching term results:", error);
+    res.status(500).json({ message: "Failed to fetch term results" });
+  }
+});
+
+router.get("/api/school/classes/:classId/results", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    if (!termId) {
+      res.status(400).json({ message: "termId is required" });
+      return;
+    }
+    const results = await storage.getClassTermResults(req.params.classId, termId as string);
+    res.json(results);
+  } catch (error: any) {
+    console.error("Error fetching class results:", error);
+    res.status(500).json({ message: "Failed to fetch class results" });
+  }
+});
+
+router.post("/api/school/results", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const result = await storage.createTermResult({
+      schoolId: req.school!.id,
+      ...req.body,
+    });
+    res.status(201).json(result);
+  } catch (error: any) {
+    console.error("Error creating result:", error);
+    res.status(500).json({ message: "Failed to create result" });
+  }
+});
+
+// ============================================
+// FEE MANAGEMENT ROUTES
+// ============================================
+
+router.get("/api/school/fee-types", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const feeTypes = await storage.getFeeTypes(req.school!.id);
+    res.json(feeTypes);
+  } catch (error: any) {
+    console.error("Error fetching fee types:", error);
+    res.status(500).json({ message: "Failed to fetch fee types" });
+  }
+});
+
+router.post("/api/school/fee-types", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { name, code, amount, description, isRecurring, frequency } = req.body;
+    const feeType = await storage.createFeeType({
+      schoolId: req.school!.id,
+      name,
+      code: code || null,
+      amount,
+      description: description || null,
+      isRecurring: isRecurring ?? true,
+      frequency: frequency || "termly",
+    });
+    res.status(201).json(feeType);
+  } catch (error: any) {
+    console.error("Error creating fee type:", error);
+    res.status(500).json({ message: "Failed to create fee type" });
+  }
+});
+
+router.patch("/api/school/fee-types/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const feeType = await storage.updateFeeType(req.params.id, req.body);
+    res.json(feeType);
+  } catch (error: any) {
+    console.error("Error updating fee type:", error);
+    res.status(500).json({ message: "Failed to update fee type" });
+  }
+});
+
+router.delete("/api/school/fee-types/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    await storage.deleteFeeType(req.params.id);
+    res.json({ message: "Fee type deleted" });
+  } catch (error: any) {
+    console.error("Error deleting fee type:", error);
+    res.status(500).json({ message: "Failed to delete fee type" });
+  }
+});
+
+// Class fees
+router.get("/api/school/classes/:classId/fees", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    const fees = await storage.getClassFees(req.params.classId, termId as string | undefined);
+    res.json(fees);
+  } catch (error: any) {
+    console.error("Error fetching class fees:", error);
+    res.status(500).json({ message: "Failed to fetch class fees" });
+  }
+});
+
+router.post("/api/school/class-fees", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const fee = await storage.createClassFee(req.body);
+    res.status(201).json(fee);
+  } catch (error: any) {
+    console.error("Error creating class fee:", error);
+    res.status(500).json({ message: "Failed to create class fee" });
+  }
+});
+
+// Fee payments
+router.get("/api/school/students/:studentId/payments", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    const payments = await storage.getFeePayments(req.params.studentId, termId as string | undefined);
+    res.json(payments);
+  } catch (error: any) {
+    console.error("Error fetching payments:", error);
+    res.status(500).json({ message: "Failed to fetch payments" });
+  }
+});
+
+router.get("/api/school/payments", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    const payments = await storage.getSchoolFeePayments(req.school!.id, termId as string | undefined);
+    res.json(payments);
+  } catch (error: any) {
+    console.error("Error fetching school payments:", error);
+    res.status(500).json({ message: "Failed to fetch payments" });
+  }
+});
+
+router.post("/api/school/payments", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const payment = await storage.createFeePayment({
+      schoolId: req.school!.id,
+      ...req.body,
+    });
+    res.status(201).json(payment);
+  } catch (error: any) {
+    console.error("Error creating payment:", error);
+    res.status(500).json({ message: "Failed to create payment" });
+  }
+});
+
+router.get("/api/school/students/:studentId/fee-balance", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    if (!termId) {
+      res.status(400).json({ message: "termId is required" });
+      return;
+    }
+    const balance = await storage.getStudentFeeBalance(req.params.studentId, termId as string);
+    res.json(balance);
+  } catch (error: any) {
+    console.error("Error fetching fee balance:", error);
+    res.status(500).json({ message: "Failed to fetch fee balance" });
+  }
+});
+
+// ============================================
+// TIMETABLE ROUTES
+// ============================================
+
+router.get("/api/school/timetable-periods", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const periods = await storage.getTimetablePeriods(req.school!.id);
+    res.json(periods);
+  } catch (error: any) {
+    console.error("Error fetching timetable periods:", error);
+    res.status(500).json({ message: "Failed to fetch timetable periods" });
+  }
+});
+
+router.post("/api/school/timetable-periods", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const period = await storage.createTimetablePeriod({
+      schoolId: req.school!.id,
+      ...req.body,
+    });
+    res.status(201).json(period);
+  } catch (error: any) {
+    console.error("Error creating timetable period:", error);
+    res.status(500).json({ message: "Failed to create timetable period" });
+  }
+});
+
+router.patch("/api/school/timetable-periods/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const period = await storage.updateTimetablePeriod(req.params.id, req.body);
+    res.json(period);
+  } catch (error: any) {
+    console.error("Error updating timetable period:", error);
+    res.status(500).json({ message: "Failed to update timetable period" });
+  }
+});
+
+router.delete("/api/school/timetable-periods/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    await storage.deleteTimetablePeriod(req.params.id);
+    res.json({ message: "Period deleted" });
+  } catch (error: any) {
+    console.error("Error deleting timetable period:", error);
+    res.status(500).json({ message: "Failed to delete period" });
+  }
+});
+
+// Timetable entries
+router.get("/api/school/classes/:classId/timetable", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    const entries = await storage.getTimetableEntries(req.params.classId, termId as string | undefined);
+    res.json(entries);
+  } catch (error: any) {
+    console.error("Error fetching timetable:", error);
+    res.status(500).json({ message: "Failed to fetch timetable" });
+  }
+});
+
+router.get("/api/school/teachers/:teacherId/timetable", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    const entries = await storage.getTeacherTimetable(req.params.teacherId, termId as string | undefined);
+    res.json(entries);
+  } catch (error: any) {
+    console.error("Error fetching teacher timetable:", error);
+    res.status(500).json({ message: "Failed to fetch teacher timetable" });
+  }
+});
+
+router.post("/api/school/timetable", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const entry = await storage.createTimetableEntry({
+      schoolId: req.school!.id,
+      ...req.body,
+    });
+    res.status(201).json(entry);
+  } catch (error: any) {
+    console.error("Error creating timetable entry:", error);
+    res.status(500).json({ message: "Failed to create timetable entry" });
+  }
+});
+
+router.patch("/api/school/timetable/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const entry = await storage.updateTimetableEntry(req.params.id, req.body);
+    res.json(entry);
+  } catch (error: any) {
+    console.error("Error updating timetable entry:", error);
+    res.status(500).json({ message: "Failed to update timetable entry" });
+  }
+});
+
+router.delete("/api/school/timetable/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    await storage.deleteTimetableEntry(req.params.id);
+    res.json({ message: "Timetable entry deleted" });
+  } catch (error: any) {
+    console.error("Error deleting timetable entry:", error);
+    res.status(500).json({ message: "Failed to delete timetable entry" });
+  }
+});
+
+// ============================================
+// ANNOUNCEMENT ROUTES
+// ============================================
+
+router.get("/api/school/announcements", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { published } = req.query;
+    const isPublished = published === 'true' ? true : published === 'false' ? false : undefined;
+    const announcements = await storage.getSchoolAnnouncements(req.school!.id, isPublished);
+    res.json(announcements);
+  } catch (error: any) {
+    console.error("Error fetching announcements:", error);
+    res.status(500).json({ message: "Failed to fetch announcements" });
+  }
+});
+
+router.get("/api/school/announcements/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const announcement = await storage.getSchoolAnnouncement(req.params.id);
+    if (!announcement || announcement.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Announcement not found" });
+      return;
+    }
+    res.json(announcement);
+  } catch (error: any) {
+    console.error("Error fetching announcement:", error);
+    res.status(500).json({ message: "Failed to fetch announcement" });
+  }
+});
+
+router.post("/api/school/announcements", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const announcement = await storage.createSchoolAnnouncement({
+      schoolId: req.school!.id,
+      ...req.body,
+    });
+    res.status(201).json(announcement);
+  } catch (error: any) {
+    console.error("Error creating announcement:", error);
+    res.status(500).json({ message: "Failed to create announcement" });
+  }
+});
+
+router.patch("/api/school/announcements/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getSchoolAnnouncement(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Announcement not found" });
+      return;
+    }
+    const announcement = await storage.updateSchoolAnnouncement(req.params.id, req.body);
+    res.json(announcement);
+  } catch (error: any) {
+    console.error("Error updating announcement:", error);
+    res.status(500).json({ message: "Failed to update announcement" });
+  }
+});
+
+router.delete("/api/school/announcements/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getSchoolAnnouncement(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Announcement not found" });
+      return;
+    }
+    await storage.deleteSchoolAnnouncement(req.params.id);
+    res.json({ message: "Announcement deleted" });
+  } catch (error: any) {
+    console.error("Error deleting announcement:", error);
+    res.status(500).json({ message: "Failed to delete announcement" });
+  }
+});
+
+// ============================================
+// SCHOOL NOTIFICATIONS ROUTES
+// ============================================
+
+router.get("/api/school/users/:userId/notifications", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { limit } = req.query;
+    const notifications = await storage.getSchoolUserNotifications(req.params.userId, limit ? parseInt(limit as string) : undefined);
+    res.json(notifications);
+  } catch (error: any) {
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ message: "Failed to fetch notifications" });
+  }
+});
+
+router.post("/api/school/notifications", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const notification = await storage.createSchoolNotification({
+      schoolId: req.school!.id,
+      ...req.body,
+    });
+    res.status(201).json(notification);
+  } catch (error: any) {
+    console.error("Error creating notification:", error);
+    res.status(500).json({ message: "Failed to create notification" });
+  }
+});
+
+router.patch("/api/school/notifications/:id/read", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    await storage.markSchoolNotificationAsRead(req.params.id);
+    res.json({ message: "Notification marked as read" });
+  } catch (error: any) {
+    console.error("Error marking notification as read:", error);
+    res.status(500).json({ message: "Failed to mark notification as read" });
+  }
+});
+
+router.delete("/api/school/notifications/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    await storage.deleteSchoolNotification(req.params.id);
+    res.json({ message: "Notification deleted" });
+  } catch (error: any) {
+    console.error("Error deleting notification:", error);
+    res.status(500).json({ message: "Failed to delete notification" });
+  }
+});
+
+// ============================================
+// SCHOOL MATERIALS/RESOURCES ROUTES
+// ============================================
+
+router.get("/api/school/materials", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { classId, subjectId } = req.query;
+    const materials = await storage.getSchoolMaterials(
+      req.school!.id, 
+      classId as string | undefined, 
+      subjectId as string | undefined
+    );
+    res.json(materials);
+  } catch (error: any) {
+    console.error("Error fetching materials:", error);
+    res.status(500).json({ message: "Failed to fetch materials" });
+  }
+});
+
+router.get("/api/school/materials/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const material = await storage.getSchoolMaterial(req.params.id);
+    if (!material || material.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Material not found" });
+      return;
+    }
+    res.json(material);
+  } catch (error: any) {
+    console.error("Error fetching material:", error);
+    res.status(500).json({ message: "Failed to fetch material" });
+  }
+});
+
+router.post("/api/school/materials", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const material = await storage.createSchoolMaterial({
+      schoolId: req.school!.id,
+      ...req.body,
+    });
+    res.status(201).json(material);
+  } catch (error: any) {
+    console.error("Error creating material:", error);
+    res.status(500).json({ message: "Failed to create material" });
+  }
+});
+
+router.patch("/api/school/materials/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getSchoolMaterial(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Material not found" });
+      return;
+    }
+    const material = await storage.updateSchoolMaterial(req.params.id, req.body);
+    res.json(material);
+  } catch (error: any) {
+    console.error("Error updating material:", error);
+    res.status(500).json({ message: "Failed to update material" });
+  }
+});
+
+router.delete("/api/school/materials/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getSchoolMaterial(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Material not found" });
+      return;
+    }
+    await storage.deleteSchoolMaterial(req.params.id);
+    res.json({ message: "Material deleted" });
+  } catch (error: any) {
+    console.error("Error deleting material:", error);
+    res.status(500).json({ message: "Failed to delete material" });
   }
 });
 

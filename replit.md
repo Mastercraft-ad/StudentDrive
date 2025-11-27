@@ -3,11 +3,87 @@
 ### Overview
 StudentDrive is a comprehensive educational resource management platform designed to connect students, instructors, and institutions. Its primary purpose is to facilitate learning through course materials, quizzes, blog posts, and personalized learning paths. The project aims to provide a robust, feature-rich environment for educational content delivery and management.
 
+The platform also includes a **Multi-Tenant School Management System (SMS)** allowing individual schools to manage their academic operations through subdomain-based isolation.
+
 ### User Preferences
 I prefer iterative development and welcome questions for clarification. Please ensure detailed explanations for complex changes. Do not make changes to the `shared/` folder unless absolutely necessary and after explicit confirmation.
 
 ### System Architecture
 The project utilizes a full-stack architecture with a React, TypeScript, Vite, and TailwindCSS frontend, an Express.js and TypeScript backend, and a PostgreSQL database managed by Drizzle ORM. Authentication is handled via Passport.js, and file uploads use Multer. Radix UI is used for UI components. The application serves both the API and the frontend from a single Express server on port 5000.
+
+## Multi-Tenant School Management System (Updated: November 2025)
+
+### Overview
+A comprehensive school management system with subdomain-based multi-tenancy. Each school gets its own subdomain (e.g., `schoolname.studentdrive.com`) with isolated data and customizable branding.
+
+### Database Schema (All tables in shared/schema.ts)
+
+**Core School Tables:**
+- `schools` - School profiles with subscription status, branding
+- `school_users` - Users within schools (admin, teacher, student, parent)
+- `parent_student_links` - Parent-child relationships
+- `subscription_plans` - School subscription tiers
+
+**Academic Structure Tables:**
+- `academic_terms` - Term/semester definitions with date ranges
+- `school_classes` - Class definitions (JSS1, SS2, Grade 5, etc.)
+- `school_subjects` - Subject catalog with codes and credits
+- `class_subjects` - Links subjects to specific classes
+- `teacher_assignments` - Teacher-class-subject assignments
+- `class_enrollments` - Student enrollment in classes
+
+**Attendance System:**
+- `attendance_records` - Daily attendance with status (present/absent/late/excused)
+
+**Grades & Assessments:**
+- `assessment_types` - CA, Exam, Assignment definitions with weights
+- `student_grades` - Individual assessment scores
+- `term_results` - Calculated term results with grades and positions
+
+**Fees & Payments:**
+- `fee_types` - Fee categories (tuition, exam, lab fees)
+- `class_fees` - Fee assignments to classes
+- `fee_payments` - Payment records with Stripe integration ready
+
+**Timetable System:**
+- `timetable_periods` - Time slot definitions
+- `timetable_entries` - Weekly schedule entries
+
+**Communication:**
+- `school_announcements` - School-wide or targeted announcements
+- `school_notifications` - User-specific notifications
+
+**School Resources:**
+- `school_materials` - Private school resource library
+
+### API Routes (server/school-routes.ts)
+
+**Public Endpoints:**
+- `POST /api/schools/register` - Register new school with trial
+- `GET /api/schools/check-subdomain/:subdomain` - Check availability
+- `GET /api/schools/subscription-plans` - List available plans
+
+**School Context Endpoints (require subdomain):**
+- Academic Terms: CRUD operations at `/api/school/terms/*`
+- Classes: CRUD at `/api/school/classes/*`
+- Subjects: CRUD at `/api/school/subjects/*`
+- Class-Subject Links: `/api/school/classes/:classId/subjects/*`
+- Teacher Assignments: `/api/school/assignments/*`
+- Student Enrollments: `/api/school/enrollments/*`
+- Attendance: `/api/school/attendance/*` with bulk marking support
+- Assessment Types: `/api/school/assessment-types/*`
+- Grades: `/api/school/grades/*`
+- Term Results: `/api/school/results/*`
+- Fee Types: `/api/school/fee-types/*`
+- Payments: `/api/school/payments/*`
+- Timetable: `/api/school/timetable/*` and periods
+- Announcements: `/api/school/announcements/*`
+- Notifications: `/api/school/notifications/*`
+- Materials: `/api/school/materials/*`
+- Dashboard Stats: `/api/school/dashboard/stats`
+
+### Storage Interface (server/storage.ts)
+Over 70+ methods for comprehensive CRUD operations across all school management tables.
 
 **UI/UX Decisions:**
 - The platform incorporates a clean, professional design, particularly evident in the WordPress-style blog editor and redesigned sidebars, favoring card-based sections and clear visual hierarchy.

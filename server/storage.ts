@@ -24,6 +24,24 @@ import {
   subscriptionPlans,
   schoolUsers,
   parentStudentLinks,
+  academicTerms,
+  schoolClasses,
+  schoolSubjects,
+  classSubjects,
+  teacherAssignments,
+  classEnrollments,
+  attendanceRecords,
+  assessmentTypes,
+  studentGrades,
+  termResults,
+  feeTypes,
+  classFees,
+  feePayments,
+  timetablePeriods,
+  timetableEntries,
+  schoolAnnouncements,
+  schoolNotifications,
+  schoolMaterials,
   type User,
   type UpsertUser,
   type Institution,
@@ -77,6 +95,42 @@ import {
   type UpdateSchoolUser,
   type ParentStudentLink,
   type InsertParentStudentLink,
+  type AcademicTerm,
+  type InsertAcademicTerm,
+  type SchoolClass,
+  type InsertSchoolClass,
+  type SchoolSubject,
+  type InsertSchoolSubject,
+  type ClassSubject,
+  type InsertClassSubject,
+  type TeacherAssignment,
+  type InsertTeacherAssignment,
+  type ClassEnrollment,
+  type InsertClassEnrollment,
+  type AttendanceRecord,
+  type InsertAttendanceRecord,
+  type AssessmentType,
+  type InsertAssessmentType,
+  type StudentGrade,
+  type InsertStudentGrade,
+  type TermResult,
+  type InsertTermResult,
+  type FeeType,
+  type InsertFeeType,
+  type ClassFee,
+  type InsertClassFee,
+  type FeePayment,
+  type InsertFeePayment,
+  type TimetablePeriod,
+  type InsertTimetablePeriod,
+  type TimetableEntry,
+  type InsertTimetableEntry,
+  type SchoolAnnouncement,
+  type InsertSchoolAnnouncement,
+  type SchoolNotification,
+  type InsertSchoolNotification,
+  type SchoolMaterial,
+  type InsertSchoolMaterial,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -263,6 +317,152 @@ export interface IStorage {
   getStudentParentLinks(studentId: string): Promise<ParentStudentLink[]>;
   createParentStudentLink(link: InsertParentStudentLink): Promise<ParentStudentLink>;
   deleteParentStudentLink(id: string): Promise<void>;
+  
+  // ============================================
+  // ACADEMIC STRUCTURE OPERATIONS
+  // ============================================
+  
+  // Academic Term operations
+  getAcademicTerms(schoolId: string): Promise<AcademicTerm[]>;
+  getCurrentAcademicTerm(schoolId: string): Promise<AcademicTerm | undefined>;
+  getAcademicTerm(id: string): Promise<AcademicTerm | undefined>;
+  createAcademicTerm(term: InsertAcademicTerm): Promise<AcademicTerm>;
+  updateAcademicTerm(id: string, term: Partial<InsertAcademicTerm>): Promise<AcademicTerm>;
+  setCurrentAcademicTerm(schoolId: string, termId: string): Promise<void>;
+  deleteAcademicTerm(id: string): Promise<void>;
+  
+  // School Class operations
+  getSchoolClasses(schoolId: string): Promise<SchoolClass[]>;
+  getSchoolClass(id: string): Promise<SchoolClass | undefined>;
+  createSchoolClass(classData: InsertSchoolClass): Promise<SchoolClass>;
+  updateSchoolClass(id: string, classData: Partial<InsertSchoolClass>): Promise<SchoolClass>;
+  deleteSchoolClass(id: string): Promise<void>;
+  
+  // School Subject operations
+  getSchoolSubjects(schoolId: string): Promise<SchoolSubject[]>;
+  getSchoolSubject(id: string): Promise<SchoolSubject | undefined>;
+  createSchoolSubject(subject: InsertSchoolSubject): Promise<SchoolSubject>;
+  updateSchoolSubject(id: string, subject: Partial<InsertSchoolSubject>): Promise<SchoolSubject>;
+  deleteSchoolSubject(id: string): Promise<void>;
+  
+  // Class Subject operations
+  getClassSubjects(classId: string): Promise<ClassSubject[]>;
+  addSubjectToClass(data: InsertClassSubject): Promise<ClassSubject>;
+  removeSubjectFromClass(classId: string, subjectId: string): Promise<void>;
+  
+  // Teacher Assignment operations
+  getTeacherAssignments(schoolId: string, termId?: string): Promise<TeacherAssignment[]>;
+  getTeacherAssignmentsByTeacher(teacherId: string): Promise<TeacherAssignment[]>;
+  getTeacherAssignmentsByClass(classId: string): Promise<TeacherAssignment[]>;
+  createTeacherAssignment(assignment: InsertTeacherAssignment): Promise<TeacherAssignment>;
+  updateTeacherAssignment(id: string, assignment: Partial<InsertTeacherAssignment>): Promise<TeacherAssignment>;
+  deleteTeacherAssignment(id: string): Promise<void>;
+  
+  // Class Enrollment operations
+  getClassEnrollments(classId: string, termId?: string): Promise<ClassEnrollment[]>;
+  getStudentEnrollments(studentId: string): Promise<ClassEnrollment[]>;
+  enrollStudent(enrollment: InsertClassEnrollment): Promise<ClassEnrollment>;
+  updateEnrollment(id: string, enrollment: Partial<InsertClassEnrollment>): Promise<ClassEnrollment>;
+  deleteEnrollment(id: string): Promise<void>;
+  
+  // ============================================
+  // ATTENDANCE OPERATIONS
+  // ============================================
+  
+  getAttendanceRecords(classId: string, date: Date): Promise<AttendanceRecord[]>;
+  getStudentAttendance(studentId: string, termId: string): Promise<AttendanceRecord[]>;
+  markAttendance(record: InsertAttendanceRecord): Promise<AttendanceRecord>;
+  bulkMarkAttendance(records: InsertAttendanceRecord[]): Promise<AttendanceRecord[]>;
+  updateAttendance(id: string, record: Partial<InsertAttendanceRecord>): Promise<AttendanceRecord>;
+  getAttendanceSummary(classId: string, termId: string): Promise<{ studentId: string; present: number; absent: number; late: number; excused: number }[]>;
+  
+  // ============================================
+  // GRADES & ASSESSMENTS OPERATIONS
+  // ============================================
+  
+  // Assessment Type operations
+  getAssessmentTypes(schoolId: string): Promise<AssessmentType[]>;
+  getAssessmentType(id: string): Promise<AssessmentType | undefined>;
+  createAssessmentType(type: InsertAssessmentType): Promise<AssessmentType>;
+  updateAssessmentType(id: string, type: Partial<InsertAssessmentType>): Promise<AssessmentType>;
+  deleteAssessmentType(id: string): Promise<void>;
+  
+  // Student Grade operations
+  getStudentGrades(studentId: string, termId: string): Promise<StudentGrade[]>;
+  getClassGrades(classId: string, subjectId: string, termId: string): Promise<StudentGrade[]>;
+  createStudentGrade(grade: InsertStudentGrade): Promise<StudentGrade>;
+  updateStudentGrade(id: string, grade: Partial<InsertStudentGrade>): Promise<StudentGrade>;
+  deleteStudentGrade(id: string): Promise<void>;
+  
+  // Term Result operations
+  getTermResults(studentId: string, termId: string): Promise<TermResult[]>;
+  getClassTermResults(classId: string, termId: string): Promise<TermResult[]>;
+  createTermResult(result: InsertTermResult): Promise<TermResult>;
+  updateTermResult(id: string, result: Partial<InsertTermResult>): Promise<TermResult>;
+  
+  // ============================================
+  // FEES & PAYMENTS OPERATIONS
+  // ============================================
+  
+  // Fee Type operations
+  getFeeTypes(schoolId: string): Promise<FeeType[]>;
+  getFeeType(id: string): Promise<FeeType | undefined>;
+  createFeeType(fee: InsertFeeType): Promise<FeeType>;
+  updateFeeType(id: string, fee: Partial<InsertFeeType>): Promise<FeeType>;
+  deleteFeeType(id: string): Promise<void>;
+  
+  // Class Fee operations
+  getClassFees(classId: string, termId?: string): Promise<ClassFee[]>;
+  createClassFee(fee: InsertClassFee): Promise<ClassFee>;
+  updateClassFee(id: string, fee: Partial<InsertClassFee>): Promise<ClassFee>;
+  deleteClassFee(id: string): Promise<void>;
+  
+  // Fee Payment operations
+  getFeePayments(studentId: string, termId?: string): Promise<FeePayment[]>;
+  getSchoolFeePayments(schoolId: string, termId?: string): Promise<FeePayment[]>;
+  createFeePayment(payment: InsertFeePayment): Promise<FeePayment>;
+  updateFeePayment(id: string, payment: Partial<InsertFeePayment>): Promise<FeePayment>;
+  getStudentFeeBalance(studentId: string, termId: string): Promise<{ total: number; paid: number; balance: number }>;
+  
+  // ============================================
+  // TIMETABLE OPERATIONS
+  // ============================================
+  
+  getTimetablePeriods(schoolId: string): Promise<TimetablePeriod[]>;
+  createTimetablePeriod(period: InsertTimetablePeriod): Promise<TimetablePeriod>;
+  updateTimetablePeriod(id: string, period: Partial<InsertTimetablePeriod>): Promise<TimetablePeriod>;
+  deleteTimetablePeriod(id: string): Promise<void>;
+  
+  getTimetableEntries(classId: string, termId?: string): Promise<TimetableEntry[]>;
+  getTeacherTimetable(teacherId: string, termId?: string): Promise<TimetableEntry[]>;
+  createTimetableEntry(entry: InsertTimetableEntry): Promise<TimetableEntry>;
+  updateTimetableEntry(id: string, entry: Partial<InsertTimetableEntry>): Promise<TimetableEntry>;
+  deleteTimetableEntry(id: string): Promise<void>;
+  
+  // ============================================
+  // COMMUNICATION OPERATIONS
+  // ============================================
+  
+  getSchoolAnnouncements(schoolId: string, published?: boolean): Promise<SchoolAnnouncement[]>;
+  getSchoolAnnouncement(id: string): Promise<SchoolAnnouncement | undefined>;
+  createSchoolAnnouncement(announcement: InsertSchoolAnnouncement): Promise<SchoolAnnouncement>;
+  updateSchoolAnnouncement(id: string, announcement: Partial<InsertSchoolAnnouncement>): Promise<SchoolAnnouncement>;
+  deleteSchoolAnnouncement(id: string): Promise<void>;
+  
+  getSchoolUserNotifications(userId: string, limit?: number): Promise<SchoolNotification[]>;
+  createSchoolNotification(notification: InsertSchoolNotification): Promise<SchoolNotification>;
+  markSchoolNotificationAsRead(id: string): Promise<void>;
+  deleteSchoolNotification(id: string): Promise<void>;
+  
+  // ============================================
+  // SCHOOL RESOURCES OPERATIONS
+  // ============================================
+  
+  getSchoolMaterials(schoolId: string, classId?: string, subjectId?: string): Promise<SchoolMaterial[]>;
+  getSchoolMaterial(id: string): Promise<SchoolMaterial | undefined>;
+  createSchoolMaterial(material: InsertSchoolMaterial): Promise<SchoolMaterial>;
+  updateSchoolMaterial(id: string, material: Partial<InsertSchoolMaterial>): Promise<SchoolMaterial>;
+  deleteSchoolMaterial(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1595,6 +1795,482 @@ export class DatabaseStorage implements IStorage {
 
   async deleteParentStudentLink(id: string): Promise<void> {
     await db.delete(parentStudentLinks).where(eq(parentStudentLinks.id, id));
+  }
+
+  // ============================================
+  // ACADEMIC STRUCTURE IMPLEMENTATIONS
+  // ============================================
+
+  async getAcademicTerms(schoolId: string): Promise<AcademicTerm[]> {
+    return await db.select().from(academicTerms).where(eq(academicTerms.schoolId, schoolId)).orderBy(desc(academicTerms.startDate));
+  }
+
+  async getCurrentAcademicTerm(schoolId: string): Promise<AcademicTerm | undefined> {
+    const [term] = await db.select().from(academicTerms).where(and(eq(academicTerms.schoolId, schoolId), eq(academicTerms.isCurrent, true)));
+    return term;
+  }
+
+  async getAcademicTerm(id: string): Promise<AcademicTerm | undefined> {
+    const [term] = await db.select().from(academicTerms).where(eq(academicTerms.id, id));
+    return term;
+  }
+
+  async createAcademicTerm(termData: InsertAcademicTerm): Promise<AcademicTerm> {
+    const [term] = await db.insert(academicTerms).values(termData).returning();
+    return term;
+  }
+
+  async updateAcademicTerm(id: string, termData: Partial<InsertAcademicTerm>): Promise<AcademicTerm> {
+    const [term] = await db.update(academicTerms).set({ ...termData, updatedAt: new Date() }).where(eq(academicTerms.id, id)).returning();
+    return term;
+  }
+
+  async setCurrentAcademicTerm(schoolId: string, termId: string): Promise<void> {
+    await db.update(academicTerms).set({ isCurrent: false }).where(eq(academicTerms.schoolId, schoolId));
+    await db.update(academicTerms).set({ isCurrent: true }).where(eq(academicTerms.id, termId));
+  }
+
+  async deleteAcademicTerm(id: string): Promise<void> {
+    await db.delete(academicTerms).where(eq(academicTerms.id, id));
+  }
+
+  async getSchoolClasses(schoolId: string): Promise<SchoolClass[]> {
+    return await db.select().from(schoolClasses).where(eq(schoolClasses.schoolId, schoolId)).orderBy(schoolClasses.level, schoolClasses.name);
+  }
+
+  async getSchoolClass(id: string): Promise<SchoolClass | undefined> {
+    const [cls] = await db.select().from(schoolClasses).where(eq(schoolClasses.id, id));
+    return cls;
+  }
+
+  async createSchoolClass(classData: InsertSchoolClass): Promise<SchoolClass> {
+    const [cls] = await db.insert(schoolClasses).values(classData).returning();
+    return cls;
+  }
+
+  async updateSchoolClass(id: string, classData: Partial<InsertSchoolClass>): Promise<SchoolClass> {
+    const [cls] = await db.update(schoolClasses).set({ ...classData, updatedAt: new Date() }).where(eq(schoolClasses.id, id)).returning();
+    return cls;
+  }
+
+  async deleteSchoolClass(id: string): Promise<void> {
+    await db.delete(schoolClasses).where(eq(schoolClasses.id, id));
+  }
+
+  async getSchoolSubjects(schoolId: string): Promise<SchoolSubject[]> {
+    return await db.select().from(schoolSubjects).where(eq(schoolSubjects.schoolId, schoolId)).orderBy(schoolSubjects.name);
+  }
+
+  async getSchoolSubject(id: string): Promise<SchoolSubject | undefined> {
+    const [subject] = await db.select().from(schoolSubjects).where(eq(schoolSubjects.id, id));
+    return subject;
+  }
+
+  async createSchoolSubject(subjectData: InsertSchoolSubject): Promise<SchoolSubject> {
+    const [subject] = await db.insert(schoolSubjects).values(subjectData).returning();
+    return subject;
+  }
+
+  async updateSchoolSubject(id: string, subjectData: Partial<InsertSchoolSubject>): Promise<SchoolSubject> {
+    const [subject] = await db.update(schoolSubjects).set({ ...subjectData, updatedAt: new Date() }).where(eq(schoolSubjects.id, id)).returning();
+    return subject;
+  }
+
+  async deleteSchoolSubject(id: string): Promise<void> {
+    await db.delete(schoolSubjects).where(eq(schoolSubjects.id, id));
+  }
+
+  async getClassSubjects(classId: string): Promise<ClassSubject[]> {
+    return await db.select().from(classSubjects).where(eq(classSubjects.classId, classId));
+  }
+
+  async addSubjectToClass(data: InsertClassSubject): Promise<ClassSubject> {
+    const [cs] = await db.insert(classSubjects).values(data).returning();
+    return cs;
+  }
+
+  async removeSubjectFromClass(classId: string, subjectId: string): Promise<void> {
+    await db.delete(classSubjects).where(and(eq(classSubjects.classId, classId), eq(classSubjects.subjectId, subjectId)));
+  }
+
+  async getTeacherAssignments(schoolId: string, termId?: string): Promise<TeacherAssignment[]> {
+    if (termId) {
+      return await db.select().from(teacherAssignments).where(and(eq(teacherAssignments.schoolId, schoolId), eq(teacherAssignments.termId, termId)));
+    }
+    return await db.select().from(teacherAssignments).where(eq(teacherAssignments.schoolId, schoolId));
+  }
+
+  async getTeacherAssignmentsByTeacher(teacherId: string): Promise<TeacherAssignment[]> {
+    return await db.select().from(teacherAssignments).where(eq(teacherAssignments.teacherId, teacherId));
+  }
+
+  async getTeacherAssignmentsByClass(classId: string): Promise<TeacherAssignment[]> {
+    return await db.select().from(teacherAssignments).where(eq(teacherAssignments.classId, classId));
+  }
+
+  async createTeacherAssignment(assignmentData: InsertTeacherAssignment): Promise<TeacherAssignment> {
+    const [assignment] = await db.insert(teacherAssignments).values(assignmentData).returning();
+    return assignment;
+  }
+
+  async updateTeacherAssignment(id: string, assignmentData: Partial<InsertTeacherAssignment>): Promise<TeacherAssignment> {
+    const [assignment] = await db.update(teacherAssignments).set({ ...assignmentData, updatedAt: new Date() }).where(eq(teacherAssignments.id, id)).returning();
+    return assignment;
+  }
+
+  async deleteTeacherAssignment(id: string): Promise<void> {
+    await db.delete(teacherAssignments).where(eq(teacherAssignments.id, id));
+  }
+
+  async getClassEnrollments(classId: string, termId?: string): Promise<ClassEnrollment[]> {
+    if (termId) {
+      return await db.select().from(classEnrollments).where(and(eq(classEnrollments.classId, classId), eq(classEnrollments.termId, termId)));
+    }
+    return await db.select().from(classEnrollments).where(eq(classEnrollments.classId, classId));
+  }
+
+  async getStudentEnrollments(studentId: string): Promise<ClassEnrollment[]> {
+    return await db.select().from(classEnrollments).where(eq(classEnrollments.studentId, studentId));
+  }
+
+  async enrollStudent(enrollmentData: InsertClassEnrollment): Promise<ClassEnrollment> {
+    const [enrollment] = await db.insert(classEnrollments).values(enrollmentData).returning();
+    return enrollment;
+  }
+
+  async updateEnrollment(id: string, enrollmentData: Partial<InsertClassEnrollment>): Promise<ClassEnrollment> {
+    const [enrollment] = await db.update(classEnrollments).set(enrollmentData).where(eq(classEnrollments.id, id)).returning();
+    return enrollment;
+  }
+
+  async deleteEnrollment(id: string): Promise<void> {
+    await db.delete(classEnrollments).where(eq(classEnrollments.id, id));
+  }
+
+  // ============================================
+  // ATTENDANCE IMPLEMENTATIONS
+  // ============================================
+
+  async getAttendanceRecords(classId: string, date: Date): Promise<AttendanceRecord[]> {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    return await db.select().from(attendanceRecords).where(and(eq(attendanceRecords.classId, classId), sql`${attendanceRecords.date} >= ${startOfDay} AND ${attendanceRecords.date} <= ${endOfDay}`));
+  }
+
+  async getStudentAttendance(studentId: string, termId: string): Promise<AttendanceRecord[]> {
+    return await db.select().from(attendanceRecords).where(and(eq(attendanceRecords.studentId, studentId), eq(attendanceRecords.termId, termId))).orderBy(attendanceRecords.date);
+  }
+
+  async markAttendance(record: InsertAttendanceRecord): Promise<AttendanceRecord> {
+    const [attendance] = await db.insert(attendanceRecords).values(record).returning();
+    return attendance;
+  }
+
+  async bulkMarkAttendance(records: InsertAttendanceRecord[]): Promise<AttendanceRecord[]> {
+    const result = await db.insert(attendanceRecords).values(records).returning();
+    return result;
+  }
+
+  async updateAttendance(id: string, record: Partial<InsertAttendanceRecord>): Promise<AttendanceRecord> {
+    const [attendance] = await db.update(attendanceRecords).set({ ...record, updatedAt: new Date() }).where(eq(attendanceRecords.id, id)).returning();
+    return attendance;
+  }
+
+  async getAttendanceSummary(classId: string, termId: string): Promise<{ studentId: string; present: number; absent: number; late: number; excused: number }[]> {
+    const records = await db.select().from(attendanceRecords).where(and(eq(attendanceRecords.classId, classId), eq(attendanceRecords.termId, termId)));
+    const summary: { [studentId: string]: { present: number; absent: number; late: number; excused: number } } = {};
+    for (const record of records) {
+      if (!summary[record.studentId]) {
+        summary[record.studentId] = { present: 0, absent: 0, late: 0, excused: 0 };
+      }
+      if (record.status === 'present') summary[record.studentId].present++;
+      else if (record.status === 'absent') summary[record.studentId].absent++;
+      else if (record.status === 'late') summary[record.studentId].late++;
+      else if (record.status === 'excused') summary[record.studentId].excused++;
+    }
+    return Object.entries(summary).map(([studentId, counts]) => ({ studentId, ...counts }));
+  }
+
+  // ============================================
+  // GRADES & ASSESSMENTS IMPLEMENTATIONS
+  // ============================================
+
+  async getAssessmentTypes(schoolId: string): Promise<AssessmentType[]> {
+    return await db.select().from(assessmentTypes).where(eq(assessmentTypes.schoolId, schoolId));
+  }
+
+  async getAssessmentType(id: string): Promise<AssessmentType | undefined> {
+    const [type] = await db.select().from(assessmentTypes).where(eq(assessmentTypes.id, id));
+    return type;
+  }
+
+  async createAssessmentType(typeData: InsertAssessmentType): Promise<AssessmentType> {
+    const [type] = await db.insert(assessmentTypes).values(typeData).returning();
+    return type;
+  }
+
+  async updateAssessmentType(id: string, typeData: Partial<InsertAssessmentType>): Promise<AssessmentType> {
+    const [type] = await db.update(assessmentTypes).set(typeData).where(eq(assessmentTypes.id, id)).returning();
+    return type;
+  }
+
+  async deleteAssessmentType(id: string): Promise<void> {
+    await db.delete(assessmentTypes).where(eq(assessmentTypes.id, id));
+  }
+
+  async getStudentGrades(studentId: string, termId: string): Promise<StudentGrade[]> {
+    return await db.select().from(studentGrades).where(and(eq(studentGrades.studentId, studentId), eq(studentGrades.termId, termId)));
+  }
+
+  async getClassGrades(classId: string, subjectId: string, termId: string): Promise<StudentGrade[]> {
+    return await db.select().from(studentGrades).where(and(eq(studentGrades.classId, classId), eq(studentGrades.subjectId, subjectId), eq(studentGrades.termId, termId)));
+  }
+
+  async createStudentGrade(gradeData: InsertStudentGrade): Promise<StudentGrade> {
+    const [grade] = await db.insert(studentGrades).values(gradeData).returning();
+    return grade;
+  }
+
+  async updateStudentGrade(id: string, gradeData: Partial<InsertStudentGrade>): Promise<StudentGrade> {
+    const [grade] = await db.update(studentGrades).set({ ...gradeData, updatedAt: new Date() }).where(eq(studentGrades.id, id)).returning();
+    return grade;
+  }
+
+  async deleteStudentGrade(id: string): Promise<void> {
+    await db.delete(studentGrades).where(eq(studentGrades.id, id));
+  }
+
+  async getTermResults(studentId: string, termId: string): Promise<TermResult[]> {
+    return await db.select().from(termResults).where(and(eq(termResults.studentId, studentId), eq(termResults.termId, termId)));
+  }
+
+  async getClassTermResults(classId: string, termId: string): Promise<TermResult[]> {
+    return await db.select().from(termResults).where(and(eq(termResults.classId, classId), eq(termResults.termId, termId)));
+  }
+
+  async createTermResult(resultData: InsertTermResult): Promise<TermResult> {
+    const [result] = await db.insert(termResults).values(resultData).returning();
+    return result;
+  }
+
+  async updateTermResult(id: string, resultData: Partial<InsertTermResult>): Promise<TermResult> {
+    const [result] = await db.update(termResults).set({ ...resultData, updatedAt: new Date() }).where(eq(termResults.id, id)).returning();
+    return result;
+  }
+
+  // ============================================
+  // FEES & PAYMENTS IMPLEMENTATIONS
+  // ============================================
+
+  async getFeeTypes(schoolId: string): Promise<FeeType[]> {
+    return await db.select().from(feeTypes).where(eq(feeTypes.schoolId, schoolId));
+  }
+
+  async getFeeType(id: string): Promise<FeeType | undefined> {
+    const [fee] = await db.select().from(feeTypes).where(eq(feeTypes.id, id));
+    return fee;
+  }
+
+  async createFeeType(feeData: InsertFeeType): Promise<FeeType> {
+    const [fee] = await db.insert(feeTypes).values(feeData).returning();
+    return fee;
+  }
+
+  async updateFeeType(id: string, feeData: Partial<InsertFeeType>): Promise<FeeType> {
+    const [fee] = await db.update(feeTypes).set({ ...feeData, updatedAt: new Date() }).where(eq(feeTypes.id, id)).returning();
+    return fee;
+  }
+
+  async deleteFeeType(id: string): Promise<void> {
+    await db.delete(feeTypes).where(eq(feeTypes.id, id));
+  }
+
+  async getClassFees(classId: string, termId?: string): Promise<ClassFee[]> {
+    if (termId) {
+      return await db.select().from(classFees).where(and(eq(classFees.classId, classId), eq(classFees.termId, termId)));
+    }
+    return await db.select().from(classFees).where(eq(classFees.classId, classId));
+  }
+
+  async createClassFee(feeData: InsertClassFee): Promise<ClassFee> {
+    const [fee] = await db.insert(classFees).values(feeData).returning();
+    return fee;
+  }
+
+  async updateClassFee(id: string, feeData: Partial<InsertClassFee>): Promise<ClassFee> {
+    const [fee] = await db.update(classFees).set(feeData).where(eq(classFees.id, id)).returning();
+    return fee;
+  }
+
+  async deleteClassFee(id: string): Promise<void> {
+    await db.delete(classFees).where(eq(classFees.id, id));
+  }
+
+  async getFeePayments(studentId: string, termId?: string): Promise<FeePayment[]> {
+    if (termId) {
+      return await db.select().from(feePayments).where(and(eq(feePayments.studentId, studentId), eq(feePayments.termId, termId)));
+    }
+    return await db.select().from(feePayments).where(eq(feePayments.studentId, studentId));
+  }
+
+  async getSchoolFeePayments(schoolId: string, termId?: string): Promise<FeePayment[]> {
+    if (termId) {
+      return await db.select().from(feePayments).where(and(eq(feePayments.schoolId, schoolId), eq(feePayments.termId, termId))).orderBy(desc(feePayments.createdAt));
+    }
+    return await db.select().from(feePayments).where(eq(feePayments.schoolId, schoolId)).orderBy(desc(feePayments.createdAt));
+  }
+
+  async createFeePayment(paymentData: InsertFeePayment): Promise<FeePayment> {
+    const [payment] = await db.insert(feePayments).values(paymentData).returning();
+    return payment;
+  }
+
+  async updateFeePayment(id: string, paymentData: Partial<InsertFeePayment>): Promise<FeePayment> {
+    const [payment] = await db.update(feePayments).set({ ...paymentData, updatedAt: new Date() }).where(eq(feePayments.id, id)).returning();
+    return payment;
+  }
+
+  async getStudentFeeBalance(studentId: string, termId: string): Promise<{ total: number; paid: number; balance: number }> {
+    const enrollment = await this.getStudentEnrollments(studentId);
+    const classId = enrollment.find(e => e.termId === termId)?.classId;
+    if (!classId) return { total: 0, paid: 0, balance: 0 };
+    
+    const fees = await this.getClassFees(classId, termId);
+    const total = fees.reduce((sum, f) => sum + f.amount, 0);
+    
+    const payments = await this.getFeePayments(studentId, termId);
+    const paid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
+    
+    return { total, paid, balance: total - paid };
+  }
+
+  // ============================================
+  // TIMETABLE IMPLEMENTATIONS
+  // ============================================
+
+  async getTimetablePeriods(schoolId: string): Promise<TimetablePeriod[]> {
+    return await db.select().from(timetablePeriods).where(eq(timetablePeriods.schoolId, schoolId)).orderBy(timetablePeriods.orderIndex);
+  }
+
+  async createTimetablePeriod(periodData: InsertTimetablePeriod): Promise<TimetablePeriod> {
+    const [period] = await db.insert(timetablePeriods).values(periodData).returning();
+    return period;
+  }
+
+  async updateTimetablePeriod(id: string, periodData: Partial<InsertTimetablePeriod>): Promise<TimetablePeriod> {
+    const [period] = await db.update(timetablePeriods).set(periodData).where(eq(timetablePeriods.id, id)).returning();
+    return period;
+  }
+
+  async deleteTimetablePeriod(id: string): Promise<void> {
+    await db.delete(timetablePeriods).where(eq(timetablePeriods.id, id));
+  }
+
+  async getTimetableEntries(classId: string, termId?: string): Promise<TimetableEntry[]> {
+    if (termId) {
+      return await db.select().from(timetableEntries).where(and(eq(timetableEntries.classId, classId), eq(timetableEntries.termId, termId)));
+    }
+    return await db.select().from(timetableEntries).where(eq(timetableEntries.classId, classId));
+  }
+
+  async getTeacherTimetable(teacherId: string, termId?: string): Promise<TimetableEntry[]> {
+    if (termId) {
+      return await db.select().from(timetableEntries).where(and(eq(timetableEntries.teacherId, teacherId), eq(timetableEntries.termId, termId)));
+    }
+    return await db.select().from(timetableEntries).where(eq(timetableEntries.teacherId, teacherId));
+  }
+
+  async createTimetableEntry(entryData: InsertTimetableEntry): Promise<TimetableEntry> {
+    const [entry] = await db.insert(timetableEntries).values(entryData).returning();
+    return entry;
+  }
+
+  async updateTimetableEntry(id: string, entryData: Partial<InsertTimetableEntry>): Promise<TimetableEntry> {
+    const [entry] = await db.update(timetableEntries).set({ ...entryData, updatedAt: new Date() }).where(eq(timetableEntries.id, id)).returning();
+    return entry;
+  }
+
+  async deleteTimetableEntry(id: string): Promise<void> {
+    await db.delete(timetableEntries).where(eq(timetableEntries.id, id));
+  }
+
+  // ============================================
+  // COMMUNICATION IMPLEMENTATIONS
+  // ============================================
+
+  async getSchoolAnnouncements(schoolId: string, published?: boolean): Promise<SchoolAnnouncement[]> {
+    if (published !== undefined) {
+      return await db.select().from(schoolAnnouncements).where(and(eq(schoolAnnouncements.schoolId, schoolId), eq(schoolAnnouncements.isPublished, published))).orderBy(desc(schoolAnnouncements.createdAt));
+    }
+    return await db.select().from(schoolAnnouncements).where(eq(schoolAnnouncements.schoolId, schoolId)).orderBy(desc(schoolAnnouncements.createdAt));
+  }
+
+  async getSchoolAnnouncement(id: string): Promise<SchoolAnnouncement | undefined> {
+    const [announcement] = await db.select().from(schoolAnnouncements).where(eq(schoolAnnouncements.id, id));
+    return announcement;
+  }
+
+  async createSchoolAnnouncement(announcementData: InsertSchoolAnnouncement): Promise<SchoolAnnouncement> {
+    const [announcement] = await db.insert(schoolAnnouncements).values(announcementData).returning();
+    return announcement;
+  }
+
+  async updateSchoolAnnouncement(id: string, announcementData: Partial<InsertSchoolAnnouncement>): Promise<SchoolAnnouncement> {
+    const [announcement] = await db.update(schoolAnnouncements).set({ ...announcementData, updatedAt: new Date() }).where(eq(schoolAnnouncements.id, id)).returning();
+    return announcement;
+  }
+
+  async deleteSchoolAnnouncement(id: string): Promise<void> {
+    await db.delete(schoolAnnouncements).where(eq(schoolAnnouncements.id, id));
+  }
+
+  async getSchoolUserNotifications(userId: string, limit: number = 50): Promise<SchoolNotification[]> {
+    return await db.select().from(schoolNotifications).where(eq(schoolNotifications.userId, userId)).orderBy(desc(schoolNotifications.createdAt)).limit(limit);
+  }
+
+  async createSchoolNotification(notificationData: InsertSchoolNotification): Promise<SchoolNotification> {
+    const [notification] = await db.insert(schoolNotifications).values(notificationData).returning();
+    return notification;
+  }
+
+  async markSchoolNotificationAsRead(id: string): Promise<void> {
+    await db.update(schoolNotifications).set({ isRead: true }).where(eq(schoolNotifications.id, id));
+  }
+
+  async deleteSchoolNotification(id: string): Promise<void> {
+    await db.delete(schoolNotifications).where(eq(schoolNotifications.id, id));
+  }
+
+  // ============================================
+  // SCHOOL RESOURCES IMPLEMENTATIONS
+  // ============================================
+
+  async getSchoolMaterials(schoolId: string, classId?: string, subjectId?: string): Promise<SchoolMaterial[]> {
+    let conditions = [eq(schoolMaterials.schoolId, schoolId)];
+    if (classId) conditions.push(eq(schoolMaterials.classId, classId));
+    if (subjectId) conditions.push(eq(schoolMaterials.subjectId, subjectId));
+    return await db.select().from(schoolMaterials).where(and(...conditions)).orderBy(desc(schoolMaterials.createdAt));
+  }
+
+  async getSchoolMaterial(id: string): Promise<SchoolMaterial | undefined> {
+    const [material] = await db.select().from(schoolMaterials).where(eq(schoolMaterials.id, id));
+    return material;
+  }
+
+  async createSchoolMaterial(materialData: InsertSchoolMaterial): Promise<SchoolMaterial> {
+    const [material] = await db.insert(schoolMaterials).values(materialData).returning();
+    return material;
+  }
+
+  async updateSchoolMaterial(id: string, materialData: Partial<InsertSchoolMaterial>): Promise<SchoolMaterial> {
+    const [material] = await db.update(schoolMaterials).set({ ...materialData, updatedAt: new Date() }).where(eq(schoolMaterials.id, id)).returning();
+    return material;
+  }
+
+  async deleteSchoolMaterial(id: string): Promise<void> {
+    await db.delete(schoolMaterials).where(eq(schoolMaterials.id, id));
   }
 }
 
