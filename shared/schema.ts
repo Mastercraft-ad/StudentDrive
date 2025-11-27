@@ -816,3 +816,257 @@ export const insertNotificationSchema = createInsertSchema(notifications).omit({
 
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type Notification = typeof notifications.$inferSelect;
+
+// ============================================
+// SCHOOL MANAGEMENT SYSTEM (SMS) TABLES
+// Multi-tenant school portal tables
+// ============================================
+
+// Subscription Plans table - Available plans for schools
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(), // Free Trial, Basic, Premium, Enterprise
+  code: varchar("code", { length: 50 }).unique().notNull(), // free_trial, basic, premium, enterprise
+  description: text("description"),
+  price: integer("price").default(0).notNull(), // Price in kobo (Paystack uses lowest currency unit)
+  billingPeriod: varchar("billing_period", { length: 20 }).default("monthly").notNull(), // monthly, yearly
+  trialDays: integer("trial_days").default(14), // Number of days for free trial
+  features: jsonb("features"), // Array of feature strings
+  maxStudents: integer("max_students"), // null = unlimited
+  maxTeachers: integer("max_teachers"), // null = unlimited
+  maxClasses: integer("max_classes"), // null = unlimited
+  isActive: boolean("is_active").default(true).notNull(),
+  displayOrder: integer("display_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSubscriptionPlan = z.infer<typeof insertSubscriptionPlanSchema>;
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+
+// Schools table - Multi-tenant schools with subdomains
+export const schools = pgTable("schools", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 255 }).notNull(),
+  subdomain: varchar("subdomain", { length: 100 }).unique().notNull(), // abc.studentdrive.com
+  slug: varchar("slug", { length: 255 }).unique().notNull(), // URL-friendly identifier
+  
+  // School details
+  description: text("description"),
+  logoUrl: varchar("logo_url"),
+  bannerUrl: varchar("banner_url"),
+  website: varchar("website"),
+  motto: varchar("motto", { length: 255 }),
+  
+  // Location
+  country: varchar("country", { length: 100 }),
+  state: varchar("state", { length: 100 }),
+  city: varchar("city", { length: 100 }),
+  address: text("address"),
+  postalCode: varchar("postal_code", { length: 20 }),
+  
+  // Contact
+  email: varchar("email", { length: 255 }),
+  phone: varchar("phone", { length: 50 }),
+  alternatePhone: varchar("alternate_phone", { length: 50 }),
+  
+  // School type and level
+  schoolType: varchar("school_type", { length: 50 }), // primary, secondary, tertiary, mixed
+  ownershipType: varchar("ownership_type", { length: 50 }), // government, private, mission
+  
+  // Admin user (owner who registered the school - links to public users table)
+  ownerId: varchar("owner_id").references(() => users.id).notNull(),
+  
+  // Subscription
+  subscriptionPlanId: varchar("subscription_plan_id").references(() => subscriptionPlans.id),
+  subscriptionStatus: varchar("subscription_status", { length: 20 }).default("trial").notNull(), // trial, active, expired, cancelled
+  trialStartDate: timestamp("trial_start_date"),
+  trialEndDate: timestamp("trial_end_date"),
+  subscriptionStartDate: timestamp("subscription_start_date"),
+  subscriptionEndDate: timestamp("subscription_end_date"),
+  
+  // Paystack customer
+  paystackCustomerCode: varchar("paystack_customer_code"),
+  paystackSubscriptionCode: varchar("paystack_subscription_code"),
+  
+  // Branding/Theme
+  primaryColor: varchar("primary_color", { length: 7 }).default("#3b82f6"), // Hex color
+  secondaryColor: varchar("secondary_color", { length: 7 }).default("#1e40af"),
+  
+  // Settings
+  currentTermId: varchar("current_term_id"), // Reference to current academic term
+  currentSessionYear: varchar("current_session_year", { length: 20 }), // e.g., "2024/2025"
+  timezone: varchar("timezone", { length: 50 }).default("Africa/Lagos"),
+  currency: varchar("currency", { length: 3 }).default("NGN"),
+  
+  // Status
+  isActive: boolean("is_active").default(true).notNull(),
+  isVerified: boolean("is_verified").default(false).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const schoolsRelations = relations(schools, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [schools.ownerId],
+    references: [users.id],
+  }),
+  subscriptionPlan: one(subscriptionPlans, {
+    fields: [schools.subscriptionPlanId],
+    references: [subscriptionPlans.id],
+  }),
+  schoolUsers: many(schoolUsers),
+}));
+
+export const insertSchoolSchema = createInsertSchema(schools).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  subscriptionStatus: true,
+  trialStartDate: true,
+  trialEndDate: true,
+  subscriptionStartDate: true,
+  subscriptionEndDate: true,
+  paystackCustomerCode: true,
+  paystackSubscriptionCode: true,
+  isVerified: true,
+}).extend({
+  name: z.string().min(1, "School name is required").max(255, "School name must be less than 255 characters"),
+  subdomain: z.string().min(3, "Subdomain must be at least 3 characters").max(100, "Subdomain must be less than 100 characters").regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Subdomain must be lowercase, numbers, and hyphens only"),
+  email: z.string().email("Invalid email address"),
+});
+
+export const updateSchoolSchema = insertSchoolSchema.partial();
+
+export type InsertSchool = z.infer<typeof insertSchoolSchema>;
+export type UpdateSchool = z.infer<typeof updateSchoolSchema>;
+export type School = typeof schools.$inferSelect;
+
+// School Users table - Students, Teachers, Parents within a school (separate from public users)
+export const schoolUsers = pgTable("school_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Authentication
+  email: varchar("email", { length: 255 }).notNull(),
+  password: varchar("password").notNull(),
+  username: varchar("username", { length: 100 }),
+  
+  // Profile
+  firstName: varchar("first_name", { length: 100 }).notNull(),
+  lastName: varchar("last_name", { length: 100 }).notNull(),
+  middleName: varchar("middle_name", { length: 100 }),
+  gender: varchar("gender", { length: 20 }), // male, female
+  dateOfBirth: timestamp("date_of_birth"),
+  profileImageUrl: varchar("profile_image_url"),
+  phone: varchar("phone", { length: 50 }),
+  address: text("address"),
+  
+  // Role within school
+  role: varchar("role", { length: 20 }).notNull(), // student, teacher, parent, school_admin
+  
+  // Student-specific fields
+  admissionNumber: varchar("admission_number", { length: 50 }),
+  admissionDate: timestamp("admission_date"),
+  classId: varchar("class_id"), // Reference to school_classes
+  
+  // Teacher-specific fields
+  employeeId: varchar("employee_id", { length: 50 }),
+  qualification: varchar("qualification", { length: 255 }),
+  specialization: varchar("specialization", { length: 255 }),
+  dateOfEmployment: timestamp("date_of_employment"),
+  
+  // Parent-specific fields (linked students stored in separate junction table)
+  occupation: varchar("occupation", { length: 100 }),
+  relationship: varchar("relationship", { length: 50 }), // father, mother, guardian
+  
+  // Status
+  isActive: boolean("is_active").default(true).notNull(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
+  
+  // Session
+  lastLoginAt: timestamp("last_login_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueSchoolEmail: index("unique_school_email").on(table.schoolId, table.email),
+}));
+
+export const schoolUsersRelations = relations(schoolUsers, ({ one }) => ({
+  school: one(schools, {
+    fields: [schoolUsers.schoolId],
+    references: [schools.id],
+  }),
+}));
+
+export const insertSchoolUserSchema = createInsertSchema(schoolUsers).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastLoginAt: true,
+  emailVerified: true,
+}).extend({
+  email: z.string().email("Invalid email address"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+  role: z.enum(["student", "teacher", "parent", "school_admin"]),
+});
+
+export const updateSchoolUserSchema = insertSchoolUserSchema.partial().omit({ password: true });
+
+export type InsertSchoolUser = z.infer<typeof insertSchoolUserSchema>;
+export type UpdateSchoolUser = z.infer<typeof updateSchoolUserSchema>;
+export type SchoolUser = typeof schoolUsers.$inferSelect;
+
+// Parent-Student Relationship table (junction table)
+export const parentStudentLinks = pgTable("parent_student_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  parentId: varchar("parent_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  studentId: varchar("student_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  relationship: varchar("relationship", { length: 50 }).notNull(), // father, mother, guardian
+  isPrimary: boolean("is_primary").default(false).notNull(), // Primary guardian
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueParentStudent: index("unique_parent_student").on(table.parentId, table.studentId),
+}));
+
+export const parentStudentLinksRelations = relations(parentStudentLinks, ({ one }) => ({
+  parent: one(schoolUsers, {
+    fields: [parentStudentLinks.parentId],
+    references: [schoolUsers.id],
+    relationName: "parentLinks",
+  }),
+  student: one(schoolUsers, {
+    fields: [parentStudentLinks.studentId],
+    references: [schoolUsers.id],
+    relationName: "studentLinks",
+  }),
+}));
+
+export const insertParentStudentLinkSchema = createInsertSchema(parentStudentLinks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertParentStudentLink = z.infer<typeof insertParentStudentLinkSchema>;
+export type ParentStudentLink = typeof parentStudentLinks.$inferSelect;
+
+// School Sessions table (for session management within schools)
+export const schoolSessions = pgTable("school_sessions", {
+  sid: varchar("sid").primaryKey(),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire").notNull(),
+}, (table) => [
+  index("IDX_school_session_expire").on(table.expire),
+  index("IDX_school_session_school").on(table.schoolId),
+]);

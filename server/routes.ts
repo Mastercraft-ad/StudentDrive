@@ -9,6 +9,7 @@ import { db } from "./db";
 import { setupAuth, isAuthenticated, requireEmailVerified, requireOnboarding, generateVerificationToken, hashPassword } from "./auth";
 import { sendVerificationEmail } from "./email";
 import { getUserStatistics, getUserActivityLogs, logUserActivity, updateUserStatistics } from "./activity-logger";
+import schoolRoutes from "./school-routes";
 import {
   insertCourseSchema,
   insertMaterialSchema,
@@ -148,6 +149,9 @@ const uploadBlogImage = multer({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
+  
+  // Register school management system routes
+  app.use(schoolRoutes);
 
   const getBaseUrl = (req: Request) => {
     if (process.env.REPLIT_DOMAINS) {

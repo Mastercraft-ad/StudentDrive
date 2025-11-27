@@ -19,6 +19,11 @@ import {
   blogPostBookmarks,
   blogCategories,
   blogTags,
+  notifications,
+  schools,
+  subscriptionPlans,
+  schoolUsers,
+  parentStudentLinks,
   type User,
   type UpsertUser,
   type Institution,
@@ -60,9 +65,18 @@ import {
   type BlogTag,
   type InsertBlogTag,
   type UpdateBlogTag,
-  notifications,
   type Notification,
   type InsertNotification,
+  type School,
+  type InsertSchool,
+  type UpdateSchool,
+  type SubscriptionPlan,
+  type InsertSubscriptionPlan,
+  type SchoolUser,
+  type InsertSchoolUser,
+  type UpdateSchoolUser,
+  type ParentStudentLink,
+  type InsertParentStudentLink,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -211,6 +225,44 @@ export interface IStorage {
   markAllNotificationsAsRead(userId: string): Promise<void>;
   deleteNotification(id: string): Promise<void>;
   deleteAllNotifications(userId: string): Promise<void>;
+  
+  // ============================================
+  // SCHOOL MANAGEMENT SYSTEM (SMS) OPERATIONS
+  // ============================================
+  
+  // Subscription Plan operations
+  getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getActiveSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlan(id: string): Promise<SubscriptionPlan | undefined>;
+  getSubscriptionPlanByCode(code: string): Promise<SubscriptionPlan | undefined>;
+  createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan>;
+  
+  // School operations
+  getSchools(): Promise<School[]>;
+  getSchool(id: string): Promise<School | undefined>;
+  getSchoolBySubdomain(subdomain: string): Promise<School | undefined>;
+  getSchoolBySlug(slug: string): Promise<School | undefined>;
+  getSchoolsByOwner(ownerId: string): Promise<School[]>;
+  createSchool(school: InsertSchool): Promise<School>;
+  updateSchool(id: string, school: Partial<UpdateSchool>): Promise<School>;
+  checkSubdomainAvailability(subdomain: string): Promise<boolean>;
+  activateSchoolTrial(schoolId: string, trialDays?: number): Promise<School>;
+  updateSchoolSubscription(schoolId: string, planId: string, status: string, endDate?: Date): Promise<School>;
+  
+  // School User operations
+  getSchoolUsers(schoolId: string): Promise<SchoolUser[]>;
+  getSchoolUsersByRole(schoolId: string, role: string): Promise<SchoolUser[]>;
+  getSchoolUser(id: string): Promise<SchoolUser | undefined>;
+  getSchoolUserByEmail(schoolId: string, email: string): Promise<SchoolUser | undefined>;
+  createSchoolUser(user: InsertSchoolUser): Promise<SchoolUser>;
+  updateSchoolUser(id: string, user: Partial<UpdateSchoolUser>): Promise<SchoolUser>;
+  deleteSchoolUser(id: string): Promise<void>;
+  
+  // Parent-Student Link operations
+  getParentStudentLinks(parentId: string): Promise<ParentStudentLink[]>;
+  getStudentParentLinks(studentId: string): Promise<ParentStudentLink[]>;
+  createParentStudentLink(link: InsertParentStudentLink): Promise<ParentStudentLink>;
+  deleteParentStudentLink(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1307,6 +1359,242 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllNotifications(userId: string): Promise<void> {
     await db.delete(notifications).where(eq(notifications.userId, userId));
+  }
+
+  // ============================================
+  // SCHOOL MANAGEMENT SYSTEM (SMS) OPERATIONS
+  // ============================================
+
+  // Subscription Plan operations
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return await db
+      .select()
+      .from(subscriptionPlans)
+      .orderBy(subscriptionPlans.displayOrder);
+  }
+
+  async getActiveSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.isActive, true))
+      .orderBy(subscriptionPlans.displayOrder);
+  }
+
+  async getSubscriptionPlan(id: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.id, id));
+    return plan;
+  }
+
+  async getSubscriptionPlanByCode(code: string): Promise<SubscriptionPlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(subscriptionPlans)
+      .where(eq(subscriptionPlans.code, code));
+    return plan;
+  }
+
+  async createSubscriptionPlan(planData: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
+    const [plan] = await db
+      .insert(subscriptionPlans)
+      .values(planData)
+      .returning();
+    return plan;
+  }
+
+  // School operations
+  async getSchools(): Promise<School[]> {
+    return await db
+      .select()
+      .from(schools)
+      .orderBy(desc(schools.createdAt));
+  }
+
+  async getSchool(id: string): Promise<School | undefined> {
+    const [school] = await db
+      .select()
+      .from(schools)
+      .where(eq(schools.id, id));
+    return school;
+  }
+
+  async getSchoolBySubdomain(subdomain: string): Promise<School | undefined> {
+    const [school] = await db
+      .select()
+      .from(schools)
+      .where(eq(schools.subdomain, subdomain.toLowerCase()));
+    return school;
+  }
+
+  async getSchoolBySlug(slug: string): Promise<School | undefined> {
+    const [school] = await db
+      .select()
+      .from(schools)
+      .where(eq(schools.slug, slug));
+    return school;
+  }
+
+  async getSchoolsByOwner(ownerId: string): Promise<School[]> {
+    return await db
+      .select()
+      .from(schools)
+      .where(eq(schools.ownerId, ownerId))
+      .orderBy(desc(schools.createdAt));
+  }
+
+  async createSchool(schoolData: InsertSchool): Promise<School> {
+    const slug = schoolData.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+    
+    const [school] = await db
+      .insert(schools)
+      .values({
+        ...schoolData,
+        subdomain: schoolData.subdomain.toLowerCase(),
+        slug,
+      })
+      .returning();
+    return school;
+  }
+
+  async updateSchool(id: string, schoolData: Partial<UpdateSchool>): Promise<School> {
+    const [school] = await db
+      .update(schools)
+      .set({ ...schoolData, updatedAt: new Date() })
+      .where(eq(schools.id, id))
+      .returning();
+    return school;
+  }
+
+  async checkSubdomainAvailability(subdomain: string): Promise<boolean> {
+    const existing = await this.getSchoolBySubdomain(subdomain.toLowerCase());
+    return !existing;
+  }
+
+  async activateSchoolTrial(schoolId: string, trialDays: number = 14): Promise<School> {
+    const now = new Date();
+    const trialEnd = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+    
+    const [school] = await db
+      .update(schools)
+      .set({
+        subscriptionStatus: 'trial',
+        trialStartDate: now,
+        trialEndDate: trialEnd,
+        updatedAt: now,
+      })
+      .where(eq(schools.id, schoolId))
+      .returning();
+    return school;
+  }
+
+  async updateSchoolSubscription(
+    schoolId: string, 
+    planId: string, 
+    status: string, 
+    endDate?: Date
+  ): Promise<School> {
+    const [school] = await db
+      .update(schools)
+      .set({
+        subscriptionPlanId: planId,
+        subscriptionStatus: status,
+        subscriptionStartDate: new Date(),
+        subscriptionEndDate: endDate || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(schools.id, schoolId))
+      .returning();
+    return school;
+  }
+
+  // School User operations
+  async getSchoolUsers(schoolId: string): Promise<SchoolUser[]> {
+    return await db
+      .select()
+      .from(schoolUsers)
+      .where(eq(schoolUsers.schoolId, schoolId))
+      .orderBy(desc(schoolUsers.createdAt));
+  }
+
+  async getSchoolUsersByRole(schoolId: string, role: string): Promise<SchoolUser[]> {
+    return await db
+      .select()
+      .from(schoolUsers)
+      .where(and(eq(schoolUsers.schoolId, schoolId), eq(schoolUsers.role, role)))
+      .orderBy(schoolUsers.lastName);
+  }
+
+  async getSchoolUser(id: string): Promise<SchoolUser | undefined> {
+    const [user] = await db
+      .select()
+      .from(schoolUsers)
+      .where(eq(schoolUsers.id, id));
+    return user;
+  }
+
+  async getSchoolUserByEmail(schoolId: string, email: string): Promise<SchoolUser | undefined> {
+    const [user] = await db
+      .select()
+      .from(schoolUsers)
+      .where(and(eq(schoolUsers.schoolId, schoolId), eq(schoolUsers.email, email.toLowerCase())));
+    return user;
+  }
+
+  async createSchoolUser(userData: InsertSchoolUser): Promise<SchoolUser> {
+    const [user] = await db
+      .insert(schoolUsers)
+      .values({
+        ...userData,
+        email: userData.email.toLowerCase(),
+      })
+      .returning();
+    return user;
+  }
+
+  async updateSchoolUser(id: string, userData: Partial<UpdateSchoolUser>): Promise<SchoolUser> {
+    const [user] = await db
+      .update(schoolUsers)
+      .set({ ...userData, updatedAt: new Date() })
+      .where(eq(schoolUsers.id, id))
+      .returning();
+    return user;
+  }
+
+  async deleteSchoolUser(id: string): Promise<void> {
+    await db.delete(schoolUsers).where(eq(schoolUsers.id, id));
+  }
+
+  // Parent-Student Link operations
+  async getParentStudentLinks(parentId: string): Promise<ParentStudentLink[]> {
+    return await db
+      .select()
+      .from(parentStudentLinks)
+      .where(eq(parentStudentLinks.parentId, parentId));
+  }
+
+  async getStudentParentLinks(studentId: string): Promise<ParentStudentLink[]> {
+    return await db
+      .select()
+      .from(parentStudentLinks)
+      .where(eq(parentStudentLinks.studentId, studentId));
+  }
+
+  async createParentStudentLink(linkData: InsertParentStudentLink): Promise<ParentStudentLink> {
+    const [link] = await db
+      .insert(parentStudentLinks)
+      .values(linkData)
+      .returning();
+    return link;
+  }
+
+  async deleteParentStudentLink(id: string): Promise<void> {
+    await db.delete(parentStudentLinks).where(eq(parentStudentLinks.id, id));
   }
 }
 
