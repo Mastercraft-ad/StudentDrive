@@ -62,17 +62,17 @@ export default function ParentDashboard() {
   });
 
   const { data: attendanceSummary } = useQuery<AttendanceSummary>({
-    queryKey: ["/api/school/parent/attendance", selectedChild],
+    queryKey: [`/api/school/parent/children/${selectedChild}/attendance`],
     enabled: !!selectedChild,
   });
 
   const { data: gradesSummary } = useQuery<GradeSummary[]>({
-    queryKey: ["/api/school/parent/grades", selectedChild],
+    queryKey: [`/api/school/parent/children/${selectedChild}/grades`],
     enabled: !!selectedChild,
   });
 
   const { data: feeSummary } = useQuery<FeeSummary>({
-    queryKey: ["/api/school/parent/fees", selectedChild],
+    queryKey: [`/api/school/parent/children/${selectedChild}/fees`],
     enabled: !!selectedChild,
   });
 

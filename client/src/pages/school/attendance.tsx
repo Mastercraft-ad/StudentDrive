@@ -44,7 +44,7 @@ export default function AttendancePage() {
   });
 
   const { data: students, isLoading: studentsLoading } = useQuery<SchoolUser[]>({
-    queryKey: ["/api/school/classes", selectedClass, "students"],
+    queryKey: [`/api/school/classes/${selectedClass}/students`],
     enabled: !!selectedClass,
   });
 

@@ -30,6 +30,19 @@ import AdminBlogTags from "@/pages/admin/blog-tags";
 import AdminBlogEditor from "@/pages/admin/blog-editor";
 import Resources from "@/pages/resources";
 import MaterialDetail from "@/pages/material-detail";
+import SchoolDashboard from "@/pages/school/dashboard";
+import SchoolClasses from "@/pages/school/classes";
+import SchoolSubjects from "@/pages/school/subjects";
+import SchoolTerms from "@/pages/school/terms";
+import SchoolAttendance from "@/pages/school/attendance";
+import SchoolGrades from "@/pages/school/grades";
+import SchoolFees from "@/pages/school/fees";
+import SchoolTimetable from "@/pages/school/timetable";
+import SchoolAnnouncements from "@/pages/school/announcements";
+import SchoolResources from "@/pages/school/resources";
+import SchoolStudents from "@/pages/school/students";
+import SchoolTeachers from "@/pages/school/teachers";
+import ParentDashboard from "@/pages/school/parent-dashboard";
 import MyLibrary from "@/pages/my-library";
 import Bookmarks from "@/pages/bookmarks";
 import Quizzes from "@/pages/quizzes";
@@ -122,7 +135,7 @@ function Router({
       {/* Institution Routes */}
       {isInstitution && (
         <>
-          <Route path="/" component={InstitutionDashboard} />
+          <Route path="/" component={SchoolDashboard} />
           <Route path="/institution" component={InstitutionDashboard} />
           <Route
             path="/institution/students"
@@ -139,6 +152,21 @@ function Router({
           <Route path="/institutions/:slug" component={InstitutionDetail} />
           <Route path="/institution/settings" component={Settings} />
           <Route path="/settings" component={Settings} />
+          {/* School Management Routes */}
+          <Route path="/school" component={SchoolDashboard} />
+          <Route path="/school/dashboard" component={SchoolDashboard} />
+          <Route path="/school/classes" component={SchoolClasses} />
+          <Route path="/school/subjects" component={SchoolSubjects} />
+          <Route path="/school/terms" component={SchoolTerms} />
+          <Route path="/school/attendance" component={SchoolAttendance} />
+          <Route path="/school/grades" component={SchoolGrades} />
+          <Route path="/school/fees" component={SchoolFees} />
+          <Route path="/school/timetable" component={SchoolTimetable} />
+          <Route path="/school/announcements" component={SchoolAnnouncements} />
+          <Route path="/school/resources" component={SchoolResources} />
+          <Route path="/school/students" component={SchoolStudents} />
+          <Route path="/school/teachers" component={SchoolTeachers} />
+          <Route path="/school/parent-dashboard" component={ParentDashboard} />
         </>
       )}
 

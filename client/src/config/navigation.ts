@@ -13,6 +13,13 @@ import {
   Newspaper,
   FolderTree,
   Tag,
+  GraduationCap,
+  Calendar,
+  UserCheck,
+  DollarSign,
+  Clock,
+  Bell,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -83,19 +90,26 @@ export const menuConfig: MenuConfig = {
   },
   institution: {
     primary: {
-      label: "Main",
+      label: "School Management",
       items: [
-        { title: "Dashboard", url: "/institution", icon: Home },
-        { title: "Students", url: "/institution/students", icon: Users },
-        { title: "Instructors", url: "/institution/instructors", icon: Users },
-        { title: "Courses", url: "/institution/courses", icon: BookOpen },
+        { title: "Dashboard", url: "/", icon: Home },
+        { title: "Students", url: "/school/students", icon: GraduationCap },
+        { title: "Teachers", url: "/school/teachers", icon: Users },
+        { title: "Classes", url: "/school/classes", icon: BookOpen },
+        { title: "Subjects", url: "/school/subjects", icon: FileText },
+        { title: "Terms", url: "/school/terms", icon: Calendar },
       ],
     },
     secondary: {
-      label: "Management",
+      label: "Academic & Finance",
       items: [
-        { title: "Analytics", url: "/institution/analytics", icon: BarChart3 },
-        { title: "Settings", url: "/institution/settings", icon: Settings },
+        { title: "Attendance", url: "/school/attendance", icon: UserCheck },
+        { title: "Grades", url: "/school/grades", icon: TrendingUp },
+        { title: "Fees", url: "/school/fees", icon: DollarSign },
+        { title: "Timetable", url: "/school/timetable", icon: Clock },
+        { title: "Announcements", url: "/school/announcements", icon: Bell },
+        { title: "Resources", url: "/school/resources", icon: FolderOpen },
+        { title: "Settings", url: "/settings", icon: Settings },
       ],
     },
     footer: [],
