@@ -68,9 +68,25 @@ A comprehensive school management system with subdomain-based multi-tenancy. Eac
   - Individual and bulk reminder sending
   - Integration with school notifications system
 
-**Timetable System:**
-- `timetable_periods` - Time slot definitions
-- `timetable_entries` - Weekly schedule entries
+**Timetable System (Phase 7 - Completed November 2025):**
+- `timetable_periods` - Time slot definitions (name, start/end times, break periods)
+- `timetable_entries` - Weekly schedule entries with teacher assignments
+- **Backend Features:**
+  - Conflict detection prevents double-booking teachers at same day/period/term
+  - `checkTeacherConflict` storage method with excludeEntryId for updates
+  - Detailed conflict error messages with teacher name
+- **Teacher Schedule Page** (client/src/pages/school/teacher-schedule.tsx)
+  - Weekly grid view showing assigned classes/subjects
+  - Term filtering with current term auto-selection
+  - Period/subject/class statistics cards
+- **Student Timetable Page** (client/src/pages/school/student-timetable.tsx)
+  - Weekly grid showing class timetable with subjects and teachers
+  - Room information display
+  - Term-based filtering with proper query caching
+- **Navigation Config Updates:**
+  - Added `teacher` role menu with "My Schedule" link
+  - Added `school_student` role menu with "My Timetable" link
+  - Updated `parent` role to include "Fees" link
 
 **Communication:**
 - `school_announcements` - School-wide or targeted announcements
