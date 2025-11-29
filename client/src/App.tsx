@@ -48,6 +48,9 @@ import SchoolTeachers from "@/pages/school/teachers";
 import SchoolParents from "@/pages/school/parents";
 import ParentDashboard from "@/pages/school/parent-dashboard";
 import ParentGrades from "@/pages/school/parent-grades";
+import ParentFees from "@/pages/school/parent-fees";
+import PaymentCallback from "@/pages/school/payment-callback";
+import PaymentReceipt from "@/pages/school/payment-receipt";
 import MyLibrary from "@/pages/my-library";
 import Bookmarks from "@/pages/bookmarks";
 import Quizzes from "@/pages/quizzes";
@@ -181,6 +184,9 @@ function Router({
           <Route path="/school/parents" component={SchoolParents} />
           <Route path="/school/parent-dashboard" component={ParentDashboard} />
           <Route path="/school/parent/grades" component={ParentGrades} />
+          <Route path="/school/parent/fees" component={ParentFees} />
+          <Route path="/school/payment-callback" component={PaymentCallback} />
+          <Route path="/school/receipt/:id" component={PaymentReceipt} />
         </>
       )}
 

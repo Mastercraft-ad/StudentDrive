@@ -429,9 +429,15 @@ export interface IStorage {
   // Fee Payment operations
   getFeePayments(studentId: string, termId?: string): Promise<FeePayment[]>;
   getSchoolFeePayments(schoolId: string, termId?: string): Promise<FeePayment[]>;
+  getFeePayment(id: string): Promise<FeePayment | undefined>;
+  getFeePaymentByReference(reference: string): Promise<FeePayment | undefined>;
   createFeePayment(payment: InsertFeePayment): Promise<FeePayment>;
-  updateFeePayment(id: string, payment: Partial<InsertFeePayment>): Promise<FeePayment>;
+  updateFeePayment(id: string, payment: Partial<InsertFeePayment> & { paidAt?: Date }): Promise<FeePayment>;
   getStudentFeeBalance(studentId: string, termId: string): Promise<{ total: number; paid: number; balance: number }>;
+  getStudentOutstandingFees(studentId: string): Promise<Array<{ feeType: FeeType; classFee: ClassFee; termId: string; amountDue: number; amountPaid: number; balance: number }>>;
+  generateReceiptNumber(schoolId: string): Promise<string>;
+  getOverduePayments(schoolId: string): Promise<Array<{ student: SchoolUser; parent?: SchoolUser; balance: number; termId: string }>>;
+  sendFeeReminder(schoolId: string, studentId: string, parentId: string, amount: number, termId: string): Promise<SchoolNotification>;
   
   // ============================================
   // TIMETABLE OPERATIONS
@@ -2384,7 +2390,7 @@ export class DatabaseStorage implements IStorage {
     return payment;
   }
 
-  async updateFeePayment(id: string, paymentData: Partial<InsertFeePayment>): Promise<FeePayment> {
+  async updateFeePayment(id: string, paymentData: Partial<InsertFeePayment> & { paidAt?: Date }): Promise<FeePayment> {
     const [payment] = await db.update(feePayments).set({ ...paymentData, updatedAt: new Date() }).where(eq(feePayments.id, id)).returning();
     return payment;
   }
@@ -2401,6 +2407,112 @@ export class DatabaseStorage implements IStorage {
     const paid = payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
     
     return { total, paid, balance: total - paid };
+  }
+
+  async getFeePayment(id: string): Promise<FeePayment | undefined> {
+    const [payment] = await db.select().from(feePayments).where(eq(feePayments.id, id));
+    return payment;
+  }
+
+  async getFeePaymentByReference(reference: string): Promise<FeePayment | undefined> {
+    const [payment] = await db.select().from(feePayments).where(eq(feePayments.paystackReference, reference));
+    return payment;
+  }
+
+  async getStudentOutstandingFees(studentId: string): Promise<Array<{ feeType: FeeType; classFee: ClassFee; termId: string; amountDue: number; amountPaid: number; balance: number }>> {
+    const enrollments = await this.getStudentEnrollments(studentId);
+    const outstandingFees: Array<{ feeType: FeeType; classFee: ClassFee; termId: string; amountDue: number; amountPaid: number; balance: number }> = [];
+    
+    for (const enrollment of enrollments) {
+      const fees = await this.getClassFees(enrollment.classId, enrollment.termId);
+      const payments = await this.getFeePayments(studentId, enrollment.termId);
+      
+      for (const classFee of fees) {
+        const feeType = await this.getFeeType(classFee.feeTypeId);
+        if (!feeType) continue;
+        
+        const paidAmount = payments
+          .filter(p => p.feeTypeId === classFee.feeTypeId && p.status === 'completed')
+          .reduce((sum, p) => sum + p.amount, 0);
+        
+        const balance = classFee.amount - paidAmount;
+        
+        if (balance > 0) {
+          outstandingFees.push({
+            feeType,
+            classFee,
+            termId: enrollment.termId,
+            amountDue: classFee.amount,
+            amountPaid: paidAmount,
+            balance,
+          });
+        }
+      }
+    }
+    
+    return outstandingFees;
+  }
+
+  async generateReceiptNumber(schoolId: string): Promise<string> {
+    const year = new Date().getFullYear();
+    const count = await db.select({ count: sql<number>`count(*)` })
+      .from(feePayments)
+      .where(and(
+        eq(feePayments.schoolId, schoolId),
+        sql`EXTRACT(YEAR FROM ${feePayments.createdAt}) = ${year}`
+      ));
+    const nextNumber = (count[0]?.count || 0) + 1;
+    return `RCP-${year}-${String(nextNumber).padStart(5, '0')}`;
+  }
+
+  async getOverduePayments(schoolId: string): Promise<Array<{ student: SchoolUser; parent?: SchoolUser; balance: number; termId: string }>> {
+    const currentTerm = await db.select().from(academicTerms)
+      .where(and(eq(academicTerms.schoolId, schoolId), eq(academicTerms.isCurrent, true)))
+      .limit(1);
+    
+    if (!currentTerm.length) return [];
+    const termId = currentTerm[0].id;
+
+    const students = await db.select().from(schoolUsers)
+      .where(and(eq(schoolUsers.schoolId, schoolId), eq(schoolUsers.role, 'student')));
+    
+    const overdueList: Array<{ student: SchoolUser; parent?: SchoolUser; balance: number; termId: string }> = [];
+
+    for (const student of students) {
+      const feeBalance = await this.getStudentFeeBalance(student.id, termId);
+      if (feeBalance.balance > 0) {
+        let parent: SchoolUser | undefined;
+        if (student.parentId) {
+          parent = await this.getSchoolUser(student.parentId);
+        }
+        overdueList.push({ student, parent, balance: feeBalance.balance, termId });
+      }
+    }
+
+    return overdueList;
+  }
+
+  async sendFeeReminder(schoolId: string, studentId: string, parentId: string, amount: number, termId: string): Promise<SchoolNotification> {
+    const term = await this.getAcademicTerm(termId);
+    const student = await this.getSchoolUser(studentId);
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat("en-NG", {
+        style: "currency",
+        currency: "NGN",
+      }).format(amount / 100);
+    };
+
+    const notification: InsertSchoolNotification = {
+      schoolId,
+      userId: parentId,
+      type: 'fee_reminder',
+      title: 'Fee Payment Reminder',
+      message: `This is a reminder that there is an outstanding balance of ${formatCurrency(amount)} for ${student?.firstName} ${student?.lastName} for ${term?.name || 'current term'}. Please make payment at your earliest convenience.`,
+      link: '/school/parent/fees',
+      metadata: { studentId, termId, amount },
+    };
+
+    return this.createSchoolNotification(notification);
   }
 
   // ============================================

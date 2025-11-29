@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
@@ -21,6 +23,7 @@ import {
   Clock,
   BookOpen,
   AlertCircle,
+  CreditCard,
 } from "lucide-react";
 import type { SchoolUser, AttendanceRecord, StudentGrade, FeePayment, SchoolAnnouncement, AcademicTerm } from "@shared/schema";
 
@@ -387,6 +390,12 @@ export default function ParentDashboard() {
                         </span>
                       </div>
                     )}
+                    <Link href="/school/parent/fees">
+                      <Button className="w-full mt-2" data-testid="button-pay-fees">
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        View Fees & Pay
+                      </Button>
+                    </Link>
                   </div>
                 ) : (
                   <div className="text-center py-6" data-testid="div-no-fees">

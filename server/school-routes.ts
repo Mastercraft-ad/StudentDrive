@@ -1666,6 +1666,293 @@ router.get("/api/school/students/:studentId/fee-balance", requireSchoolContext, 
   }
 });
 
+router.get("/api/school/payments/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const payment = await storage.getFeePayment(req.params.id);
+    if (!payment) {
+      res.status(404).json({ message: "Payment not found" });
+      return;
+    }
+    const student = await storage.getSchoolUser(payment.studentId);
+    const feeType = await storage.getFeeType(payment.feeTypeId);
+    res.json({ ...payment, student, feeType });
+  } catch (error: any) {
+    console.error("Error fetching payment:", error);
+    res.status(500).json({ message: "Failed to fetch payment" });
+  }
+});
+
+// Parent outstanding fees
+router.get("/api/school/parent/children/:childId/outstanding-fees", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const outstandingFees = await storage.getStudentOutstandingFees(req.params.childId);
+    res.json(outstandingFees);
+  } catch (error: any) {
+    console.error("Error fetching outstanding fees:", error);
+    res.status(500).json({ message: "Failed to fetch outstanding fees" });
+  }
+});
+
+// ============================================
+// PAYSTACK PAYMENT ROUTES
+// ============================================
+
+import { paystack } from "./paystack";
+
+router.get("/api/school/paystack/status", requireSchoolContext, async (req: Request, res: Response) => {
+  res.json({ configured: paystack.isConfigured() });
+});
+
+router.post("/api/school/paystack/initialize", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    if (!paystack.isConfigured()) {
+      res.status(400).json({ message: "Paystack is not configured. Please contact the administrator." });
+      return;
+    }
+
+    const { studentId, feeTypeId, termId, email } = req.body;
+    const schoolUser = req.schoolUser!;
+
+    if (!studentId || !feeTypeId || !termId || !email) {
+      res.status(400).json({ message: "Missing required fields" });
+      return;
+    }
+
+    const student = await storage.getSchoolUser(studentId);
+    const feeType = await storage.getFeeType(feeTypeId);
+
+    if (!student || !feeType) {
+      res.status(400).json({ message: "Invalid student or fee type" });
+      return;
+    }
+
+    const outstandingFees = await storage.getStudentOutstandingFees(studentId);
+    const feeData = outstandingFees.find(f => f.feeType.id === feeTypeId && f.termId === termId);
+    
+    if (!feeData || feeData.balance <= 0) {
+      res.status(400).json({ message: "No outstanding balance for this fee" });
+      return;
+    }
+
+    const serverCalculatedAmount = feeData.balance;
+
+    const reference = paystack.generateReference();
+    const protocol = req.protocol || 'https';
+    const host = req.get('host') || process.env.REPLIT_DEV_DOMAIN || '';
+    const callbackUrl = `${protocol}://${host}/school/payment-callback?reference=${reference}`;
+
+    const result = await paystack.initializePayment({
+      email,
+      amount: serverCalculatedAmount,
+      reference,
+      callback_url: callbackUrl,
+      metadata: {
+        schoolId: req.school!.id,
+        studentId,
+        feeTypeId,
+        termId,
+        paidById: schoolUser.id,
+        expectedAmount: serverCalculatedAmount,
+        custom_fields: [
+          { display_name: "Student Name", variable_name: "student_name", value: `${student.firstName} ${student.lastName}` },
+          { display_name: "Fee Type", variable_name: "fee_type", value: feeType.name },
+        ],
+      },
+    });
+
+    const receiptNumber = await storage.generateReceiptNumber(req.school!.id);
+    
+    await storage.createFeePayment({
+      schoolId: req.school!.id,
+      studentId,
+      feeTypeId,
+      termId,
+      amount: serverCalculatedAmount,
+      paymentMethod: "paystack",
+      paystackReference: reference,
+      paystackAccessCode: result.data.access_code,
+      status: "pending",
+      paidById: schoolUser.id,
+      receiptNumber,
+    });
+
+    res.json({
+      authorization_url: result.data.authorization_url,
+      access_code: result.data.access_code,
+      reference: result.data.reference,
+    });
+  } catch (error: any) {
+    console.error("Error initializing Paystack payment:", error);
+    res.status(500).json({ message: error.message || "Failed to initialize payment" });
+  }
+});
+
+router.get("/api/school/paystack/verify/:reference", requireSchoolContext, async (req: Request, res: Response) => {
+  try {
+    if (!paystack.isConfigured()) {
+      res.status(400).json({ message: "Paystack is not configured" });
+      return;
+    }
+
+    const { reference } = req.params;
+    const result = await paystack.verifyPayment(reference);
+
+    const payment = await storage.getFeePaymentByReference(reference);
+    
+    if (!payment) {
+      res.status(404).json({ message: "Payment record not found" });
+      return;
+    }
+
+    if (result.data.status === "success") {
+      const paidAmount = result.data.amount;
+      const expectedAmount = payment.amount;
+      
+      if (paidAmount !== expectedAmount) {
+        console.error(`Payment amount mismatch: expected ${expectedAmount}, got ${paidAmount}`);
+        await storage.updateFeePayment(payment.id, {
+          status: "failed",
+          notes: `Amount mismatch: expected ${expectedAmount}, received ${paidAmount}`,
+        });
+        res.status(400).json({ 
+          status: "failed", 
+          message: "Payment amount does not match expected amount. Please contact support." 
+        });
+        return;
+      }
+
+      await storage.updateFeePayment(payment.id, {
+        status: "completed",
+        paidAt: new Date(),
+        paymentReference: result.data.reference,
+      });
+      res.json({ status: "success", message: "Payment verified successfully", payment: { ...payment, status: "completed" } });
+    } else {
+      await storage.updateFeePayment(payment.id, {
+        status: "failed",
+      });
+      res.json({ status: "failed", message: result.data.gateway_response });
+    }
+  } catch (error: any) {
+    console.error("Error verifying Paystack payment:", error);
+    res.status(500).json({ message: error.message || "Failed to verify payment" });
+  }
+});
+
+router.post("/api/school/paystack/webhook", async (req: Request, res: Response) => {
+  try {
+    const signature = req.headers["x-paystack-signature"] as string;
+    const body = JSON.stringify(req.body);
+
+    if (!paystack.validateWebhookSignature(signature, body)) {
+      res.status(400).json({ message: "Invalid signature" });
+      return;
+    }
+
+    const event = req.body;
+
+    if (event.event === "charge.success") {
+      const reference = event.data.reference;
+      const paidAmount = event.data.amount;
+      const payment = await storage.getFeePaymentByReference(reference);
+
+      if (payment && payment.status === "pending") {
+        if (paidAmount !== payment.amount) {
+          console.error(`Webhook: Payment amount mismatch: expected ${payment.amount}, got ${paidAmount}`);
+          await storage.updateFeePayment(payment.id, {
+            status: "failed",
+            notes: `Amount mismatch: expected ${payment.amount}, received ${paidAmount}`,
+          });
+        } else {
+          await storage.updateFeePayment(payment.id, {
+            status: "completed",
+            paidAt: new Date(),
+            paymentReference: reference,
+          });
+        }
+      }
+    }
+
+    res.sendStatus(200);
+  } catch (error: any) {
+    console.error("Error processing Paystack webhook:", error);
+    res.sendStatus(500);
+  }
+});
+
+// ============================================
+// FEE REMINDERS ROUTES
+// ============================================
+
+router.get("/api/school/fees/overdue", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const overduePayments = await storage.getOverduePayments(req.school!.id);
+    res.json(overduePayments);
+  } catch (error: any) {
+    console.error("Error fetching overdue payments:", error);
+    res.status(500).json({ message: "Failed to fetch overdue payments" });
+  }
+});
+
+router.post("/api/school/fees/send-reminder", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { studentId, parentId, amount, termId } = req.body;
+    
+    if (!studentId || !parentId || !amount || !termId) {
+      res.status(400).json({ message: "Missing required fields" });
+      return;
+    }
+
+    const notification = await storage.sendFeeReminder(
+      req.school!.id,
+      studentId,
+      parentId,
+      amount,
+      termId
+    );
+
+    res.json({ success: true, notification });
+  } catch (error: any) {
+    console.error("Error sending fee reminder:", error);
+    res.status(500).json({ message: "Failed to send fee reminder" });
+  }
+});
+
+router.post("/api/school/fees/send-bulk-reminders", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const overduePayments = await storage.getOverduePayments(req.school!.id);
+    const results: Array<{ studentId: string; success: boolean; error?: string }> = [];
+
+    for (const overdue of overduePayments) {
+      if (overdue.parent) {
+        try {
+          await storage.sendFeeReminder(
+            req.school!.id,
+            overdue.student.id,
+            overdue.parent.id,
+            overdue.balance,
+            overdue.termId
+          );
+          results.push({ studentId: overdue.student.id, success: true });
+        } catch (err: any) {
+          results.push({ studentId: overdue.student.id, success: false, error: err.message });
+        }
+      } else {
+        results.push({ studentId: overdue.student.id, success: false, error: "No parent linked" });
+      }
+    }
+
+    res.json({ 
+      totalSent: results.filter(r => r.success).length,
+      totalFailed: results.filter(r => !r.success).length,
+      results 
+    });
+  } catch (error: any) {
+    console.error("Error sending bulk fee reminders:", error);
+    res.status(500).json({ message: "Failed to send bulk fee reminders" });
+  }
+});
+
 // ============================================
 // TIMETABLE ROUTES
 // ============================================

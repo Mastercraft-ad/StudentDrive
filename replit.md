@@ -45,10 +45,28 @@ A comprehensive school management system with subdomain-based multi-tenancy. Eac
 - `student_grades` - Individual assessment scores
 - `term_results` - Calculated term results with grades and positions
 
-**Fees & Payments:**
+**Fees & Payments (Phase 6 - Completed November 2025):**
 - `fee_types` - Fee categories (tuition, exam, lab fees)
 - `class_fees` - Fee assignments to classes
-- `fee_payments` - Payment records with Stripe integration ready
+- `fee_payments` - Payment records with Paystack integration
+  - Fields for Paystack: `paystackReference`, `paystackAccessCode`, `paymentReference`
+  - Status tracking: pending, completed, failed
+- **Paystack Integration** (server/paystack.ts)
+  - Payment initialization with server-side amount calculation
+  - Verification with amount validation
+  - Webhook handling with signature validation
+  - Secure callback URL generation
+- **Parent Payment Portal** (client/src/pages/school/parent-fees.tsx)
+  - View outstanding fees by child
+  - Pay Now button with Paystack checkout
+  - Payment history with status tracking
+- **Payment Callback & Receipt** (payment-callback.tsx, payment-receipt.tsx)
+  - Automatic payment verification after Paystack redirect
+  - Receipt display with print/PDF capability
+- **Payment Reminders** 
+  - Overdue payment tracking
+  - Individual and bulk reminder sending
+  - Integration with school notifications system
 
 **Timetable System:**
 - `timetable_periods` - Time slot definitions

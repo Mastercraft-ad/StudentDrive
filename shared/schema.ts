@@ -1578,10 +1578,12 @@ export const feePayments = pgTable("fee_payments", {
   feeTypeId: varchar("fee_type_id").references(() => feeTypes.id).notNull(),
   termId: varchar("term_id").references(() => academicTerms.id),
   amount: integer("amount").notNull(), // Amount paid in kobo/cents
-  paymentMethod: varchar("payment_method", { length: 50 }).notNull(), // cash, bank_transfer, card, online
+  paymentMethod: varchar("payment_method", { length: 50 }).notNull(), // cash, bank_transfer, card, online, paystack
   paymentReference: varchar("payment_reference", { length: 100 }),
   stripePaymentIntentId: varchar("stripe_payment_intent_id"),
   stripeSessionId: varchar("stripe_session_id"),
+  paystackReference: varchar("paystack_reference", { length: 100 }),
+  paystackAccessCode: varchar("paystack_access_code", { length: 100 }),
   status: varchar("status", { length: 20 }).default("pending").notNull(), // pending, completed, failed, refunded
   paidById: varchar("paid_by_id").references(() => schoolUsers.id), // Parent or student who paid
   receiptNumber: varchar("receipt_number", { length: 50 }),

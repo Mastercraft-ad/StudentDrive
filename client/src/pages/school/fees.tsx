@@ -36,8 +36,15 @@ import {
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, DollarSign, CreditCard, Receipt, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, DollarSign, CreditCard, Receipt, Search, Edit, Trash2, Bell, Send, AlertCircle, Loader2 } from "lucide-react";
 import type { FeeType, FeePayment, SchoolUser } from "@shared/schema";
+
+interface OverduePayment {
+  student: SchoolUser;
+  parent?: SchoolUser;
+  balance: number;
+  termId: string;
+}
 
 export default function FeesPage() {
   const { toast } = useToast();
@@ -75,6 +82,10 @@ export default function FeesPage() {
 
   const { data: students } = useQuery<SchoolUser[]>({
     queryKey: ["/api/school/users", { role: "student" }],
+  });
+
+  const { data: overduePayments, isLoading: overdueLoading, refetch: refetchOverdue } = useQuery<OverduePayment[]>({
+    queryKey: ["/api/school/fees/overdue"],
   });
 
   const createFeeTypeMutation = useMutation({
@@ -141,6 +152,34 @@ export default function FeesPage() {
     },
     onError: (error: Error) => {
       toast({ title: "Failed to record payment", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const sendReminderMutation = useMutation({
+    mutationFn: async (data: { studentId: string; parentId: string; amount: number; termId: string }) => {
+      return apiRequest("POST", "/api/school/fees/send-reminder", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Fee reminder sent successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to send reminder", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const sendBulkRemindersMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/school/fees/send-bulk-reminders", {});
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: "Bulk reminders sent", 
+        description: `${data.totalSent} reminders sent, ${data.totalFailed} failed` 
+      });
+      refetchOverdue();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to send bulk reminders", description: error.message, variant: "destructive" });
     },
   });
 
@@ -253,6 +292,7 @@ export default function FeesPage() {
         <TabsList>
           <TabsTrigger value="fee-types" data-testid="tab-fee-types">Fee Types</TabsTrigger>
           <TabsTrigger value="payments" data-testid="tab-payments">Payments</TabsTrigger>
+          <TabsTrigger value="reminders" data-testid="tab-reminders">Reminders</TabsTrigger>
         </TabsList>
 
         <TabsContent value="fee-types" className="mt-4">
@@ -550,6 +590,104 @@ export default function FeesPage() {
                   <Receipt className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium">No payments recorded</h3>
                   <p className="text-muted-foreground">Record your first payment to get started.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reminders" className="mt-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="h-5 w-5" />
+                  Outstanding Balances & Reminders
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  View students with outstanding fees and send payment reminders
+                </p>
+              </div>
+              <Button
+                onClick={() => sendBulkRemindersMutation.mutate()}
+                disabled={sendBulkRemindersMutation.isPending || !overduePayments?.length}
+                data-testid="button-send-bulk-reminders"
+              >
+                {sendBulkRemindersMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4 mr-2" />
+                )}
+                Send All Reminders
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {overdueLoading ? (
+                <Skeleton className="h-64" />
+              ) : overduePayments && overduePayments.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Student</TableHead>
+                      <TableHead>Admission No.</TableHead>
+                      <TableHead>Parent</TableHead>
+                      <TableHead>Outstanding Balance</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {overduePayments.map((item) => (
+                      <TableRow key={item.student.id} data-testid={`row-overdue-${item.student.id}`}>
+                        <TableCell className="font-medium">
+                          {item.student.firstName} {item.student.lastName}
+                        </TableCell>
+                        <TableCell className="font-mono">
+                          {item.student.admissionNumber || "-"}
+                        </TableCell>
+                        <TableCell>
+                          {item.parent ? (
+                            `${item.parent.firstName} ${item.parent.lastName}`
+                          ) : (
+                            <span className="text-muted-foreground">No parent linked</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium text-red-600">
+                          {formatCurrency(item.balance)}
+                        </TableCell>
+                        <TableCell>
+                          {item.parent ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => sendReminderMutation.mutate({
+                                studentId: item.student.id,
+                                parentId: item.parent!.id,
+                                amount: item.balance,
+                                termId: item.termId,
+                              })}
+                              disabled={sendReminderMutation.isPending}
+                              data-testid={`button-send-reminder-${item.student.id}`}
+                            >
+                              {sendReminderMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              ) : (
+                                <Bell className="h-4 w-4 mr-1" />
+                              )}
+                              Send Reminder
+                            </Button>
+                          ) : (
+                            <Badge variant="secondary">No parent</Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-12">
+                  <DollarSign className="h-12 w-12 mx-auto text-green-500 mb-4" />
+                  <h3 className="text-lg font-medium">No Outstanding Balances</h3>
+                  <p className="text-muted-foreground">All students are up to date with their payments.</p>
                 </div>
               )}
             </CardContent>
