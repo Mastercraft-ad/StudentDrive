@@ -35,6 +35,7 @@ import SchoolClasses from "@/pages/school/classes";
 import SchoolSubjects from "@/pages/school/subjects";
 import SchoolTerms from "@/pages/school/terms";
 import SchoolAttendance from "@/pages/school/attendance";
+import SchoolAttendanceReports from "@/pages/school/attendance-reports";
 import SchoolGrades from "@/pages/school/grades";
 import SchoolFees from "@/pages/school/fees";
 import SchoolTimetable from "@/pages/school/timetable";
@@ -164,6 +165,7 @@ function Router({
           <Route path="/school/subjects" component={SchoolSubjects} />
           <Route path="/school/terms" component={SchoolTerms} />
           <Route path="/school/attendance" component={SchoolAttendance} />
+          <Route path="/school/attendance/reports" component={SchoolAttendanceReports} />
           <Route path="/school/grades" component={SchoolGrades} />
           <Route path="/school/fees" component={SchoolFees} />
           <Route path="/school/timetable" component={SchoolTimetable} />

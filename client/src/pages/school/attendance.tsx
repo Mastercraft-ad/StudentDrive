@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -21,8 +23,9 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { UserCheck, UserX, Clock, Calendar, Save, Users } from "lucide-react";
-import type { SchoolClass, SchoolUser, AttendanceRecord } from "@shared/schema";
+import { UserCheck, UserX, Clock, Calendar, Save, Users, BookOpen, BarChart3 } from "lucide-react";
+import { Link } from "wouter";
+import type { SchoolClass, SchoolUser, AttendanceRecord, AcademicTerm, SchoolSubject } from "@shared/schema";
 
 type AttendanceStatus = "present" | "absent" | "late" | "excused";
 
@@ -31,9 +34,19 @@ interface StudentAttendance {
   status: AttendanceStatus;
 }
 
+interface ClassSubject {
+  id: string;
+  classId: string;
+  subjectId: string;
+  subject?: SchoolSubject;
+}
+
 export default function AttendancePage() {
   const { toast } = useToast();
   const [selectedClass, setSelectedClass] = useState<string>("");
+  const [selectedTerm, setSelectedTerm] = useState<string>("");
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
+  const [isSubjectAttendance, setIsSubjectAttendance] = useState<boolean>(false);
   const [selectedDate, setSelectedDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
@@ -43,26 +56,90 @@ export default function AttendancePage() {
     queryKey: ["/api/school/classes"],
   });
 
+  const { data: terms } = useQuery<AcademicTerm[]>({
+    queryKey: ["/api/school/terms"],
+  });
+
+  const { data: classSubjects } = useQuery<ClassSubject[]>({
+    queryKey: ['/api/school/classes', selectedClass, 'subjects'],
+    queryFn: async () => {
+      const response = await fetch(`/api/school/classes/${selectedClass}/subjects`);
+      if (!response.ok) throw new Error('Failed to fetch subjects');
+      return response.json();
+    },
+    enabled: !!selectedClass && isSubjectAttendance,
+  });
+
   const { data: students, isLoading: studentsLoading } = useQuery<SchoolUser[]>({
     queryKey: [`/api/school/classes/${selectedClass}/students`],
     enabled: !!selectedClass,
   });
 
+  const attendanceQueryKey = isSubjectAttendance && selectedSubject 
+    ? ['/api/school/attendance', { classId: selectedClass, date: selectedDate, subjectId: selectedSubject }]
+    : ['/api/school/attendance', { classId: selectedClass, date: selectedDate }];
+
   const { data: existingAttendance } = useQuery<AttendanceRecord[]>({
-    queryKey: ["/api/school/attendance", { classId: selectedClass, date: selectedDate }],
-    enabled: !!selectedClass && !!selectedDate,
+    queryKey: attendanceQueryKey,
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        classId: selectedClass,
+        date: selectedDate,
+      });
+      if (isSubjectAttendance && selectedSubject) {
+        params.set('subjectId', selectedSubject);
+      }
+      const response = await fetch(`/api/school/attendance?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch attendance');
+      return response.json();
+    },
+    enabled: !!selectedClass && !!selectedDate && (!isSubjectAttendance || !!selectedSubject),
   });
+
+  useEffect(() => {
+    if (existingAttendance && existingAttendance.length > 0) {
+      const existingData: Record<string, AttendanceStatus> = {};
+      existingAttendance.forEach(record => {
+        existingData[record.studentId] = record.status as AttendanceStatus;
+      });
+      setAttendanceData(existingData);
+    } else {
+      setAttendanceData({});
+    }
+  }, [existingAttendance]);
+
+  useEffect(() => {
+    setSelectedSubject("");
+  }, [selectedClass]);
+
+  useEffect(() => {
+    if (!isSubjectAttendance) {
+      setSelectedSubject("");
+    } else if (isSubjectAttendance && classSubjects && classSubjects.length > 0 && !selectedSubject) {
+      setSelectedSubject(classSubjects[0].subjectId);
+    }
+  }, [isSubjectAttendance, classSubjects, selectedSubject]);
 
   const saveMutation = useMutation({
     mutationFn: async (records: StudentAttendance[]) => {
       return apiRequest("POST", "/api/school/attendance/bulk", {
         classId: selectedClass,
+        termId: selectedTerm,
+        subjectId: isSubjectAttendance ? selectedSubject : null,
         date: selectedDate,
         records,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/school/attendance"] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && (
+            (typeof key[0] === 'string' && key[0].includes('/api/school/attendance')) ||
+            (typeof key[0] === 'string' && key[0].includes('/api/school/classes'))
+          );
+        }
+      });
       toast({ title: "Attendance saved successfully" });
     },
     onError: (error: Error) => {
@@ -75,6 +152,14 @@ export default function AttendancePage() {
   };
 
   const handleSave = () => {
+    if (!selectedTerm) {
+      toast({ title: "Please select a term", variant: "destructive" });
+      return;
+    }
+    if (isSubjectAttendance && !selectedSubject) {
+      toast({ title: "Please select a subject for subject-wise attendance", variant: "destructive" });
+      return;
+    }
     const records = Object.entries(attendanceData).map(([studentId, status]) => ({
       studentId,
       status,
@@ -95,7 +180,7 @@ export default function AttendancePage() {
     setAttendanceData(newData);
   };
 
-  const getStatusBadge = (status: AttendanceStatus) => {
+  const getStatusBadge = (status: AttendanceStatus | "unmarked") => {
     switch (status) {
       case "present":
         return <Badge className="bg-green-600">Present</Badge>;
@@ -133,16 +218,22 @@ export default function AttendancePage() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Attendance</h1>
           <p className="text-muted-foreground">Mark and manage student attendance</p>
         </div>
+        <Button variant="outline" asChild data-testid="button-view-reports">
+          <Link href="/school/attendance/reports">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            View Reports
+          </Link>
+        </Button>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Select Class and Date
+            Attendance Settings
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex items-end gap-4 flex-wrap">
             <div className="space-y-2 min-w-[200px]">
               <label className="text-sm font-medium">Class</label>
@@ -159,6 +250,23 @@ export default function AttendancePage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2 min-w-[200px]">
+              <label className="text-sm font-medium">Term</label>
+              <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                <SelectTrigger data-testid="select-attendance-term">
+                  <SelectValue placeholder="Select a term" />
+                </SelectTrigger>
+                <SelectContent>
+                  {terms?.map((term) => (
+                    <SelectItem key={term.id} value={term.id}>
+                      {term.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Date</label>
               <input
@@ -169,23 +277,60 @@ export default function AttendancePage() {
                 data-testid="input-attendance-date"
               />
             </div>
-            {selectedClass && (
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleMarkAll("present")} data-testid="button-mark-all-present">
-                  <UserCheck className="h-4 w-4 mr-1" />
-                  All Present
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleMarkAll("absent")} data-testid="button-mark-all-absent">
-                  <UserX className="h-4 w-4 mr-1" />
-                  All Absent
-                </Button>
+          </div>
+
+          <div className="flex items-center gap-4 pt-2 border-t">
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="subject-attendance"
+                checked={isSubjectAttendance}
+                onCheckedChange={setIsSubjectAttendance}
+                data-testid="switch-subject-attendance"
+              />
+              <Label htmlFor="subject-attendance" className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Subject-wise Attendance
+              </Label>
+            </div>
+
+            {isSubjectAttendance && selectedClass && (
+              <div className="space-y-2 min-w-[200px]">
+                <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={!classSubjects || classSubjects.length === 0}>
+                  <SelectTrigger data-testid="select-attendance-subject">
+                    <SelectValue placeholder={classSubjects?.length === 0 ? "No subjects assigned" : "Select a subject"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classSubjects && classSubjects.length > 0 ? (
+                      classSubjects.map((cs) => (
+                        <SelectItem key={cs.id} value={cs.subjectId}>
+                          {cs.subject?.name || cs.subjectId}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No subjects assigned to this class</div>
+                    )}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
+
+          {selectedClass && selectedTerm && (
+            <div className="flex gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => handleMarkAll("present")} data-testid="button-mark-all-present">
+                <UserCheck className="h-4 w-4 mr-1" />
+                All Present
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => handleMarkAll("absent")} data-testid="button-mark-all-absent">
+                <UserX className="h-4 w-4 mr-1" />
+                All Absent
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {selectedClass && (
+      {selectedClass && selectedTerm && (!isSubjectAttendance || selectedSubject) && (
         <>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Card>
@@ -250,6 +395,12 @@ export default function AttendancePage() {
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
                 Students ({students?.length || 0})
+                {isSubjectAttendance && selectedSubject && (
+                  <Badge variant="outline" className="ml-2">
+                    <BookOpen className="h-3 w-3 mr-1" />
+                    Subject Attendance
+                  </Badge>
+                )}
               </CardTitle>
               <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-attendance">
                 <Save className="h-4 w-4 mr-2" />
@@ -281,7 +432,7 @@ export default function AttendancePage() {
                         </TableCell>
                         <TableCell>{student.admissionNumber || "-"}</TableCell>
                         <TableCell>
-                          {getStatusBadge(attendanceData[student.id] || ("unmarked" as any))}
+                          {getStatusBadge(attendanceData[student.id] || "unmarked")}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
@@ -327,6 +478,30 @@ export default function AttendancePage() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {selectedClass && !selectedTerm && (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center">
+              <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium">Select a Term</h3>
+              <p className="text-muted-foreground">Please select a term to mark attendance.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isSubjectAttendance && selectedClass && selectedTerm && !selectedSubject && (
+        <Card>
+          <CardContent className="py-12">
+            <div className="text-center">
+              <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium">Select a Subject</h3>
+              <p className="text-muted-foreground">Please select a subject to mark subject-wise attendance.</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

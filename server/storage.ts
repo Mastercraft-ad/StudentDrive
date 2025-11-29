@@ -369,12 +369,15 @@ export interface IStorage {
   // ATTENDANCE OPERATIONS
   // ============================================
   
-  getAttendanceRecords(classId: string, date: Date): Promise<AttendanceRecord[]>;
+  getAttendanceRecords(classId: string, date: Date, subjectId?: string): Promise<AttendanceRecord[]>;
   getStudentAttendance(studentId: string, termId: string): Promise<AttendanceRecord[]>;
+  getSubjectAttendance(classId: string, subjectId: string, termId: string): Promise<AttendanceRecord[]>;
   markAttendance(record: InsertAttendanceRecord): Promise<AttendanceRecord>;
   bulkMarkAttendance(records: InsertAttendanceRecord[]): Promise<AttendanceRecord[]>;
   updateAttendance(id: string, record: Partial<InsertAttendanceRecord>): Promise<AttendanceRecord>;
   getAttendanceSummary(classId: string, termId: string): Promise<{ studentId: string; present: number; absent: number; late: number; excused: number }[]>;
+  getStudentAttendanceSummary(studentId: string, termId: string): Promise<{ present: number; absent: number; late: number; excused: number; totalDays: number; rate: number }>;
+  getAttendanceReport(classId: string, termId: string, startDate: Date, endDate: Date): Promise<AttendanceRecord[]>;
   
   // ============================================
   // GRADES & ASSESSMENTS OPERATIONS
@@ -1956,16 +1959,38 @@ export class DatabaseStorage implements IStorage {
   // ATTENDANCE IMPLEMENTATIONS
   // ============================================
 
-  async getAttendanceRecords(classId: string, date: Date): Promise<AttendanceRecord[]> {
+  async getAttendanceRecords(classId: string, date: Date, subjectId?: string): Promise<AttendanceRecord[]> {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
-    return await db.select().from(attendanceRecords).where(and(eq(attendanceRecords.classId, classId), sql`${attendanceRecords.date} >= ${startOfDay} AND ${attendanceRecords.date} <= ${endOfDay}`));
+    
+    const conditions = [
+      eq(attendanceRecords.classId, classId),
+      sql`${attendanceRecords.date} >= ${startOfDay} AND ${attendanceRecords.date} <= ${endOfDay}`
+    ];
+    
+    if (subjectId) {
+      conditions.push(eq(attendanceRecords.subjectId, subjectId));
+    } else {
+      conditions.push(sql`${attendanceRecords.subjectId} IS NULL`);
+    }
+    
+    return await db.select().from(attendanceRecords).where(and(...conditions));
   }
 
   async getStudentAttendance(studentId: string, termId: string): Promise<AttendanceRecord[]> {
     return await db.select().from(attendanceRecords).where(and(eq(attendanceRecords.studentId, studentId), eq(attendanceRecords.termId, termId))).orderBy(attendanceRecords.date);
+  }
+
+  async getSubjectAttendance(classId: string, subjectId: string, termId: string): Promise<AttendanceRecord[]> {
+    return await db.select().from(attendanceRecords).where(
+      and(
+        eq(attendanceRecords.classId, classId),
+        eq(attendanceRecords.subjectId, subjectId),
+        eq(attendanceRecords.termId, termId)
+      )
+    ).orderBy(attendanceRecords.date);
   }
 
   async markAttendance(record: InsertAttendanceRecord): Promise<AttendanceRecord> {
@@ -1996,6 +2021,39 @@ export class DatabaseStorage implements IStorage {
       else if (record.status === 'excused') summary[record.studentId].excused++;
     }
     return Object.entries(summary).map(([studentId, counts]) => ({ studentId, ...counts }));
+  }
+
+  async getStudentAttendanceSummary(studentId: string, termId: string): Promise<{ present: number; absent: number; late: number; excused: number; totalDays: number; rate: number }> {
+    const records = await db.select().from(attendanceRecords).where(
+      and(
+        eq(attendanceRecords.studentId, studentId),
+        eq(attendanceRecords.termId, termId),
+        sql`${attendanceRecords.subjectId} IS NULL`
+      )
+    );
+    
+    const summary = { present: 0, absent: 0, late: 0, excused: 0 };
+    for (const record of records) {
+      if (record.status === 'present') summary.present++;
+      else if (record.status === 'absent') summary.absent++;
+      else if (record.status === 'late') summary.late++;
+      else if (record.status === 'excused') summary.excused++;
+    }
+    
+    const totalDays = summary.present + summary.absent + summary.late + summary.excused;
+    const rate = totalDays > 0 ? Math.round(((summary.present + summary.late) / totalDays) * 100) : 0;
+    
+    return { ...summary, totalDays, rate };
+  }
+
+  async getAttendanceReport(classId: string, termId: string, startDate: Date, endDate: Date): Promise<AttendanceRecord[]> {
+    return await db.select().from(attendanceRecords).where(
+      and(
+        eq(attendanceRecords.classId, classId),
+        eq(attendanceRecords.termId, termId),
+        sql`${attendanceRecords.date} >= ${startDate} AND ${attendanceRecords.date} <= ${endDate}`
+      )
+    ).orderBy(attendanceRecords.date);
   }
 
   // ============================================

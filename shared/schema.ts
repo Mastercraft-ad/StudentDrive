@@ -1302,6 +1302,7 @@ export const attendanceRecords = pgTable("attendance_records", {
   classId: varchar("class_id").references(() => schoolClasses.id, { onDelete: 'cascade' }).notNull(),
   studentId: varchar("student_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
   termId: varchar("term_id").references(() => academicTerms.id).notNull(),
+  subjectId: varchar("subject_id").references(() => schoolSubjects.id, { onDelete: 'cascade' }), // Optional - null for daily class attendance
   date: timestamp("date").notNull(),
   status: varchar("status", { length: 20 }).notNull(), // present, absent, late, excused
   markedById: varchar("marked_by_id").references(() => schoolUsers.id),
@@ -1309,7 +1310,7 @@ export const attendanceRecords = pgTable("attendance_records", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  uniqueAttendance: index("unique_student_attendance").on(table.studentId, table.classId, table.date),
+  uniqueAttendance: index("unique_student_attendance").on(table.studentId, table.classId, table.date, table.subjectId),
 }));
 
 export const attendanceRecordsRelations = relations(attendanceRecords, ({ one }) => ({
@@ -1329,6 +1330,10 @@ export const attendanceRecordsRelations = relations(attendanceRecords, ({ one })
   term: one(academicTerms, {
     fields: [attendanceRecords.termId],
     references: [academicTerms.id],
+  }),
+  subject: one(schoolSubjects, {
+    fields: [attendanceRecords.subjectId],
+    references: [schoolSubjects.id],
   }),
   markedBy: one(schoolUsers, {
     fields: [attendanceRecords.markedById],

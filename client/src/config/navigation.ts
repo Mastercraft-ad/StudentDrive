@@ -105,7 +105,15 @@ export const menuConfig: MenuConfig = {
     secondary: {
       label: "Academic & Finance",
       items: [
-        { title: "Attendance", url: "/school/attendance", icon: UserCheck },
+        { 
+          title: "Attendance", 
+          url: "#", 
+          icon: UserCheck,
+          children: [
+            { title: "Mark Attendance", url: "/school/attendance", icon: UserCheck },
+            { title: "Reports", url: "/school/attendance/reports", icon: BarChart3 },
+          ],
+        },
         { title: "Grades", url: "/school/grades", icon: TrendingUp },
         { title: "Fees", url: "/school/fees", icon: DollarSign },
         { title: "Timetable", url: "/school/timetable", icon: Clock },

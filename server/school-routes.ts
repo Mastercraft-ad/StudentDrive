@@ -1122,12 +1122,16 @@ router.delete("/api/school/enrollments/:id", requireSchoolContext, checkTrialSta
 
 router.get("/api/school/attendance", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
-    const { classId, date } = req.query;
+    const { classId, date, subjectId } = req.query;
     if (!classId || !date) {
       res.status(400).json({ message: "classId and date are required" });
       return;
     }
-    const records = await storage.getAttendanceRecords(classId as string, new Date(date as string));
+    const records = await storage.getAttendanceRecords(
+      classId as string, 
+      new Date(date as string),
+      subjectId as string | undefined
+    );
     res.json(records);
   } catch (error: any) {
     console.error("Error fetching attendance:", error);
@@ -1152,12 +1156,13 @@ router.get("/api/school/students/:studentId/attendance", requireSchoolContext, c
 
 router.post("/api/school/attendance", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
-    const { classId, studentId, termId, date, status, markedById, remarks } = req.body;
+    const { classId, studentId, termId, subjectId, date, status, markedById, remarks } = req.body;
     const record = await storage.markAttendance({
       schoolId: req.school!.id,
       classId,
       studentId,
       termId,
+      subjectId: subjectId || null,
       date: new Date(date),
       status,
       markedById: markedById || null,
@@ -1172,11 +1177,12 @@ router.post("/api/school/attendance", requireSchoolContext, checkTrialStatus, as
 
 router.post("/api/school/attendance/bulk", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
-    const { classId, termId, date, markedById, records } = req.body;
+    const { classId, termId, subjectId, date, markedById, records } = req.body;
     const attendanceRecords = records.map((r: any) => ({
       schoolId: req.school!.id,
       classId,
       termId,
+      subjectId: subjectId || null,
       date: new Date(date),
       studentId: r.studentId,
       status: r.status,
@@ -1214,6 +1220,56 @@ router.get("/api/school/classes/:classId/attendance-summary", requireSchoolConte
   } catch (error: any) {
     console.error("Error fetching attendance summary:", error);
     res.status(500).json({ message: "Failed to fetch attendance summary" });
+  }
+});
+
+router.get("/api/school/classes/:classId/subjects/:subjectId/attendance", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    if (!termId) {
+      res.status(400).json({ message: "termId is required" });
+      return;
+    }
+    const records = await storage.getSubjectAttendance(req.params.classId, req.params.subjectId, termId as string);
+    res.json(records);
+  } catch (error: any) {
+    console.error("Error fetching subject attendance:", error);
+    res.status(500).json({ message: "Failed to fetch subject attendance" });
+  }
+});
+
+router.get("/api/school/attendance/report", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { classId, termId, startDate, endDate } = req.query;
+    if (!classId || !termId || !startDate || !endDate) {
+      res.status(400).json({ message: "classId, termId, startDate, and endDate are required" });
+      return;
+    }
+    const records = await storage.getAttendanceReport(
+      classId as string,
+      termId as string,
+      new Date(startDate as string),
+      new Date(endDate as string)
+    );
+    res.json(records);
+  } catch (error: any) {
+    console.error("Error fetching attendance report:", error);
+    res.status(500).json({ message: "Failed to fetch attendance report" });
+  }
+});
+
+router.get("/api/school/parent/children/:childId/attendance", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    if (!termId) {
+      res.status(400).json({ message: "termId is required" });
+      return;
+    }
+    const summary = await storage.getStudentAttendanceSummary(req.params.childId, termId as string);
+    res.json(summary);
+  } catch (error: any) {
+    console.error("Error fetching child attendance:", error);
+    res.status(500).json({ message: "Failed to fetch child attendance" });
   }
 });
 

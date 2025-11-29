@@ -32,8 +32,13 @@ A comprehensive school management system with subdomain-based multi-tenancy. Eac
 - `teacher_assignments` - Teacher-class-subject assignments
 - `class_enrollments` - Student enrollment in classes
 
-**Attendance System:**
+**Attendance System (Phase 4 - Completed November 2025):**
 - `attendance_records` - Daily attendance with status (present/absent/late/excused)
+  - Subject-wise attendance tracking via optional `subjectId` field
+  - Term-based attendance organization via `termId` field
+- Attendance marking UI with subject toggle, term selection, and bulk actions
+- Attendance reports page with daily/weekly/monthly/term views and student breakdowns
+- Parent portal integration for viewing child attendance summaries
 
 **Grades & Assessments:**
 - `assessment_types` - CA, Exam, Assignment definitions with weights
