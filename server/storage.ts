@@ -394,14 +394,20 @@ export interface IStorage {
   getStudentGrades(studentId: string, termId: string): Promise<StudentGrade[]>;
   getClassGrades(classId: string, subjectId: string, termId: string): Promise<StudentGrade[]>;
   createStudentGrade(grade: InsertStudentGrade): Promise<StudentGrade>;
+  bulkCreateStudentGrades(grades: InsertStudentGrade[]): Promise<StudentGrade[]>;
   updateStudentGrade(id: string, grade: Partial<InsertStudentGrade>): Promise<StudentGrade>;
   deleteStudentGrade(id: string): Promise<void>;
+  getStudentGradesSummary(studentId: string, termId: string): Promise<{ subjectId: string; subjectName: string; averageScore: number; grade: string }[]>;
   
   // Term Result operations
   getTermResults(studentId: string, termId: string): Promise<TermResult[]>;
   getClassTermResults(classId: string, termId: string): Promise<TermResult[]>;
   createTermResult(result: InsertTermResult): Promise<TermResult>;
   updateTermResult(id: string, result: Partial<InsertTermResult>): Promise<TermResult>;
+  calculateTermResults(schoolId: string, classId: string, termId: string): Promise<TermResult[]>;
+  
+  // Student Fee Summary
+  getStudentFeeSummary(studentId: string): Promise<{ totalDue: number; totalPaid: number; balance: number }>;
   
   // ============================================
   // FEES & PAYMENTS OPERATIONS
@@ -2121,6 +2127,194 @@ export class DatabaseStorage implements IStorage {
   async updateTermResult(id: string, resultData: Partial<InsertTermResult>): Promise<TermResult> {
     const [result] = await db.update(termResults).set({ ...resultData, updatedAt: new Date() }).where(eq(termResults.id, id)).returning();
     return result;
+  }
+
+  async bulkCreateStudentGrades(gradesData: InsertStudentGrade[]): Promise<StudentGrade[]> {
+    if (gradesData.length === 0) return [];
+    
+    const results: StudentGrade[] = [];
+    for (const gradeData of gradesData) {
+      const existing = await db.select().from(studentGrades).where(
+        and(
+          eq(studentGrades.studentId, gradeData.studentId),
+          eq(studentGrades.subjectId, gradeData.subjectId),
+          eq(studentGrades.termId, gradeData.termId),
+          eq(studentGrades.assessmentTypeId, gradeData.assessmentTypeId)
+        )
+      );
+      
+      if (existing.length > 0) {
+        const [updated] = await db.update(studentGrades)
+          .set({ score: gradeData.score, maxScore: gradeData.maxScore, gradedAt: new Date() })
+          .where(eq(studentGrades.id, existing[0].id))
+          .returning();
+        results.push(updated);
+      } else {
+        const [created] = await db.insert(studentGrades).values(gradeData).returning();
+        results.push(created);
+      }
+    }
+    return results;
+  }
+
+  async getStudentGradesSummary(studentId: string, termId: string): Promise<{ subjectId: string; subjectName: string; averageScore: number; grade: string }[]> {
+    const grades = await db.select().from(studentGrades).where(
+      and(eq(studentGrades.studentId, studentId), eq(studentGrades.termId, termId))
+    );
+    
+    if (grades.length === 0) return [];
+    
+    const firstGrade = grades[0];
+    const schoolId = firstGrade.schoolId;
+    const assessmentTypesData = await this.getAssessmentTypes(schoolId);
+    
+    const subjectScores: { [subjectId: string]: { weightedScore: number; totalWeight: number } } = {};
+    for (const grade of grades) {
+      if (!subjectScores[grade.subjectId]) {
+        subjectScores[grade.subjectId] = { weightedScore: 0, totalWeight: 0 };
+      }
+      
+      const assessmentType = assessmentTypesData.find(at => at.id === grade.assessmentTypeId);
+      if (assessmentType) {
+        const percentage = (grade.score / grade.maxScore) * 100;
+        subjectScores[grade.subjectId].weightedScore += (percentage * assessmentType.weight) / 100;
+        subjectScores[grade.subjectId].totalWeight += assessmentType.weight;
+      }
+    }
+    
+    const summaries: { subjectId: string; subjectName: string; averageScore: number; grade: string }[] = [];
+    for (const [subjectId, scores] of Object.entries(subjectScores)) {
+      const subject = await db.select().from(schoolSubjects).where(eq(schoolSubjects.id, subjectId));
+      const percentage = scores.totalWeight > 0 
+        ? Math.round((scores.weightedScore / scores.totalWeight) * 100) 
+        : 0;
+      let grade = 'F';
+      if (percentage >= 70) grade = 'A';
+      else if (percentage >= 60) grade = 'B';
+      else if (percentage >= 50) grade = 'C';
+      else if (percentage >= 40) grade = 'D';
+      
+      summaries.push({
+        subjectId,
+        subjectName: subject[0]?.name || 'Unknown Subject',
+        averageScore: percentage,
+        grade,
+      });
+    }
+    
+    return summaries.sort((a, b) => b.averageScore - a.averageScore);
+  }
+
+  async calculateTermResults(schoolId: string, classId: string, termId: string): Promise<TermResult[]> {
+    const students = await this.getClassStudents(classId);
+    const subjects = await db.select().from(classSubjects).where(eq(classSubjects.classId, classId));
+    const assessmentTypesData = await this.getAssessmentTypes(schoolId);
+    
+    const results: TermResult[] = [];
+    
+    for (const subjectLink of subjects) {
+      const subjectId = subjectLink.subjectId;
+      const studentScores: { studentId: string; totalScore: number; totalWeight: number }[] = [];
+      
+      for (const student of students) {
+        const grades = await db.select().from(studentGrades).where(
+          and(
+            eq(studentGrades.studentId, student.id),
+            eq(studentGrades.subjectId, subjectId),
+            eq(studentGrades.termId, termId)
+          )
+        );
+        
+        let totalWeightedScore = 0;
+        let totalWeight = 0;
+        
+        for (const grade of grades) {
+          const assessmentType = assessmentTypesData.find(at => at.id === grade.assessmentTypeId);
+          if (assessmentType) {
+            const percentage = (grade.score / grade.maxScore) * 100;
+            totalWeightedScore += (percentage * assessmentType.weight) / 100;
+            totalWeight += assessmentType.weight;
+          }
+        }
+        
+        if (totalWeight > 0) {
+          studentScores.push({
+            studentId: student.id,
+            totalScore: Math.round((totalWeightedScore / totalWeight) * 100),
+            totalWeight,
+          });
+        }
+      }
+      
+      studentScores.sort((a, b) => b.totalScore - a.totalScore);
+      const scores = studentScores.map(s => s.totalScore);
+      const classAverage = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+      const highestScore = Math.max(...scores, 0);
+      const lowestScore = scores.length > 0 ? Math.min(...scores) : 0;
+      
+      for (let i = 0; i < studentScores.length; i++) {
+        const { studentId, totalScore } = studentScores[i];
+        let grade = 'F';
+        let gradePoint = 0;
+        if (totalScore >= 70) { grade = 'A'; gradePoint = 4.0; }
+        else if (totalScore >= 60) { grade = 'B'; gradePoint = 3.0; }
+        else if (totalScore >= 50) { grade = 'C'; gradePoint = 2.0; }
+        else if (totalScore >= 40) { grade = 'D'; gradePoint = 1.0; }
+        
+        const existingResults = await db.select().from(termResults).where(
+          and(
+            eq(termResults.studentId, studentId),
+            eq(termResults.subjectId, subjectId),
+            eq(termResults.termId, termId)
+          )
+        );
+        
+        const resultData = {
+          schoolId,
+          studentId,
+          classId,
+          subjectId,
+          termId,
+          totalScore,
+          grade,
+          gradePoint,
+          position: i + 1,
+          classAverage,
+          highestScore,
+          lowestScore,
+          remarks: null,
+        };
+        
+        if (existingResults.length > 0) {
+          const [updated] = await db.update(termResults)
+            .set({ ...resultData, updatedAt: new Date() })
+            .where(eq(termResults.id, existingResults[0].id))
+            .returning();
+          results.push(updated);
+        } else {
+          const [created] = await db.insert(termResults).values(resultData).returning();
+          results.push(created);
+        }
+      }
+    }
+    
+    return results;
+  }
+
+  async getStudentFeeSummary(studentId: string): Promise<{ totalDue: number; totalPaid: number; balance: number }> {
+    const enrollments = await this.getStudentEnrollments(studentId);
+    let totalDue = 0;
+    let totalPaid = 0;
+    
+    for (const enrollment of enrollments) {
+      const fees = await this.getClassFees(enrollment.classId, enrollment.termId);
+      totalDue += fees.reduce((sum, f) => sum + f.amount, 0);
+      
+      const payments = await this.getFeePayments(studentId, enrollment.termId);
+      totalPaid += payments.filter(p => p.status === 'completed').reduce((sum, p) => sum + p.amount, 0);
+    }
+    
+    return { totalDue, totalPaid, balance: totalDue - totalPaid };
   }
 
   // ============================================

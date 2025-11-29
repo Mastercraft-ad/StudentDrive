@@ -1273,6 +1273,31 @@ router.get("/api/school/parent/children/:childId/attendance", requireSchoolConte
   }
 });
 
+router.get("/api/school/parent/children/:childId/grades", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { termId } = req.query;
+    if (!termId) {
+      res.status(400).json({ message: "termId is required" });
+      return;
+    }
+    const grades = await storage.getStudentGradesSummary(req.params.childId, termId as string);
+    res.json(grades);
+  } catch (error: any) {
+    console.error("Error fetching child grades:", error);
+    res.status(500).json({ message: "Failed to fetch child grades" });
+  }
+});
+
+router.get("/api/school/parent/children/:childId/fees", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const summary = await storage.getStudentFeeSummary(req.params.childId);
+    res.json(summary);
+  } catch (error: any) {
+    console.error("Error fetching child fees:", error);
+    res.status(500).json({ message: "Failed to fetch child fees" });
+  }
+});
+
 // ============================================
 // ASSESSMENT TYPE ROUTES
 // ============================================
@@ -1399,6 +1424,57 @@ router.delete("/api/school/grades/:id", requireSchoolContext, checkTrialStatus, 
   } catch (error: any) {
     console.error("Error deleting grade:", error);
     res.status(500).json({ message: "Failed to delete grade" });
+  }
+});
+
+router.post("/api/school/grades/bulk", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { classId, subjectId, termId, assessmentTypeId, entries } = req.body;
+    if (!classId || !subjectId || !termId || !assessmentTypeId || !entries || !Array.isArray(entries)) {
+      res.status(400).json({ message: "classId, subjectId, termId, assessmentTypeId, and entries array are required" });
+      return;
+    }
+    
+    const assessmentType = await storage.getAssessmentType(assessmentTypeId);
+    if (!assessmentType) {
+      res.status(404).json({ message: "Assessment type not found" });
+      return;
+    }
+    
+    const grades = await storage.bulkCreateStudentGrades(
+      entries.map((entry: { studentId: string; score: number }) => ({
+        schoolId: req.school!.id,
+        studentId: entry.studentId,
+        classId,
+        subjectId,
+        termId,
+        assessmentTypeId,
+        score: entry.score,
+        maxScore: assessmentType.maxScore,
+        remarks: null,
+        gradedById: req.schoolUser?.id || null,
+      }))
+    );
+    res.status(201).json(grades);
+  } catch (error: any) {
+    console.error("Error bulk creating grades:", error);
+    res.status(500).json({ message: "Failed to save grades" });
+  }
+});
+
+router.post("/api/school/results/calculate", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { classId, termId } = req.body;
+    if (!classId || !termId) {
+      res.status(400).json({ message: "classId and termId are required" });
+      return;
+    }
+    
+    const results = await storage.calculateTermResults(req.school!.id, classId, termId);
+    res.status(201).json(results);
+  } catch (error: any) {
+    console.error("Error calculating term results:", error);
+    res.status(500).json({ message: "Failed to calculate term results" });
   }
 });
 

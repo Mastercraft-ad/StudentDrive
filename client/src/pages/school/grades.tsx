@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,8 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { TrendingUp, Save, Users, BookOpen, FileText } from "lucide-react";
-import type { SchoolClass, SchoolSubject, SchoolUser, AssessmentType, StudentGrade } from "@shared/schema";
+import { TrendingUp, Save, Users, BookOpen, FileText, Calculator } from "lucide-react";
+import type { SchoolClass, SchoolSubject, SchoolUser, AssessmentType, StudentGrade, AcademicTerm } from "@shared/schema";
 
 interface GradeEntry {
   studentId: string;
@@ -32,10 +32,15 @@ interface GradeEntry {
 
 export default function GradesPage() {
   const { toast } = useToast();
+  const [selectedTerm, setSelectedTerm] = useState<string>("");
   const [selectedClass, setSelectedClass] = useState<string>("");
   const [selectedSubject, setSelectedSubject] = useState<string>("");
   const [selectedAssessment, setSelectedAssessment] = useState<string>("");
   const [gradesData, setGradesData] = useState<Record<string, number>>({});
+
+  const { data: terms } = useQuery<AcademicTerm[]>({
+    queryKey: ["/api/school/terms"],
+  });
 
   const { data: classes } = useQuery<SchoolClass[]>({
     queryKey: ["/api/school/classes"],
@@ -54,16 +59,40 @@ export default function GradesPage() {
     enabled: !!selectedClass,
   });
 
-  const { data: existingGrades } = useQuery<StudentGrade[]>({
-    queryKey: ["/api/school/grades", { classId: selectedClass, subjectId: selectedSubject, assessmentTypeId: selectedAssessment }],
-    enabled: !!selectedClass && !!selectedSubject && !!selectedAssessment,
+  const { data: existingGrades, refetch: refetchGrades } = useQuery<StudentGrade[]>({
+    queryKey: ["/api/school/grades", { classId: selectedClass, subjectId: selectedSubject, termId: selectedTerm }],
+    enabled: !!selectedClass && !!selectedSubject && !!selectedTerm,
   });
+
+  useEffect(() => {
+    if (terms && terms.length > 0 && !selectedTerm) {
+      const currentTerm = terms.find(t => t.isCurrent);
+      if (currentTerm) {
+        setSelectedTerm(currentTerm.id);
+      }
+    }
+  }, [terms, selectedTerm]);
+
+  useEffect(() => {
+    if (existingGrades && existingGrades.length > 0 && selectedAssessment) {
+      const initialGrades: Record<string, number> = {};
+      existingGrades
+        .filter(g => g.assessmentTypeId === selectedAssessment)
+        .forEach(g => {
+          initialGrades[g.studentId] = g.score;
+        });
+      setGradesData(initialGrades);
+    } else {
+      setGradesData({});
+    }
+  }, [existingGrades, selectedAssessment]);
 
   const saveMutation = useMutation({
     mutationFn: async (entries: GradeEntry[]) => {
       return apiRequest("POST", "/api/school/grades/bulk", {
         classId: selectedClass,
         subjectId: selectedSubject,
+        termId: selectedTerm,
         assessmentTypeId: selectedAssessment,
         entries,
       });
@@ -77,16 +106,33 @@ export default function GradesPage() {
     },
   });
 
+  const calculateResultsMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/school/results/calculate", {
+        classId: selectedClass,
+        termId: selectedTerm,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Term results calculated successfully", description: "Student positions and averages have been updated." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to calculate results", description: error.message, variant: "destructive" });
+    },
+  });
+
   const handleScoreChange = (studentId: string, score: string) => {
     const numScore = parseInt(score) || 0;
     setGradesData((prev) => ({ ...prev, [studentId]: numScore }));
   };
 
   const handleSave = () => {
-    const entries = Object.entries(gradesData).map(([studentId, score]) => ({
-      studentId,
-      score,
-    }));
+    const entries = Object.entries(gradesData)
+      .filter(([_, score]) => score > 0)
+      .map(([studentId, score]) => ({
+        studentId,
+        score,
+      }));
     if (entries.length === 0) {
       toast({ title: "No grades to save", variant: "destructive" });
       return;
@@ -94,13 +140,22 @@ export default function GradesPage() {
     saveMutation.mutate(entries);
   };
 
+  const handleCalculateResults = () => {
+    if (!selectedClass || !selectedTerm) {
+      toast({ title: "Please select a class and term", variant: "destructive" });
+      return;
+    }
+    calculateResultsMutation.mutate();
+  };
+
   const selectedAssessmentType = assessmentTypes?.find((a) => a.id === selectedAssessment);
+  const selectedTermData = terms?.find(t => t.id === selectedTerm);
 
   const getGradeColor = (score: number, maxScore: number) => {
     const percentage = (score / maxScore) * 100;
-    if (percentage >= 70) return "text-green-600";
-    if (percentage >= 50) return "text-yellow-600";
-    return "text-red-600";
+    if (percentage >= 70) return "text-green-600 dark:text-green-400";
+    if (percentage >= 50) return "text-yellow-600 dark:text-yellow-400";
+    return "text-red-600 dark:text-red-400";
   };
 
   const getGradeLetter = (score: number, maxScore: number) => {
@@ -119,17 +174,43 @@ export default function GradesPage() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Grades</h1>
           <p className="text-muted-foreground">Enter and manage student grades</p>
         </div>
+        {selectedClass && selectedTerm && (
+          <Button 
+            onClick={handleCalculateResults} 
+            disabled={calculateResultsMutation.isPending}
+            variant="outline"
+            data-testid="button-calculate-results"
+          >
+            <Calculator className="h-4 w-4 mr-2" />
+            Calculate Term Results
+          </Button>
+        )}
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Select Class, Subject & Assessment
+            Select Term, Class, Subject & Assessment
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Term</label>
+              <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+                <SelectTrigger data-testid="select-grade-term">
+                  <SelectValue placeholder="Select a term" />
+                </SelectTrigger>
+                <SelectContent>
+                  {terms?.map((term) => (
+                    <SelectItem key={term.id} value={term.id}>
+                      {term.name} {term.isCurrent && "(Current)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Class</label>
               <Select value={selectedClass} onValueChange={setSelectedClass}>
@@ -179,7 +260,7 @@ export default function GradesPage() {
         </CardContent>
       </Card>
 
-      {selectedClass && selectedSubject && selectedAssessment && (
+      {selectedTerm && selectedClass && selectedSubject && selectedAssessment && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <div>
@@ -187,11 +268,14 @@ export default function GradesPage() {
                 <TrendingUp className="h-5 w-5" />
                 Enter Grades
               </CardTitle>
-              {selectedAssessmentType && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Max Score: {selectedAssessmentType.maxScore} | Weight: {selectedAssessmentType.weight}%
-                </p>
-              )}
+              <div className="text-sm text-muted-foreground mt-1 space-y-1">
+                {selectedTermData && (
+                  <p>Term: {selectedTermData.name}</p>
+                )}
+                {selectedAssessmentType && (
+                  <p>Max Score: {selectedAssessmentType.maxScore} | Weight: {selectedAssessmentType.weight}%</p>
+                )}
+              </div>
             </div>
             <Button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-grades">
               <Save className="h-4 w-4 mr-2" />
@@ -232,7 +316,7 @@ export default function GradesPage() {
                               type="number"
                               min="0"
                               max={maxScore}
-                              value={gradesData[student.id] || ""}
+                              value={gradesData[student.id] ?? ""}
                               onChange={(e) => handleScoreChange(student.id, e.target.value)}
                               className="w-20"
                               placeholder="0"
@@ -273,12 +357,12 @@ export default function GradesPage() {
         </Card>
       )}
 
-      {(!selectedClass || !selectedSubject || !selectedAssessment) && (
+      {(!selectedTerm || !selectedClass || !selectedSubject || !selectedAssessment) && (
         <Card>
           <CardContent className="py-12">
             <div className="text-center">
               <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">Select Class, Subject & Assessment</h3>
+              <h3 className="text-lg font-medium">Select Term, Class, Subject & Assessment</h3>
               <p className="text-muted-foreground">Choose all filters above to start entering grades.</p>
             </div>
           </CardContent>
