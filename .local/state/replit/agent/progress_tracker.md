@@ -362,3 +362,10 @@
 [x] 362. Confirmed landing page displays correctly with all features
 [x] 363. Express server serving on port 5000 with Vite connected
 [x] 364. All import tasks completed - StudentDrive project fully migrated and ready for development
+[x] 365. Phase 5 Grade Management Fix (Nov 29, 2025)
+[x] 366. Identified missing GET /api/school/grades endpoint for fetching existing grades
+[x] 367. Added GET /api/school/grades endpoint with classId, subjectId, termId query parameters
+[x] 368. Fixed grades page to properly load and display existing saved grades
+[x] 369. Verified no TypeScript errors in school-routes.ts
+[x] 370. Application restarted and running successfully on port 5000
+[x] 371. Phase 5 Grade Management is now fully functional

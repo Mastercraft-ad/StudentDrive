@@ -1384,6 +1384,21 @@ router.get("/api/school/classes/:classId/subjects/:subjectId/grades", requireSch
   }
 });
 
+router.get("/api/school/grades", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const { classId, subjectId, termId } = req.query;
+    if (!classId || !subjectId || !termId) {
+      res.status(400).json({ message: "classId, subjectId, and termId are required" });
+      return;
+    }
+    const grades = await storage.getClassGrades(classId as string, subjectId as string, termId as string);
+    res.json(grades);
+  } catch (error: any) {
+    console.error("Error fetching grades:", error);
+    res.status(500).json({ message: "Failed to fetch grades" });
+  }
+});
+
 router.post("/api/school/grades", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
     const { studentId, classId, subjectId, termId, assessmentTypeId, score, maxScore, remarks, gradedById } = req.body;
