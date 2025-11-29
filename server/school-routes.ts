@@ -2093,8 +2093,58 @@ router.delete("/api/school/timetable/:id", requireSchoolContext, checkTrialStatu
 router.get("/api/school/announcements", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
     const { published } = req.query;
+    const userRole = req.schoolUser?.role;
+    const userId = req.schoolUser?.id;
+    const isAdmin = userRole === "admin" || userRole === "school_admin";
+    
     const isPublished = published === 'true' ? true : published === 'false' ? false : undefined;
-    const announcements = await storage.getSchoolAnnouncements(req.school!.id, isPublished);
+    let announcements = await storage.getSchoolAnnouncements(req.school!.id, isPublished);
+    
+    if (!isAdmin && userId) {
+      let userClassIds: string[] = [];
+      
+      if (userRole === "student") {
+        const enrollments = await storage.getStudentEnrollments(userId);
+        userClassIds = enrollments.map(e => e.classId);
+      } else if (userRole === "parent") {
+        const childLinks = await storage.getParentStudentLinks(userId);
+        for (const link of childLinks) {
+          const childEnrollments = await storage.getStudentEnrollments(link.studentId);
+          for (const enrollment of childEnrollments) {
+            if (!userClassIds.includes(enrollment.classId)) {
+              userClassIds.push(enrollment.classId);
+            }
+          }
+        }
+      } else if (userRole === "teacher") {
+        const assignments = await storage.getTeacherAssignmentsByTeacher(userId);
+        for (const assignment of assignments) {
+          if (!userClassIds.includes(assignment.classId)) {
+            userClassIds.push(assignment.classId);
+          }
+        }
+      }
+
+      announcements = announcements.filter((announcement) => {
+        if (!announcement.isPublished) return false;
+        
+        if (announcement.targetClassIds && announcement.targetClassIds.length > 0) {
+          return userClassIds.some((classId) => announcement.targetClassIds?.includes(classId));
+        }
+        
+        if (announcement.targetAudience === "all") return true;
+        
+        const roleMapping: Record<string, string[]> = {
+          students: ["student"],
+          teachers: ["teacher"],
+          parents: ["parent"],
+        };
+        
+        const allowedRoles = roleMapping[announcement.targetAudience] || [];
+        return allowedRoles.includes(userRole || "");
+      });
+    }
+    
     res.json(announcements);
   } catch (error: any) {
     console.error("Error fetching announcements:", error);
@@ -2118,10 +2168,74 @@ router.get("/api/school/announcements/:id", requireSchoolContext, checkTrialStat
 
 router.post("/api/school/announcements", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
+    const schoolId = req.school!.id;
+    const authorId = req.schoolUser!.id;
+    
     const announcement = await storage.createSchoolAnnouncement({
-      schoolId: req.school!.id,
+      schoolId,
+      authorId,
       ...req.body,
     });
+
+    if (announcement.isPublished) {
+      const targetUserIds: string[] = [];
+      const { targetAudience, targetClassIds } = announcement;
+
+      if (targetClassIds && targetClassIds.length > 0) {
+        for (const classId of targetClassIds) {
+          const enrollments = await storage.getClassEnrollments(classId);
+          for (const enrollment of enrollments) {
+            if (!targetUserIds.includes(enrollment.studentId)) {
+              targetUserIds.push(enrollment.studentId);
+              const parentLinks = await storage.getStudentParentLinks(enrollment.studentId);
+              for (const link of parentLinks) {
+                if (!targetUserIds.includes(link.parentId)) {
+                  targetUserIds.push(link.parentId);
+                }
+              }
+            }
+          }
+          const teacherAssignments = await storage.getTeacherAssignmentsByClass(classId);
+          for (const assignment of teacherAssignments) {
+            if (!targetUserIds.includes(assignment.teacherId)) {
+              targetUserIds.push(assignment.teacherId);
+            }
+          }
+        }
+      } else {
+        let users: any[] = [];
+        if (targetAudience === "all") {
+          users = await storage.getSchoolUsers(schoolId);
+        } else if (targetAudience === "students") {
+          users = await storage.getSchoolUsersByRole(schoolId, "student");
+        } else if (targetAudience === "teachers") {
+          users = await storage.getSchoolUsersByRole(schoolId, "teacher");
+        } else if (targetAudience === "parents") {
+          users = await storage.getSchoolUsersByRole(schoolId, "parent");
+        }
+        for (const user of users) {
+          if (user.id !== authorId && !targetUserIds.includes(user.id)) {
+            targetUserIds.push(user.id);
+          }
+        }
+      }
+
+      for (const userId of targetUserIds) {
+        try {
+          await storage.createSchoolNotification({
+            schoolId,
+            userId,
+            type: announcement.type === "urgent" ? "urgent_announcement" : "announcement",
+            title: announcement.type === "urgent" ? `Urgent: ${announcement.title}` : announcement.title,
+            message: announcement.content.substring(0, 200) + (announcement.content.length > 200 ? "..." : ""),
+            link: "/school/announcements",
+          });
+        } catch (notifError) {
+          console.error(`Failed to send notification to user ${userId}:`, notifError);
+        }
+      }
+    }
+
     res.status(201).json(announcement);
   } catch (error: any) {
     console.error("Error creating announcement:", error);

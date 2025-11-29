@@ -88,9 +88,24 @@ A comprehensive school management system with subdomain-based multi-tenancy. Eac
   - Added `school_student` role menu with "My Timetable" link
   - Updated `parent` role to include "Fees" link
 
-**Communication:**
-- `school_announcements` - School-wide or targeted announcements
-- `school_notifications` - User-specific notifications
+**Announcements System (Phase 8 - Completed November 2025):**
+- `school_announcements` - School-wide or class-targeted announcements
+  - Target audience options: all, students, teachers, parents, specific classes
+  - `targetClassIds` text array for class-specific targeting
+  - Announcement types: general, event, academic, urgent
+- `school_notifications` - User-specific in-app notifications
+- **Class-Targeted Announcements:**
+  - Multi-class selection UI with checkbox interface
+  - Automatic notification fan-out to:
+    - Students enrolled in targeted classes
+    - Parents of enrolled students (via parent_student_links)
+    - Teachers assigned to targeted classes (via teacher_assignments)
+  - Role-based announcement filtering in GET endpoint
+- **Cross-Role Visibility:**
+  - Parents see announcements for their children's classes
+  - Teachers see announcements for their assigned classes
+  - Students see announcements for their enrolled classes
+  - Admins see all announcements
 
 **School Resources:**
 - `school_materials` - Private school resource library
