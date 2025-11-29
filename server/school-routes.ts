@@ -4,6 +4,42 @@ import { requireSchoolContext, checkTrialStatus } from "./school-middleware";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Ensure school materials upload directory exists
+const schoolMaterialsDir = 'uploads/school-materials/';
+if (!fs.existsSync(schoolMaterialsDir)) {
+  fs.mkdirSync(schoolMaterialsDir, { recursive: true });
+}
+
+// Configure multer for school material uploads
+const schoolMaterialStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, schoolMaterialsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadSchoolMaterial = multer({
+  storage: schoolMaterialStorage,
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB limit for school materials
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /pdf|doc|docx|ppt|pptx|xls|xlsx|txt|jpg|jpeg|png|gif|mp4|mp3|zip/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    if (extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Allowed: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, JPG, PNG, GIF, MP4, MP3, ZIP'));
+    }
+  }
+});
 
 const router = Router();
 
@@ -2354,16 +2390,60 @@ router.get("/api/school/materials/:id", requireSchoolContext, checkTrialStatus, 
   }
 });
 
+// Create material with URL (no file upload)
 router.post("/api/school/materials", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
     const material = await storage.createSchoolMaterial({
       schoolId: req.school!.id,
+      uploadedById: req.schoolUser!.id,
       ...req.body,
     });
     res.status(201).json(material);
   } catch (error: any) {
     console.error("Error creating material:", error);
     res.status(500).json({ message: "Failed to create material" });
+  }
+});
+
+// Upload material with file
+router.post("/api/school/materials/upload", requireSchoolContext, checkTrialStatus, uploadSchoolMaterial.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ message: "No file uploaded" });
+      return;
+    }
+
+    const { title, description, subjectId, classId, isPublic } = req.body;
+    
+    // Determine file type from extension
+    const ext = path.extname(req.file.originalname).toLowerCase().replace('.', '');
+    let fileType = 'other';
+    if (['pdf'].includes(ext)) fileType = 'pdf';
+    else if (['doc', 'docx'].includes(ext)) fileType = 'doc';
+    else if (['xls', 'xlsx'].includes(ext)) fileType = 'xls';
+    else if (['ppt', 'pptx'].includes(ext)) fileType = 'ppt';
+    else if (['jpg', 'jpeg', 'png', 'gif'].includes(ext)) fileType = 'image';
+    else if (['mp4', 'avi', 'mov', 'webm'].includes(ext)) fileType = 'video';
+    else if (['mp3', 'wav', 'ogg'].includes(ext)) fileType = 'audio';
+
+    const material = await storage.createSchoolMaterial({
+      schoolId: req.school!.id,
+      uploadedById: req.schoolUser!.id,
+      title: title || req.file.originalname,
+      description: description || null,
+      fileUrl: `/uploads/school-materials/${req.file.filename}`,
+      fileType,
+      fileSize: req.file.size,
+      originalFilename: req.file.originalname,
+      subjectId: subjectId || null,
+      classId: classId || null,
+      isPublic: isPublic === 'true' || isPublic === true,
+    });
+
+    res.status(201).json(material);
+  } catch (error: any) {
+    console.error("Error uploading material:", error);
+    res.status(500).json({ message: "Failed to upload material" });
   }
 });
 
@@ -2394,6 +2474,38 @@ router.delete("/api/school/materials/:id", requireSchoolContext, checkTrialStatu
   } catch (error: any) {
     console.error("Error deleting material:", error);
     res.status(500).json({ message: "Failed to delete material" });
+  }
+});
+
+// Increment view count
+router.post("/api/school/materials/:id/view", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getSchoolMaterial(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Material not found" });
+      return;
+    }
+    await storage.incrementMaterialViewCount(req.params.id);
+    res.json({ message: "View count incremented" });
+  } catch (error: any) {
+    console.error("Error incrementing view count:", error);
+    res.status(500).json({ message: "Failed to increment view count" });
+  }
+});
+
+// Increment download count
+router.post("/api/school/materials/:id/download", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const existing = await storage.getSchoolMaterial(req.params.id);
+    if (!existing || existing.schoolId !== req.school!.id) {
+      res.status(404).json({ message: "Material not found" });
+      return;
+    }
+    await storage.incrementMaterialDownloadCount(req.params.id);
+    res.json({ message: "Download count incremented" });
+  } catch (error: any) {
+    console.error("Error incrementing download count:", error);
+    res.status(500).json({ message: "Failed to increment download count" });
   }
 });
 

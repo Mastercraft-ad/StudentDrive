@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +22,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import {
@@ -34,9 +42,13 @@ import {
   Video,
   FileSpreadsheet,
   Presentation,
+  Upload,
+  Link,
+  Eye,
+  Globe,
   Lock,
 } from "lucide-react";
-import type { SchoolMaterial, SchoolSubject } from "@shared/schema";
+import type { SchoolMaterial, SchoolSubject, SchoolClass } from "@shared/schema";
 
 interface CurrentUser {
   user: {
@@ -58,6 +70,10 @@ export default function ResourcesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterSubject, setFilterSubject] = useState<string>("all");
   const [editingMaterial, setEditingMaterial] = useState<SchoolMaterial | null>(null);
+  const [uploadMode, setUploadMode] = useState<"file" | "url">("file");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -65,6 +81,8 @@ export default function ResourcesPage() {
     fileUrl: "",
     fileType: "pdf",
     subjectId: "",
+    classId: "",
+    isPublic: true,
   });
 
   const { data: currentUser } = useQuery<CurrentUser>({
@@ -83,9 +101,37 @@ export default function ResourcesPage() {
     queryKey: ["/api/school/subjects"],
   });
 
+  const { data: classes } = useQuery<SchoolClass[]>({
+    queryKey: ["/api/school/classes"],
+  });
+
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       return apiRequest("POST", "/api/school/materials", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/school/materials"] });
+      toast({ title: "Resource added successfully" });
+      resetForm();
+      setIsDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed to add resource", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const uploadMutation = useMutation({
+    mutationFn: async (formDataToSend: FormData) => {
+      const response = await fetch("/api/school/materials/upload", {
+        method: "POST",
+        body: formDataToSend,
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "Upload failed");
+      }
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/school/materials"] });
@@ -99,7 +145,7 @@ export default function ResourcesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
+    mutationFn: async ({ id, data }: { id: string; data: Partial<typeof formData> }) => {
       return apiRequest("PATCH", `/api/school/materials/${id}`, data);
     },
     onSuccess: () => {
@@ -127,8 +173,11 @@ export default function ResourcesPage() {
   });
 
   const resetForm = () => {
-    setFormData({ title: "", description: "", fileUrl: "", fileType: "pdf", subjectId: "" });
+    setFormData({ title: "", description: "", fileUrl: "", fileType: "pdf", subjectId: "", classId: "", isPublic: true });
     setEditingMaterial(null);
+    setSelectedFile(null);
+    setUploadMode("file");
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleEdit = (material: SchoolMaterial) => {
@@ -139,17 +188,56 @@ export default function ResourcesPage() {
       fileUrl: material.fileUrl,
       fileType: material.fileType || "pdf",
       subjectId: material.subjectId || "",
+      classId: material.classId || "",
+      isPublic: material.isPublic,
     });
+    setUploadMode("url");
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingMaterial) {
-      updateMutation.mutate({ id: editingMaterial.id, data: formData });
-    } else {
-      createMutation.mutate(formData);
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      if (!formData.title) {
+        setFormData(prev => ({ ...prev, title: file.name.replace(/\.[^/.]+$/, "") }));
+      }
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsUploading(true);
+
+    try {
+      if (editingMaterial) {
+        updateMutation.mutate({ id: editingMaterial.id, data: formData });
+      } else if (uploadMode === "file" && selectedFile) {
+        const formDataToSend = new FormData();
+        formDataToSend.append("file", selectedFile);
+        formDataToSend.append("title", formData.title);
+        formDataToSend.append("description", formData.description);
+        if (formData.subjectId) formDataToSend.append("subjectId", formData.subjectId);
+        if (formData.classId) formDataToSend.append("classId", formData.classId);
+        formDataToSend.append("isPublic", String(formData.isPublic));
+        uploadMutation.mutate(formDataToSend);
+      } else if (uploadMode === "url" && formData.fileUrl) {
+        createMutation.mutate(formData);
+      } else {
+        toast({ title: "Please select a file or enter a URL", variant: "destructive" });
+      }
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDownload = async (material: SchoolMaterial) => {
+    try {
+      await apiRequest("POST", `/api/school/materials/${material.id}/download`);
+    } catch (error) {
+      console.error("Failed to track download:", error);
+    }
+    window.open(material.fileUrl, "_blank");
   };
 
   const getFileIcon = (fileType: string | null) => {
@@ -175,7 +263,7 @@ export default function ResourcesPage() {
   };
 
   const formatFileSize = (bytes: number | null) => {
-    if (!bytes) return "Unknown size";
+    if (!bytes) return "";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -184,6 +272,11 @@ export default function ResourcesPage() {
   const getSubjectName = (id: string | null) => {
     if (!id) return "General";
     return subjects?.find((s) => s.id === id)?.name || "Unknown";
+  };
+
+  const getClassName = (id: string | null) => {
+    if (!id) return null;
+    return classes?.find((c) => c.id === id)?.name || null;
   };
 
   const filteredMaterials = materials?.filter((m) => {
@@ -210,14 +303,73 @@ export default function ResourcesPage() {
             <DialogTrigger asChild>
               <Button data-testid="button-add-resource">
                 <Plus className="h-4 w-4 mr-2" />
-                Upload Resource
+                Add Resource
               </Button>
             </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>{editingMaterial ? "Edit Resource" : "Upload Resource"}</DialogTitle>
+              <DialogTitle>{editingMaterial ? "Edit Resource" : "Add Resource"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {!editingMaterial && (
+                <Tabs value={uploadMode} onValueChange={(v) => setUploadMode(v as "file" | "url")}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="file" className="flex items-center gap-2">
+                      <Upload className="h-4 w-4" />
+                      Upload File
+                    </TabsTrigger>
+                    <TabsTrigger value="url" className="flex items-center gap-2">
+                      <Link className="h-4 w-4" />
+                      External URL
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="file" className="mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="file">Select File</Label>
+                      <Input
+                        id="file"
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.mp4,.mp3,.zip"
+                        data-testid="input-resource-file"
+                      />
+                      {selectedFile && (
+                        <p className="text-sm text-muted-foreground">
+                          Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                        </p>
+                      )}
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="url" className="mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="fileUrl">File URL</Label>
+                      <Input
+                        id="fileUrl"
+                        value={formData.fileUrl}
+                        onChange={(e) => setFormData({ ...formData, fileUrl: e.target.value })}
+                        placeholder="https://example.com/file.pdf"
+                        data-testid="input-resource-url"
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              )}
+
+              {editingMaterial && (
+                <div className="space-y-2">
+                  <Label htmlFor="fileUrl">File URL</Label>
+                  <Input
+                    id="fileUrl"
+                    value={formData.fileUrl}
+                    onChange={(e) => setFormData({ ...formData, fileUrl: e.target.value })}
+                    placeholder="https://example.com/file.pdf"
+                    required
+                    data-testid="input-resource-url"
+                  />
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="title">Title</Label>
                 <Input
@@ -229,28 +381,61 @@ export default function ResourcesPage() {
                   data-testid="input-resource-title"
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Input
+                <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Brief description"
-                  data-testid="input-resource-description"
+                  placeholder="Brief description of the resource"
+                  rows={3}
+                  data-testid="textarea-resource-description"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="fileUrl">File URL</Label>
-                <Input
-                  id="fileUrl"
-                  value={formData.fileUrl}
-                  onChange={(e) => setFormData({ ...formData, fileUrl: e.target.value })}
-                  placeholder="https://example.com/file.pdf"
-                  required
-                  data-testid="input-resource-url"
-                />
-              </div>
+
               <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Subject</Label>
+                  <Select
+                    value={formData.subjectId}
+                    onValueChange={(value) => setFormData({ ...formData, subjectId: value })}
+                  >
+                    <SelectTrigger data-testid="select-resource-subject">
+                      <SelectValue placeholder="Select subject" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">General</SelectItem>
+                      {subjects?.map((subject) => (
+                        <SelectItem key={subject.id} value={subject.id}>
+                          {subject.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Class</Label>
+                  <Select
+                    value={formData.classId}
+                    onValueChange={(value) => setFormData({ ...formData, classId: value })}
+                  >
+                    <SelectTrigger data-testid="select-resource-class">
+                      <SelectValue placeholder="All classes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All Classes</SelectItem>
+                      {classes?.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.id}>
+                          {cls.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {uploadMode === "url" && !editingMaterial && (
                 <div className="space-y-2">
                   <Label>File Type</Label>
                   <Select
@@ -271,32 +456,33 @@ export default function ResourcesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Subject</Label>
-                  <Select
-                    value={formData.subjectId}
-                    onValueChange={(value) => setFormData({ ...formData, subjectId: value })}
-                  >
-                    <SelectTrigger data-testid="select-resource-subject">
-                      <SelectValue placeholder="Select subject" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">General</SelectItem>
-                      {subjects?.map((subject) => (
-                        <SelectItem key={subject.id} value={subject.id}>
-                          {subject.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+              )}
+
+              <div className="flex items-center justify-between py-2">
+                <div className="space-y-0.5">
+                  <Label htmlFor="isPublic">Visibility</Label>
+                  <p className="text-sm text-muted-foreground">
+                    {formData.isPublic ? "Visible to all in school" : "Only visible to selected class"}
+                  </p>
                 </div>
+                <Switch
+                  id="isPublic"
+                  checked={formData.isPublic}
+                  onCheckedChange={(checked) => setFormData({ ...formData, isPublic: checked })}
+                  data-testid="switch-resource-public"
+                />
               </div>
+
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
                   Cancel
                 </Button>
-                <Button type="submit" data-testid="button-save-resource">
-                  {editingMaterial ? "Update" : "Upload"} Resource
+                <Button 
+                  type="submit" 
+                  disabled={isUploading || uploadMutation.isPending || createMutation.isPending}
+                  data-testid="button-save-resource"
+                >
+                  {isUploading || uploadMutation.isPending || createMutation.isPending ? "Saving..." : (editingMaterial ? "Update" : "Save")} Resource
                 </Button>
               </div>
             </form>
@@ -312,7 +498,7 @@ export default function ResourcesPage() {
               <FileText className="h-5 w-5" />
               All Resources ({materials?.length || 0})
             </CardTitle>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -366,23 +552,47 @@ export default function ResourcesPage() {
                           <Badge variant="outline" className="text-xs">
                             {getSubjectName(material.subjectId)}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {formatFileSize(material.fileSize)}
-                          </span>
+                          {getClassName(material.classId) && (
+                            <Badge variant="secondary" className="text-xs">
+                              {getClassName(material.classId)}
+                            </Badge>
+                          )}
+                          {material.isPublic ? (
+                            <Globe className="h-3 w-3 text-muted-foreground" />
+                          ) : (
+                            <Lock className="h-3 w-3 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                          {material.fileSize && (
+                            <span>{formatFileSize(material.fileSize)}</span>
+                          )}
+                          {material.viewCount > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-3 w-3" />
+                              {material.viewCount}
+                            </span>
+                          )}
+                          {material.downloadCount > 0 && (
+                            <span className="flex items-center gap-1">
+                              <Download className="h-3 w-3" />
+                              {material.downloadCount}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center justify-between mt-4">
-                      <a
-                        href={material.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                        data-testid={`link-download-${material.id}`}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownload(material)}
+                        className="text-primary"
+                        data-testid={`button-download-${material.id}`}
                       >
-                        <Download className="h-4 w-4" />
+                        <Download className="h-4 w-4 mr-1" />
                         Download
-                      </a>
+                      </Button>
                       {canManageResources && (
                         <div className="flex items-center gap-1">
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(material)} data-testid={`button-edit-${material.id}`}>

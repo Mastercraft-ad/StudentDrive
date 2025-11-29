@@ -479,6 +479,8 @@ export interface IStorage {
   createSchoolMaterial(material: InsertSchoolMaterial): Promise<SchoolMaterial>;
   updateSchoolMaterial(id: string, material: Partial<InsertSchoolMaterial>): Promise<SchoolMaterial>;
   deleteSchoolMaterial(id: string): Promise<void>;
+  incrementMaterialViewCount(id: string): Promise<void>;
+  incrementMaterialDownloadCount(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2660,6 +2662,18 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSchoolMaterial(id: string): Promise<void> {
     await db.delete(schoolMaterials).where(eq(schoolMaterials.id, id));
+  }
+
+  async incrementMaterialViewCount(id: string): Promise<void> {
+    await db.update(schoolMaterials)
+      .set({ viewCount: sql`${schoolMaterials.viewCount} + 1` })
+      .where(eq(schoolMaterials.id, id));
+  }
+
+  async incrementMaterialDownloadCount(id: string): Promise<void> {
+    await db.update(schoolMaterials)
+      .set({ downloadCount: sql`${schoolMaterials.downloadCount} + 1` })
+      .where(eq(schoolMaterials.id, id));
   }
 }
 
