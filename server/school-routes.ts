@@ -1294,6 +1294,53 @@ router.get("/api/school/attendance/report", requireSchoolContext, checkTrialStat
   }
 });
 
+// Get authenticated parent's linked children
+router.get("/api/school/parent/children", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const parentUser = req.schoolUser;
+    
+    if (!parentUser || parentUser.role !== 'parent') {
+      res.status(403).json({ message: "Access denied. Parent role required." });
+      return;
+    }
+    
+    const links = await storage.getParentStudentLinks(parentUser.id);
+    
+    const children = await Promise.all(
+      links.map(async (link) => {
+        const student = await storage.getSchoolUser(link.studentId);
+        if (student) {
+          // Get student's class info
+          let className = "";
+          if (student.classId) {
+            const studentClass = await storage.getSchoolClass(student.classId);
+            if (studentClass) {
+              className = studentClass.name;
+            }
+          }
+          
+          return {
+            id: student.id,
+            firstName: student.firstName,
+            lastName: student.lastName,
+            admissionNumber: student.admissionNumber || "",
+            classId: student.classId || "",
+            className,
+            email: student.email,
+            relationship: link.relationship,
+          };
+        }
+        return null;
+      })
+    );
+    
+    res.json(children.filter(Boolean));
+  } catch (error: any) {
+    console.error("Error fetching parent's children:", error);
+    res.status(500).json({ message: "Failed to fetch linked children" });
+  }
+});
+
 router.get("/api/school/parent/children/:childId/attendance", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
     const { termId } = req.query;
