@@ -53,6 +53,7 @@ import Settings from "@/pages/settings";
 import InstitutionsDirectory from "@/pages/institutions-directory";
 import InstitutionDetail from "@/pages/institution-detail";
 import SchoolLogin from "@/pages/school/login";
+import SchoolRegister from "@/pages/school/register";
 
 function Router({
   showLanding,
@@ -85,6 +86,7 @@ function Router({
         <Route path="/blog" component={Blog} />
         <Route path="/blog/:slug" component={BlogDetail} />
         <Route path="/school/login" component={SchoolLogin} />
+        <Route path="/school/register" component={SchoolRegister} />
         <Route component={Login} />
       </Switch>
     );

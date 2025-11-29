@@ -152,10 +152,22 @@ export default function SchoolLoginPage() {
               )}
             </Button>
           </form>
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>
+          <div className="mt-6 space-y-3 text-center text-sm">
+            <p className="text-muted-foreground">
               Contact your school administrator if you have trouble logging in.
             </p>
+            <div className="border-t pt-3">
+              <p className="text-muted-foreground">
+                Want to register your school?{" "}
+                <a 
+                  href="/school/register" 
+                  className="text-primary hover:underline font-medium"
+                  data-testid="link-register-school"
+                >
+                  Start your free trial
+                </a>
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

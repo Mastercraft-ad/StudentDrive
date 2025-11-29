@@ -314,3 +314,16 @@
 [x] 314. Confirmed landing page displays correctly with all features
 [x] 315. Express server serving on port 5000 with Vite connected
 [x] 316. All migration tasks completed - StudentDrive project fully migrated and ready for development
+[x] 317. Phase 1 Completion - School Registration Feature (Nov 29, 2025)
+[x] 318. Created school registration page with 3-step multi-step form (school info, admin account, confirmation)
+[x] 319. Implemented real-time subdomain availability check with API integration
+[x] 320. Added form validation using Zod schema with password requirements
+[x] 321. Integrated with POST /api/schools/register backend API
+[x] 322. Added success screen showing portal URL and 14-day trial info
+[x] 323. Added route /school/register in App.tsx
+[x] 324. Added registration link to school login page (/school/login)
+[x] 325. Updated landing page with "Register your school" CTA in Schools & Institutions card
+[x] 326. All Phase 1 Multi-Tenant Foundation features now complete
+[x] 327. Fixed subdomain normalization bug - now lowercase and trimmed before API calls
+[x] 328. Added response.ok check for better error handling on availability check
+[x] 329. Updated validation to require subdomain available status before step advancement

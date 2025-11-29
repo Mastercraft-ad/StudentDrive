@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Award, TrendingUp, Users, CheckCircle, BarChart3, Sparkles, Zap, Target, Upload, Brain, Trophy, FileText, MessageSquare, Map, GraduationCap, ChevronDown, Star, Menu, X, Mail, Phone, MapPin, BookOpen } from "lucide-react";
+import { Award, TrendingUp, Users, CheckCircle, BarChart3, Sparkles, Zap, Target, Upload, Brain, Trophy, FileText, MessageSquare, Map, GraduationCap, ChevronDown, Star, Menu, X, Mail, Phone, MapPin, BookOpen, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import heroImage from "@assets/students-studying-together-medium-shot_1761445909836.jpg";
 import logoImg from "@assets/StudentDrive logo_1762056464003.png";
@@ -548,21 +548,29 @@ export default function Landing() {
                 <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#10b981] to-[#059669] flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300 shadow-md">
                   <BarChart3 className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="font-heading font-bold text-xl mb-3">Institutions</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
+                <h3 className="font-heading font-bold text-xl mb-3">Schools & Institutions</h3>
+                <ul className="space-y-2 text-sm text-muted-foreground mb-4">
                   <li className="flex items-start gap-2">
                     <CheckCircle className="h-4 w-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                    <span>Manage students and instructors</span>
+                    <span>Complete school management portal</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="h-4 w-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                    <span>Track departmental analytics</span>
+                    <span>Attendance, grades, fees tracking</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle className="h-4 w-4 text-[#10b981] mt-0.5 flex-shrink-0" />
-                    <span>Custom branding options</span>
+                    <span>Your own subdomain & branding</span>
                   </li>
                 </ul>
+                <a 
+                  href="/school/register" 
+                  className="inline-flex items-center text-sm font-medium text-[#10b981] hover:text-[#059669] transition-colors"
+                  data-testid="link-register-school-landing"
+                >
+                  Register your school
+                  <ArrowRight className="ml-1 h-4 w-4" />
+                </a>
               </CardContent>
             </Card>
           </div>
