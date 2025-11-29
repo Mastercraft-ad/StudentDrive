@@ -170,12 +170,52 @@ export const menuConfig: MenuConfig = {
       items: [
         { title: "Dashboard", url: "/school/parent-dashboard", icon: Home },
         { title: "Grades", url: "/school/parent/grades", icon: TrendingUp },
+        { title: "Fees", url: "/school/parent/fees", icon: DollarSign },
       ],
     },
     secondary: {
       label: "Information",
       items: [
         { title: "Announcements", url: "/school/announcements", icon: Bell },
+        { title: "Settings", url: "/settings", icon: Settings },
+      ],
+    },
+    footer: [],
+  },
+  teacher: {
+    primary: {
+      label: "Teacher Portal",
+      items: [
+        { title: "Dashboard", url: "/school/dashboard", icon: Home },
+        { title: "My Schedule", url: "/school/teacher/schedule", icon: Clock },
+        { title: "Attendance", url: "/school/attendance", icon: UserCheck },
+        { title: "Grades", url: "/school/grades", icon: TrendingUp },
+      ],
+    },
+    secondary: {
+      label: "Resources",
+      items: [
+        { title: "Announcements", url: "/school/announcements", icon: Bell },
+        { title: "Resources", url: "/school/resources", icon: FolderOpen },
+        { title: "Settings", url: "/settings", icon: Settings },
+      ],
+    },
+    footer: [],
+  },
+  school_student: {
+    primary: {
+      label: "Student Portal",
+      items: [
+        { title: "Dashboard", url: "/school/student-dashboard", icon: Home },
+        { title: "My Timetable", url: "/school/student/timetable", icon: Clock },
+        { title: "My Grades", url: "/school/student/grades", icon: TrendingUp },
+      ],
+    },
+    secondary: {
+      label: "Information",
+      items: [
+        { title: "Announcements", url: "/school/announcements", icon: Bell },
+        { title: "Resources", url: "/school/resources", icon: FolderOpen },
         { title: "Settings", url: "/settings", icon: Settings },
       ],
     },

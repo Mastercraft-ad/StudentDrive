@@ -133,7 +133,7 @@ import {
   type InsertSchoolMaterial,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, ne } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -450,6 +450,7 @@ export interface IStorage {
   
   getTimetableEntries(classId: string, termId?: string): Promise<TimetableEntry[]>;
   getTeacherTimetable(teacherId: string, termId?: string): Promise<TimetableEntry[]>;
+  checkTeacherConflict(teacherId: string, dayOfWeek: number, periodId: string, termId?: string, excludeEntryId?: string): Promise<TimetableEntry | undefined>;
   createTimetableEntry(entry: InsertTimetableEntry): Promise<TimetableEntry>;
   updateTimetableEntry(id: string, entry: Partial<InsertTimetableEntry>): Promise<TimetableEntry>;
   deleteTimetableEntry(id: string): Promise<void>;
@@ -2549,6 +2550,25 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(timetableEntries).where(and(eq(timetableEntries.teacherId, teacherId), eq(timetableEntries.termId, termId)));
     }
     return await db.select().from(timetableEntries).where(eq(timetableEntries.teacherId, teacherId));
+  }
+
+  async checkTeacherConflict(teacherId: string, dayOfWeek: number, periodId: string, termId?: string, excludeEntryId?: string): Promise<TimetableEntry | undefined> {
+    const conditions = [
+      eq(timetableEntries.teacherId, teacherId),
+      eq(timetableEntries.dayOfWeek, dayOfWeek),
+      eq(timetableEntries.periodId, periodId),
+    ];
+    
+    if (termId) {
+      conditions.push(eq(timetableEntries.termId, termId));
+    }
+    
+    if (excludeEntryId) {
+      conditions.push(ne(timetableEntries.id, excludeEntryId));
+    }
+    
+    const [conflict] = await db.select().from(timetableEntries).where(and(...conditions));
+    return conflict;
   }
 
   async createTimetableEntry(entryData: InsertTimetableEntry): Promise<TimetableEntry> {

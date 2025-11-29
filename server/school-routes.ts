@@ -2025,6 +2025,21 @@ router.get("/api/school/teachers/:teacherId/timetable", requireSchoolContext, ch
 
 router.post("/api/school/timetable", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
+    const { teacherId, dayOfWeek, periodId, termId } = req.body;
+    
+    if (teacherId) {
+      const conflict = await storage.checkTeacherConflict(teacherId, dayOfWeek, periodId, termId);
+      if (conflict) {
+        const teacher = await storage.getSchoolUser(teacherId);
+        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'This teacher';
+        res.status(400).json({ 
+          message: `${teacherName} is already assigned to another class at this time slot. Please choose a different teacher or time slot.`,
+          conflictingEntry: conflict,
+        });
+        return;
+      }
+    }
+    
     const entry = await storage.createTimetableEntry({
       schoolId: req.school!.id,
       ...req.body,
@@ -2038,6 +2053,21 @@ router.post("/api/school/timetable", requireSchoolContext, checkTrialStatus, asy
 
 router.patch("/api/school/timetable/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
+    const { teacherId, dayOfWeek, periodId, termId } = req.body;
+    
+    if (teacherId && dayOfWeek !== undefined && periodId) {
+      const conflict = await storage.checkTeacherConflict(teacherId, dayOfWeek, periodId, termId, req.params.id);
+      if (conflict) {
+        const teacher = await storage.getSchoolUser(teacherId);
+        const teacherName = teacher ? `${teacher.firstName} ${teacher.lastName}` : 'This teacher';
+        res.status(400).json({ 
+          message: `${teacherName} is already assigned to another class at this time slot. Please choose a different teacher or time slot.`,
+          conflictingEntry: conflict,
+        });
+        return;
+      }
+    }
+    
     const entry = await storage.updateTimetableEntry(req.params.id, req.body);
     res.json(entry);
   } catch (error: any) {
