@@ -386,3 +386,25 @@
 [x] 386. Verified navigation config: Announcements menu item in school_admin, teacher, parent, student roles
 [x] 387. Verified route registration: /school/announcements properly configured in App.tsx
 [x] 388. Phase 8 Announcements System is FULLY IMPLEMENTED and operational
+[x] 389. Phase 9 School Resources Verification (Nov 29, 2025)
+[x] 390. Verified database schema: school_materials table with schoolId, subjectId, classId, uploadedById, fileType, fileSize
+[x] 391. Verified storage interface: 5 methods (getSchoolMaterials, getSchoolMaterial, create, update, delete)
+[x] 392. Verified API routes: GET/POST/PATCH/DELETE at /api/school/materials with school context
+[x] 393. Verified Admin UI: Full CRUD interface at /school/resources with file type icons
+[x] 394. Verified search functionality: Filter by title, description, subject
+[x] 395. Verified file type support: PDF, Word, Excel, PowerPoint, Video, Image, Other
+[x] 396. Verified navigation config: Resources menu in school_admin, parent, school_student roles
+[x] 397. Verified school isolation: All materials filtered by schoolId
+[x] 398. Verified route registration: /school/resources properly configured in App.tsx
+[x] 399. Phase 9 School Resources is FULLY IMPLEMENTED and operational
+[x] 400. Phase 10 Parent Portal Verification (Nov 29, 2025)
+[x] 401. Verified parent-dashboard.tsx: Child selector, attendance summary, grades overview, fees summary, announcements
+[x] 402. Verified parent-grades.tsx: Term-based grade display, subject breakdown, grade remarks
+[x] 403. Verified parent-fees.tsx: Outstanding fees, payment history, Paystack integration
+[x] 404. Verified child profile viewing: Multi-child support with dropdown selector
+[x] 405. Verified attendance summary: Per-child attendance rates with term filtering
+[x] 406. Verified school announcements: Displayed on parent dashboard
+[x] 407. Verified navigation config: Dashboard, Grades, Fees in parent role menu
+[x] 408. Verified route registration: /school/parent-dashboard, /school/parent/grades, /school/parent/fees
+[x] 409. Note: Direct messaging to teachers (optional feature) not implemented
+[x] 410. Phase 10 Parent Portal is FULLY IMPLEMENTED and operational
