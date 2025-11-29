@@ -21,6 +21,8 @@ import {
   Clock,
   Bell,
   FolderOpen,
+  FileSpreadsheet,
+  Calculator,
   type LucideIcon,
 } from "lucide-react";
 
@@ -114,7 +116,16 @@ export const menuConfig: MenuConfig = {
             { title: "Reports", url: "/school/attendance/reports", icon: BarChart3 },
           ],
         },
-        { title: "Grades", url: "/school/grades", icon: TrendingUp },
+        { 
+          title: "Grades", 
+          url: "#", 
+          icon: TrendingUp,
+          children: [
+            { title: "Enter Grades", url: "/school/grades", icon: TrendingUp },
+            { title: "Term Results", url: "/school/grades/results", icon: Calculator },
+            { title: "Report Cards", url: "/school/grades/report-cards", icon: FileSpreadsheet },
+          ],
+        },
         { title: "Fees", url: "/school/fees", icon: DollarSign },
         { title: "Timetable", url: "/school/timetable", icon: Clock },
         { title: "Announcements", url: "/school/announcements", icon: Bell },
@@ -149,6 +160,23 @@ export const menuConfig: MenuConfig = {
           ],
         },
         { title: "Settings", url: "/admin/settings", icon: Settings },
+      ],
+    },
+    footer: [],
+  },
+  parent: {
+    primary: {
+      label: "Parent Portal",
+      items: [
+        { title: "Dashboard", url: "/school/parent-dashboard", icon: Home },
+        { title: "Grades", url: "/school/parent/grades", icon: TrendingUp },
+      ],
+    },
+    secondary: {
+      label: "Information",
+      items: [
+        { title: "Announcements", url: "/school/announcements", icon: Bell },
+        { title: "Settings", url: "/settings", icon: Settings },
       ],
     },
     footer: [],

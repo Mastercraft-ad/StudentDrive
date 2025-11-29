@@ -37,6 +37,8 @@ import SchoolTerms from "@/pages/school/terms";
 import SchoolAttendance from "@/pages/school/attendance";
 import SchoolAttendanceReports from "@/pages/school/attendance-reports";
 import SchoolGrades from "@/pages/school/grades";
+import SchoolGradesResults from "@/pages/school/grades-results";
+import SchoolReportCards from "@/pages/school/report-cards";
 import SchoolFees from "@/pages/school/fees";
 import SchoolTimetable from "@/pages/school/timetable";
 import SchoolAnnouncements from "@/pages/school/announcements";
@@ -45,6 +47,7 @@ import SchoolStudents from "@/pages/school/students";
 import SchoolTeachers from "@/pages/school/teachers";
 import SchoolParents from "@/pages/school/parents";
 import ParentDashboard from "@/pages/school/parent-dashboard";
+import ParentGrades from "@/pages/school/parent-grades";
 import MyLibrary from "@/pages/my-library";
 import Bookmarks from "@/pages/bookmarks";
 import Quizzes from "@/pages/quizzes";
@@ -167,6 +170,8 @@ function Router({
           <Route path="/school/attendance" component={SchoolAttendance} />
           <Route path="/school/attendance/reports" component={SchoolAttendanceReports} />
           <Route path="/school/grades" component={SchoolGrades} />
+          <Route path="/school/grades/results" component={SchoolGradesResults} />
+          <Route path="/school/grades/report-cards" component={SchoolReportCards} />
           <Route path="/school/fees" component={SchoolFees} />
           <Route path="/school/timetable" component={SchoolTimetable} />
           <Route path="/school/announcements" component={SchoolAnnouncements} />
@@ -175,6 +180,7 @@ function Router({
           <Route path="/school/teachers" component={SchoolTeachers} />
           <Route path="/school/parents" component={SchoolParents} />
           <Route path="/school/parent-dashboard" component={ParentDashboard} />
+          <Route path="/school/parent/grades" component={ParentGrades} />
         </>
       )}
 

@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   GraduationCap,
   UserCheck,
@@ -22,7 +22,7 @@ import {
   BookOpen,
   AlertCircle,
 } from "lucide-react";
-import type { SchoolUser, AttendanceRecord, StudentGrade, FeePayment, SchoolAnnouncement } from "@shared/schema";
+import type { SchoolUser, AttendanceRecord, StudentGrade, FeePayment, SchoolAnnouncement, AcademicTerm } from "@shared/schema";
 
 interface ChildInfo {
   id: string;
@@ -56,19 +56,39 @@ interface FeeSummary {
 
 export default function ParentDashboard() {
   const [selectedChild, setSelectedChild] = useState<string>("");
+  const [selectedTerm, setSelectedTerm] = useState<string>("");
 
   const { data: children, isLoading: childrenLoading } = useQuery<ChildInfo[]>({
     queryKey: ["/api/school/parent/children"],
   });
 
+  const { data: terms } = useQuery<AcademicTerm[]>({
+    queryKey: ["/api/school/terms"],
+  });
+
+  useEffect(() => {
+    if (terms && terms.length > 0 && !selectedTerm) {
+      const currentTerm = terms.find(t => t.isCurrent);
+      if (currentTerm) {
+        setSelectedTerm(currentTerm.id);
+      }
+    }
+  }, [terms, selectedTerm]);
+
+  useEffect(() => {
+    if (children && children.length > 0 && !selectedChild) {
+      setSelectedChild(children[0].id);
+    }
+  }, [children, selectedChild]);
+
   const { data: attendanceSummary } = useQuery<AttendanceSummary>({
-    queryKey: [`/api/school/parent/children/${selectedChild}/attendance`],
-    enabled: !!selectedChild,
+    queryKey: [`/api/school/parent/children/${selectedChild}/attendance`, { termId: selectedTerm }],
+    enabled: !!selectedChild && !!selectedTerm,
   });
 
   const { data: gradesSummary } = useQuery<GradeSummary[]>({
-    queryKey: [`/api/school/parent/children/${selectedChild}/grades`],
-    enabled: !!selectedChild,
+    queryKey: [`/api/school/parent/children/${selectedChild}/grades`, { termId: selectedTerm }],
+    enabled: !!selectedChild && !!selectedTerm,
   });
 
   const { data: feeSummary } = useQuery<FeeSummary>({
@@ -81,6 +101,7 @@ export default function ParentDashboard() {
   });
 
   const selectedChildInfo = children?.find((c) => c.id === selectedChild);
+  const selectedTermData = terms?.find(t => t.id === selectedTerm);
 
   const getGradeColor = (grade: string) => {
     switch (grade) {
@@ -124,41 +145,55 @@ export default function ParentDashboard() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Parent Dashboard</h1>
           <p className="text-muted-foreground">Monitor your child's academic progress</p>
         </div>
-        {children && children.length > 0 && (
-          <Select value={selectedChild} onValueChange={setSelectedChild}>
-            <SelectTrigger className="w-64" data-testid="select-child">
-              <SelectValue placeholder="Select your child" />
+        <div className="flex gap-3 flex-wrap">
+          {children && children.length > 0 && (
+            <Select value={selectedChild} onValueChange={setSelectedChild}>
+              <SelectTrigger className="w-56" data-testid="select-child">
+                <SelectValue placeholder="Select your child" />
+              </SelectTrigger>
+              <SelectContent>
+                {children.map((child) => (
+                  <SelectItem key={child.id} value={child.id}>
+                    {child.firstName} {child.lastName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={selectedTerm} onValueChange={setSelectedTerm}>
+            <SelectTrigger className="w-48" data-testid="select-term">
+              <SelectValue placeholder="Select term" />
             </SelectTrigger>
             <SelectContent>
-              {children.map((child) => (
-                <SelectItem key={child.id} value={child.id}>
-                  {child.firstName} {child.lastName} ({child.admissionNumber})
+              {terms?.map((term) => (
+                <SelectItem key={term.id} value={term.id}>
+                  {term.name} {term.isCurrent && "(Current)"}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        )}
+        </div>
       </div>
 
       {!children || children.length === 0 ? (
-        <Card>
+        <Card data-testid="card-no-children">
           <CardContent className="py-12">
             <div className="text-center">
               <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No Children Linked</h3>
-              <p className="text-muted-foreground">
+              <h3 className="text-lg font-medium" data-testid="text-no-children-title">No Children Linked</h3>
+              <p className="text-muted-foreground" data-testid="text-no-children-description">
                 Contact the school administration to link your child's account.
               </p>
             </div>
           </CardContent>
         </Card>
       ) : !selectedChild ? (
-        <Card>
+        <Card data-testid="card-select-child">
           <CardContent className="py-12">
             <div className="text-center">
               <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">Select a Child</h3>
-              <p className="text-muted-foreground">
+              <h3 className="text-lg font-medium" data-testid="text-select-child-title">Select a Child</h3>
+              <p className="text-muted-foreground" data-testid="text-select-child-description">
                 Choose your child from the dropdown above to view their progress.
               </p>
             </div>
@@ -167,17 +202,17 @@ export default function ParentDashboard() {
       ) : (
         <>
           {selectedChildInfo && (
-            <Card className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+            <Card className="bg-gradient-to-r from-blue-500 to-purple-600 text-white" data-testid="card-student-info">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 rounded-full bg-white/20 flex items-center justify-center">
                     <GraduationCap className="h-8 w-8" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold">
+                    <h2 className="text-xl font-bold" data-testid="text-student-name">
                       {selectedChildInfo.firstName} {selectedChildInfo.lastName}
                     </h2>
-                    <p className="opacity-90">
+                    <p className="opacity-90" data-testid="text-student-details">
                       Class: {selectedChildInfo.className} | Admission No: {selectedChildInfo.admissionNumber}
                     </p>
                   </div>
@@ -186,13 +221,13 @@ export default function ParentDashboard() {
             </Card>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4" data-testid="div-summary-cards">
+            <Card data-testid="card-attendance-rate">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Attendance Rate</p>
-                    <p className="text-2xl font-bold text-green-600">
+                    <p className="text-2xl font-bold text-green-600" data-testid="text-attendance-rate">
                       {attendanceSummary?.rate || 0}%
                     </p>
                   </div>
@@ -202,27 +237,27 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card data-testid="card-days-present">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Days Present</p>
-                    <p className="text-2xl font-bold">{attendanceSummary?.present || 0}</p>
+                    <p className="text-2xl font-bold" data-testid="text-days-present">{attendanceSummary?.present || 0}</p>
                   </div>
                   <Calendar className="h-8 w-8 text-blue-600" />
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground mt-2" data-testid="text-total-days">
                   Out of {attendanceSummary?.totalDays || 0} school days
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card data-testid="card-average-grade">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Average Grade</p>
-                    <p className="text-2xl font-bold text-purple-600">
+                    <p className="text-2xl font-bold text-purple-600" data-testid="text-average-grade">
                       {gradesSummary && gradesSummary.length > 0
                         ? Math.round(
                             gradesSummary.reduce((sum, g) => sum + g.averageScore, 0) /
@@ -237,12 +272,12 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card data-testid="card-fee-balance">
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">Fee Balance</p>
-                    <p className="text-2xl font-bold text-orange-600">
+                    <p className="text-2xl font-bold text-orange-600" data-testid="text-fee-balance">
                       {formatCurrency(feeSummary?.balance || 0)}
                     </p>
                   </div>
@@ -252,8 +287,8 @@ export default function ParentDashboard() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" data-testid="div-detail-cards">
+            <Card data-testid="card-academic-performance">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5" />
@@ -262,9 +297,9 @@ export default function ParentDashboard() {
               </CardHeader>
               <CardContent>
                 {gradesSummary && gradesSummary.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-4" data-testid="div-grades-list">
                     {gradesSummary.map((grade) => (
-                      <div key={grade.subjectId} className="flex items-center justify-between">
+                      <div key={grade.subjectId} className="flex items-center justify-between" data-testid={`row-grade-${grade.subjectId}`}>
                         <div className="flex items-center gap-3">
                           <BookOpen className="h-5 w-5 text-muted-foreground" />
                           <span className="font-medium">{grade.subjectName}</span>
@@ -278,7 +313,7 @@ export default function ParentDashboard() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6">
+                  <div className="text-center py-6" data-testid="div-no-grades">
                     <TrendingUp className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">No grades recorded yet</p>
                   </div>
@@ -286,7 +321,7 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card data-testid="card-attendance-summary">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <UserCheck className="h-5 w-5" />
@@ -295,7 +330,7 @@ export default function ParentDashboard() {
               </CardHeader>
               <CardContent>
                 {attendanceSummary ? (
-                  <div className="space-y-4">
+                  <div className="space-y-4" data-testid="div-attendance-list">
                     <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                       <span className="font-medium">Present</span>
                       <span className="text-green-600 font-bold">{attendanceSummary.present} days</span>
@@ -310,7 +345,7 @@ export default function ParentDashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center py-6">
+                  <div className="text-center py-6" data-testid="div-no-attendance">
                     <Calendar className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">No attendance records</p>
                   </div>
@@ -318,7 +353,7 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card data-testid="card-fee-status">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <DollarSign className="h-5 w-5" />
@@ -327,7 +362,7 @@ export default function ParentDashboard() {
               </CardHeader>
               <CardContent>
                 {feeSummary ? (
-                  <div className="space-y-4">
+                  <div className="space-y-4" data-testid="div-fee-summary">
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Total Due</span>
                       <span className="font-medium">{formatCurrency(feeSummary.totalDue)}</span>
@@ -354,7 +389,7 @@ export default function ParentDashboard() {
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-6">
+                  <div className="text-center py-6" data-testid="div-no-fees">
                     <DollarSign className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">No fee records</p>
                   </div>
@@ -362,7 +397,7 @@ export default function ParentDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card data-testid="card-announcements">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bell className="h-5 w-5" />
@@ -371,9 +406,9 @@ export default function ParentDashboard() {
               </CardHeader>
               <CardContent>
                 {announcements && announcements.length > 0 ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3" data-testid="div-announcements-list">
                     {announcements.slice(0, 5).map((announcement) => (
-                      <div key={announcement.id} className="p-3 border rounded-lg">
+                      <div key={announcement.id} className="p-3 border rounded-lg" data-testid={`row-announcement-${announcement.id}`}>
                         <div className="flex items-center justify-between gap-2 mb-1">
                           <h4 className="font-medium text-sm">{announcement.title}</h4>
                           <Badge variant="secondary" className="text-xs">
@@ -391,7 +426,7 @@ export default function ParentDashboard() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-6">
+                  <div className="text-center py-6" data-testid="div-no-announcements">
                     <Bell className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">No announcements</p>
                   </div>
