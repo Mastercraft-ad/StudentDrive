@@ -1,0 +1,81 @@
+
+Complete Implementation Plan
+Phase 1: Multi-Tenant Foundation
+Create schools table with subdomain, name, logo, subscription status, trial dates
+Create subscriptions table for billing plans (Free Trial, Basic, Premium)
+Build subdomain detection middleware to identify which school is being accessed
+Create school registration flow (school admin signs up, chooses subdomain)
+Build school admin dashboard at /app route
+Implement free trial system (14 or 30 days)
+Phase 2: School User Management
+Create school_users table (separate from public users) with school_id reference
+Create school_user_roles for Student, Teacher, Parent, Admin roles
+Build school admin interface to create/manage students
+Build school admin interface to create/manage teachers
+Build school admin interface to create/manage parents with student linking
+Implement parent-student relationship (one parent can have multiple children)
+Create login system that detects subdomain and authenticates school users
+Phase 3: Academic Structure
+Create school_terms table (First Term, Second Term, Third Term)
+Create school_classes table (JSS1, JSS2, SS1, SS2, etc.)
+Create school_subjects table with class associations
+Create school_class_arms table (JSS1A, JSS1B, etc.)
+Build admin UI to manage terms, classes, and subjects
+Assign teachers to subjects/classes
+Phase 4: Attendance System
+Create school_attendance table (student_id, date, status, subject_id)
+Build teacher interface to mark daily attendance
+Build subject-wise attendance tracking
+Create attendance reports (daily, weekly, monthly)
+Parent portal: view child's attendance
+Phase 5: Grade Management
+Create school_assessments table (CA1, CA2, Exam, etc.)
+Create school_grades table (student, subject, term, scores)
+Build teacher interface to enter grades
+Calculate term averages and cumulative scores
+Generate report cards (PDF export)
+Parent portal: view child's grades
+Phase 6: Fee Management with Paystack
+Create school_fee_types table (Tuition, Books, Uniform, etc.)
+Create school_fee_structures table (class-based fees)
+Create school_payments table (payment records)
+Integrate Paystack for online payments
+Build parent payment portal
+Generate payment receipts
+Payment reminders and overdue tracking
+Phase 7: Timetable Management
+Create school_timetables table (class, subject, teacher, day, time)
+Build admin interface to create weekly timetables
+Teacher view: my schedule
+Student view: my class timetable
+Conflict detection (teacher double-booked)
+Phase 8: School Announcements
+Create school_announcements table (replaces public blog for schools)
+Target announcements to: All, Teachers, Students, Parents, Specific Classes
+Push notifications for important announcements
+Parent portal: view school announcements
+Phase 9: School Resources (Private)
+Modify materials system to support school_id
+Teachers upload resources visible only to their school
+Students access school-specific materials
+Separate from public platform resources
+Phase 10: Parent Portal
+Create dedicated parent dashboard
+View all children's profiles
+Attendance summary per child
+Grades and report cards
+Fee payment status and history
+School announcements
+Direct messaging to teachers (optional)
+Phase 11: Subscription & Billing
+Build subscription plans page (pricing tiers)
+Implement Paystack subscription for schools
+Trial expiry warnings and notifications
+Upgrade/downgrade plan functionality
+Invoice generation for schools
+Phase 12: Polish & Integration
+Connect school students to public platform (optional access)
+School branding (logo, colors on their subdomain)
+Mobile-responsive school portal
+Email notifications (attendance alerts, grade updates, fee reminders)
+Admin analytics dashboard (school metrics)
