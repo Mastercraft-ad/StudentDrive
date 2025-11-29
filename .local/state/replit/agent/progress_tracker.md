@@ -397,6 +397,14 @@
 [x] 397. Verified school isolation: All materials filtered by schoolId
 [x] 398. Verified route registration: /school/resources properly configured in App.tsx
 [x] 399. Phase 9 School Resources is FULLY IMPLEMENTED and operational
+[x] 400. Phase 9 Enhancement: Role-Based Access Control (Nov 29, 2025)
+[x] 401. Added CurrentUser interface with role and classId fields
+[x] 402. Implemented canManageResources check (school_admin, teacher only)
+[x] 403. Upload Resource button now hidden for students/parents
+[x] 404. Edit/Delete buttons now hidden for students/parents (view/download only)
+[x] 405. Added class-based filtering for students (see only their class resources)
+[x] 406. Updated subtitle and empty state messages based on user role
+[x] 407. Phase 9 School Resources with Role-Based Access Control COMPLETE
 [x] 400. Phase 10 Parent Portal Verification (Nov 29, 2025)
 [x] 401. Verified parent-dashboard.tsx: Child selector, attendance summary, grades overview, fees summary, announcements
 [x] 402. Verified parent-grades.tsx: Term-based grade display, subject breakdown, grade remarks

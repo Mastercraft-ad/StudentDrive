@@ -34,8 +34,23 @@ import {
   Video,
   FileSpreadsheet,
   Presentation,
+  Lock,
 } from "lucide-react";
 import type { SchoolMaterial, SchoolSubject } from "@shared/schema";
+
+interface CurrentUser {
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    classId?: string;
+  };
+  school: {
+    id: string;
+    name: string;
+  };
+}
 
 export default function ResourcesPage() {
   const { toast } = useToast();
@@ -51,6 +66,14 @@ export default function ResourcesPage() {
     fileType: "pdf",
     subjectId: "",
   });
+
+  const { data: currentUser } = useQuery<CurrentUser>({
+    queryKey: ["/api/school/me"],
+  });
+
+  const canManageResources = currentUser?.user?.role === "school_admin" || currentUser?.user?.role === "teacher";
+  const isStudent = currentUser?.user?.role === "school_student";
+  const userClassId = currentUser?.user?.classId;
 
   const { data: materials, isLoading } = useQuery<SchoolMaterial[]>({
     queryKey: ["/api/school/materials"],
@@ -167,7 +190,8 @@ export default function ResourcesPage() {
     const matchesSearch = m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSubject = filterSubject === "all" || m.subjectId === filterSubject;
-    return matchesSearch && matchesSubject;
+    const matchesClass = !isStudent || !m.classId || m.classId === userClassId;
+    return matchesSearch && matchesSubject && matchesClass;
   });
 
   return (
@@ -175,15 +199,20 @@ export default function ResourcesPage() {
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold" data-testid="text-page-title">Resources</h1>
-          <p className="text-muted-foreground">Manage school learning materials and documents</p>
+          <p className="text-muted-foreground">
+            {canManageResources 
+              ? "Manage school learning materials and documents" 
+              : "Browse and download school learning materials"}
+          </p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-resource">
-              <Plus className="h-4 w-4 mr-2" />
-              Upload Resource
-            </Button>
-          </DialogTrigger>
+        {canManageResources && (
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-resource">
+                <Plus className="h-4 w-4 mr-2" />
+                Upload Resource
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingMaterial ? "Edit Resource" : "Upload Resource"}</DialogTitle>
@@ -273,6 +302,7 @@ export default function ResourcesPage() {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <Card>
@@ -348,18 +378,21 @@ export default function ResourcesPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        data-testid={`link-download-${material.id}`}
                       >
                         <Download className="h-4 w-4" />
                         Download
                       </a>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(material)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(material.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
+                      {canManageResources && (
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(material)} data-testid={`button-edit-${material.id}`}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(material.id)} data-testid={`button-delete-${material.id}`}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -369,7 +402,11 @@ export default function ResourcesPage() {
             <div className="text-center py-12">
               <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium">No resources found</h3>
-              <p className="text-muted-foreground">Upload your first resource to get started.</p>
+              <p className="text-muted-foreground">
+                {canManageResources 
+                  ? "Upload your first resource to get started." 
+                  : "No learning materials have been shared yet. Check back later."}
+              </p>
             </div>
           )}
         </CardContent>
