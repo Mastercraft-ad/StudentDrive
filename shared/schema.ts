@@ -1846,3 +1846,62 @@ export const insertSchoolMaterialSchema = createInsertSchema(schoolMaterials).om
 
 export type InsertSchoolMaterial = z.infer<typeof insertSchoolMaterialSchema>;
 export type SchoolMaterial = typeof schoolMaterials.$inferSelect;
+
+// ============================================
+// SUBSCRIPTION PAYMENTS TABLE
+// Track school subscription payments
+// ============================================
+
+export const subscriptionPayments = pgTable("subscription_payments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  planId: varchar("plan_id").references(() => subscriptionPlans.id).notNull(),
+  
+  amount: integer("amount").notNull(),
+  currency: varchar("currency", { length: 3 }).default("NGN").notNull(),
+  
+  status: varchar("status", { length: 20 }).default("pending").notNull(),
+  
+  paystackReference: varchar("paystack_reference").unique(),
+  paystackAccessCode: varchar("paystack_access_code"),
+  paystackTransactionId: varchar("paystack_transaction_id"),
+  
+  billingPeriod: varchar("billing_period", { length: 20 }).notNull(),
+  periodStartDate: timestamp("period_start_date"),
+  periodEndDate: timestamp("period_end_date"),
+  
+  paidById: varchar("paid_by_id").references(() => schoolUsers.id),
+  paidAt: timestamp("paid_at"),
+  
+  invoiceNumber: varchar("invoice_number", { length: 50 }),
+  
+  metadata: jsonb("metadata"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const subscriptionPaymentsRelations = relations(subscriptionPayments, ({ one }) => ({
+  school: one(schools, {
+    fields: [subscriptionPayments.schoolId],
+    references: [schools.id],
+  }),
+  plan: one(subscriptionPlans, {
+    fields: [subscriptionPayments.planId],
+    references: [subscriptionPlans.id],
+  }),
+  paidBy: one(schoolUsers, {
+    fields: [subscriptionPayments.paidById],
+    references: [schoolUsers.id],
+  }),
+}));
+
+export const insertSubscriptionPaymentSchema = createInsertSchema(subscriptionPayments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  paidAt: true,
+});
+
+export type InsertSubscriptionPayment = z.infer<typeof insertSubscriptionPaymentSchema>;
+export type SubscriptionPayment = typeof subscriptionPayments.$inferSelect;

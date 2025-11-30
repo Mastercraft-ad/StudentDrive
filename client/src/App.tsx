@@ -63,6 +63,8 @@ import InstitutionsDirectory from "@/pages/institutions-directory";
 import InstitutionDetail from "@/pages/institution-detail";
 import SchoolLogin from "@/pages/school/login";
 import SchoolRegister from "@/pages/school/register";
+import SchoolSubscription from "@/pages/school/subscription";
+import SubscriptionCallback from "@/pages/school/subscription-callback";
 
 function Router({
   showLanding,
@@ -193,6 +195,9 @@ function Router({
           <Route path="/school/teacher/schedule" component={TeacherSchedule} />
           <Route path="/school/student/timetable" component={StudentTimetable} />
           <Route path="/school/student-dashboard" component={SchoolDashboard} />
+          {/* Subscription Management */}
+          <Route path="/school/subscription" component={SchoolSubscription} />
+          <Route path="/school/subscription/callback" component={SubscriptionCallback} />
         </>
       )}
 

@@ -645,6 +645,237 @@ router.get("/api/school/subscription", requireSchoolContext, async (req: Request
   }
 });
 
+// Get subscription usage limits
+router.get("/api/school/subscription/usage", requireSchoolContext, async (req: Request, res: Response) => {
+  try {
+    const schoolId = req.school!.id;
+    const school = await storage.getSchool(schoolId);
+    if (!school) {
+      res.status(404).json({ message: "School not found" });
+      return;
+    }
+    
+    // Get current usage
+    const [students, teachers, classes] = await Promise.all([
+      storage.getSchoolUsersByRole(schoolId, 'student'),
+      storage.getSchoolUsersByRole(schoolId, 'teacher'),
+      storage.getSchoolClasses(schoolId),
+    ]);
+    
+    // Get plan limits
+    let maxStudents = null;
+    let maxTeachers = null;
+    let maxClasses = null;
+    
+    if (school.subscriptionPlanId) {
+      const plan = await storage.getSubscriptionPlan(school.subscriptionPlanId);
+      if (plan) {
+        maxStudents = plan.maxStudents;
+        maxTeachers = plan.maxTeachers;
+        maxClasses = plan.maxClasses;
+      }
+    }
+    
+    res.json({
+      students: { current: students.length, max: maxStudents },
+      teachers: { current: teachers.length, max: maxTeachers },
+      classes: { current: classes.length, max: maxClasses },
+    });
+  } catch (error: any) {
+    console.error("Error fetching subscription usage:", error);
+    res.status(500).json({ message: "Failed to fetch subscription usage" });
+  }
+});
+
+// Get subscription payment history
+router.get("/api/school/subscription/payments", requireSchoolContext, async (req: Request, res: Response) => {
+  try {
+    const payments = await storage.getSubscriptionPayments(req.school!.id);
+    res.json(payments);
+  } catch (error: any) {
+    console.error("Error fetching subscription payments:", error);
+    res.status(500).json({ message: "Failed to fetch payment history" });
+  }
+});
+
+// Initialize subscription payment
+router.post("/api/school/subscription/initialize", requireSchoolContext, async (req: Request, res: Response) => {
+  try {
+    const { planId } = req.body;
+    
+    if (!planId) {
+      res.status(400).json({ message: "Plan ID is required" });
+      return;
+    }
+    
+    const school = await storage.getSchool(req.school!.id);
+    if (!school) {
+      res.status(404).json({ message: "School not found" });
+      return;
+    }
+    
+    const plan = await storage.getSubscriptionPlan(planId);
+    if (!plan) {
+      res.status(404).json({ message: "Subscription plan not found" });
+      return;
+    }
+    
+    if (plan.price === 0) {
+      res.status(400).json({ message: "Cannot process payment for free plan" });
+      return;
+    }
+    
+    // Check if Paystack is configured
+    if (!paystack.isConfigured()) {
+      res.status(503).json({ message: "Payment service is not configured. Please contact support." });
+      return;
+    }
+    
+    // Calculate period dates
+    const now = new Date();
+    let periodEndDate: Date;
+    if (plan.billingPeriod === 'yearly') {
+      periodEndDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+    } else {
+      periodEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    }
+    
+    // Generate callback URL
+    const baseUrl = process.env.REPLIT_DOMAINS 
+      ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}`
+      : `http://localhost:5000`;
+    const callbackUrl = `${baseUrl}/school/subscription/callback`;
+    
+    // Create payment record
+    const paymentRecord = await storage.createSubscriptionPayment({
+      schoolId: school.id,
+      planId: plan.id,
+      amount: plan.price,
+      currency: 'NGN',
+      status: 'pending',
+      billingPeriod: plan.billingPeriod,
+      periodStartDate: now,
+      periodEndDate: periodEndDate,
+    });
+    
+    // Initialize Paystack payment
+    const paystackResponse = await paystack.initializePayment({
+      email: school.email || 'admin@school.com',
+      amount: plan.price,
+      reference: paystack.generateReference(),
+      callback_url: callbackUrl,
+      metadata: {
+        schoolId: school.id,
+        studentId: '',
+        feeTypeId: '',
+        termId: '',
+        paidById: '',
+        custom_fields: [
+          { display_name: 'School Name', variable_name: 'school_name', value: school.name },
+          { display_name: 'Plan', variable_name: 'plan_name', value: plan.name },
+          { display_name: 'Payment Type', variable_name: 'payment_type', value: 'subscription' },
+        ],
+      },
+    });
+    
+    // Update payment record with Paystack reference
+    await storage.updateSubscriptionPayment(paymentRecord.id, {
+      paystackReference: paystackResponse.data.reference,
+      paystackAccessCode: paystackResponse.data.access_code,
+    });
+    
+    res.json({
+      authorization_url: paystackResponse.data.authorization_url,
+      reference: paystackResponse.data.reference,
+      access_code: paystackResponse.data.access_code,
+    });
+  } catch (error: any) {
+    console.error("Error initializing subscription payment:", error);
+    res.status(500).json({ message: error.message || "Failed to initialize payment" });
+  }
+});
+
+// Verify subscription payment
+router.get("/api/school/subscription/verify/:reference", requireSchoolContext, async (req: Request, res: Response) => {
+  try {
+    const { reference } = req.params;
+    
+    if (!paystack.isConfigured()) {
+      res.status(503).json({ message: "Payment service is not configured" });
+      return;
+    }
+    
+    const payment = await storage.getSubscriptionPaymentByReference(reference);
+    if (!payment) {
+      res.status(404).json({ message: "Payment not found" });
+      return;
+    }
+    
+    // Already completed
+    if (payment.status === 'completed') {
+      res.json({ status: 'success', message: 'Payment already verified' });
+      return;
+    }
+    
+    // Verify with Paystack
+    const verification = await paystack.verifyPayment(reference);
+    
+    if (verification.data.status === 'success') {
+      // Verify amount matches
+      if (verification.data.amount !== payment.amount) {
+        res.status(400).json({ message: "Payment amount mismatch" });
+        return;
+      }
+      
+      // Complete the payment
+      await storage.completeSubscriptionPayment(payment.id, verification.data.id.toString());
+      
+      // Update school subscription
+      const plan = await storage.getSubscriptionPlan(payment.planId);
+      if (plan) {
+        await storage.updateSchoolSubscription(
+          payment.schoolId,
+          plan.id,
+          'active',
+          payment.periodEndDate || undefined
+        );
+      }
+      
+      res.json({ status: 'success', message: 'Subscription activated successfully' });
+    } else {
+      // Update payment as failed
+      await storage.updateSubscriptionPayment(payment.id, { status: 'failed' });
+      res.status(400).json({ status: 'failed', message: 'Payment verification failed' });
+    }
+  } catch (error: any) {
+    console.error("Error verifying subscription payment:", error);
+    res.status(500).json({ message: error.message || "Failed to verify payment" });
+  }
+});
+
+// Cancel subscription
+router.post("/api/school/subscription/cancel", requireSchoolContext, async (req: Request, res: Response) => {
+  try {
+    const school = await storage.getSchool(req.school!.id);
+    if (!school) {
+      res.status(404).json({ message: "School not found" });
+      return;
+    }
+    
+    if (school.subscriptionStatus !== 'active') {
+      res.status(400).json({ message: "No active subscription to cancel" });
+      return;
+    }
+    
+    await storage.cancelSchoolSubscription(school.id);
+    
+    res.json({ message: "Subscription cancelled successfully" });
+  } catch (error: any) {
+    console.error("Error cancelling subscription:", error);
+    res.status(500).json({ message: "Failed to cancel subscription" });
+  }
+});
+
 // Dashboard stats
 router.get("/api/school/dashboard/stats", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {

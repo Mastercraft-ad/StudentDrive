@@ -42,6 +42,7 @@ import {
   schoolAnnouncements,
   schoolNotifications,
   schoolMaterials,
+  subscriptionPayments,
   type User,
   type UpsertUser,
   type Institution,
@@ -131,6 +132,8 @@ import {
   type InsertSchoolNotification,
   type SchoolMaterial,
   type InsertSchoolMaterial,
+  type SubscriptionPayment,
+  type InsertSubscriptionPayment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, ne } from "drizzle-orm";
@@ -302,6 +305,15 @@ export interface IStorage {
   checkSubdomainAvailability(subdomain: string): Promise<boolean>;
   activateSchoolTrial(schoolId: string, trialDays?: number): Promise<School>;
   updateSchoolSubscription(schoolId: string, planId: string, status: string, endDate?: Date): Promise<School>;
+  cancelSchoolSubscription(schoolId: string): Promise<School>;
+  
+  // Subscription Payment operations
+  getSubscriptionPayments(schoolId: string): Promise<SubscriptionPayment[]>;
+  getSubscriptionPayment(id: string): Promise<SubscriptionPayment | undefined>;
+  getSubscriptionPaymentByReference(reference: string): Promise<SubscriptionPayment | undefined>;
+  createSubscriptionPayment(payment: InsertSubscriptionPayment): Promise<SubscriptionPayment>;
+  updateSubscriptionPayment(id: string, payment: Partial<InsertSubscriptionPayment>): Promise<SubscriptionPayment>;
+  completeSubscriptionPayment(id: string, transactionId: string): Promise<SubscriptionPayment>;
   
   // School User operations
   getSchoolUsers(schoolId: string): Promise<SchoolUser[]>;
@@ -1729,6 +1741,78 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schools.id, schoolId))
       .returning();
     return school;
+  }
+
+  async cancelSchoolSubscription(schoolId: string): Promise<School> {
+    const [school] = await db
+      .update(schools)
+      .set({
+        subscriptionStatus: 'cancelled',
+        updatedAt: new Date(),
+      })
+      .where(eq(schools.id, schoolId))
+      .returning();
+    return school;
+  }
+
+  // Subscription Payment operations
+  async getSubscriptionPayments(schoolId: string): Promise<SubscriptionPayment[]> {
+    return await db
+      .select()
+      .from(subscriptionPayments)
+      .where(eq(subscriptionPayments.schoolId, schoolId))
+      .orderBy(desc(subscriptionPayments.createdAt));
+  }
+
+  async getSubscriptionPayment(id: string): Promise<SubscriptionPayment | undefined> {
+    const [payment] = await db
+      .select()
+      .from(subscriptionPayments)
+      .where(eq(subscriptionPayments.id, id));
+    return payment;
+  }
+
+  async getSubscriptionPaymentByReference(reference: string): Promise<SubscriptionPayment | undefined> {
+    const [payment] = await db
+      .select()
+      .from(subscriptionPayments)
+      .where(eq(subscriptionPayments.paystackReference, reference));
+    return payment;
+  }
+
+  async createSubscriptionPayment(payment: InsertSubscriptionPayment): Promise<SubscriptionPayment> {
+    const invoiceNumber = `INV-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    const [created] = await db
+      .insert(subscriptionPayments)
+      .values({
+        ...payment,
+        invoiceNumber,
+      })
+      .returning();
+    return created;
+  }
+
+  async updateSubscriptionPayment(id: string, payment: Partial<InsertSubscriptionPayment>): Promise<SubscriptionPayment> {
+    const [updated] = await db
+      .update(subscriptionPayments)
+      .set({ ...payment, updatedAt: new Date() })
+      .where(eq(subscriptionPayments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async completeSubscriptionPayment(id: string, transactionId: string): Promise<SubscriptionPayment> {
+    const [payment] = await db
+      .update(subscriptionPayments)
+      .set({
+        status: 'completed',
+        paystackTransactionId: transactionId,
+        paidAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(subscriptionPayments.id, id))
+      .returning();
+    return payment;
   }
 
   // School User operations

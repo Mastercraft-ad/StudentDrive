@@ -23,6 +23,7 @@ import {
   FolderOpen,
   FileSpreadsheet,
   Calculator,
+  CreditCard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -130,6 +131,7 @@ export const menuConfig: MenuConfig = {
         { title: "Timetable", url: "/school/timetable", icon: Clock },
         { title: "Announcements", url: "/school/announcements", icon: Bell },
         { title: "Resources", url: "/school/resources", icon: FolderOpen },
+        { title: "Subscription", url: "/school/subscription", icon: CreditCard },
         { title: "Settings", url: "/settings", icon: Settings },
       ],
     },
