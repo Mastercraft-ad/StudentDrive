@@ -140,9 +140,10 @@ export default function SubscriptionPage() {
     }).format(price / 100);
   };
 
-  const formatDate = (dateStr: string | null) => {
+  const formatDate = (dateStr: string | Date | null) => {
     if (!dateStr) return "N/A";
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    const date = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
+    return date.toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
       day: "numeric",
