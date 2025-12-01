@@ -876,19 +876,78 @@ router.post("/api/school/subscription/cancel", requireSchoolContext, async (req:
   }
 });
 
-// Dashboard stats
+// Dashboard stats - comprehensive metrics from all modules
 router.get("/api/school/dashboard/stats", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
     const schoolId = req.school!.id;
     
-    const [students, teachers, parents, admins, classes, subjects] = await Promise.all([
+    const [students, teachers, parents, admins, classes, subjects, currentTerm, announcements] = await Promise.all([
       storage.getSchoolUsersByRole(schoolId, 'student'),
       storage.getSchoolUsersByRole(schoolId, 'teacher'),
       storage.getSchoolUsersByRole(schoolId, 'parent'),
       storage.getSchoolUsersByRole(schoolId, 'school_admin'),
       storage.getSchoolClasses(schoolId),
       storage.getSchoolSubjects(schoolId),
+      storage.getCurrentAcademicTerm(schoolId),
+      storage.getSchoolAnnouncements(schoolId),
     ]);
+    
+    let attendanceRate = 0;
+    let todayAttendance = { present: 0, absent: 0, late: 0, total: 0 };
+    let feeStats = { collected: 0, pending: 0, totalExpected: 0, collectionRate: 0 };
+    let overdueCount = 0;
+    
+    if (currentTerm) {
+      try {
+        const today = new Date();
+        for (const cls of classes) {
+          const records = await storage.getAttendanceRecords(cls.id, today);
+          records.forEach((record: { status: string }) => {
+            todayAttendance.total++;
+            if (record.status === 'present') todayAttendance.present++;
+            else if (record.status === 'absent') todayAttendance.absent++;
+            else if (record.status === 'late') todayAttendance.late++;
+          });
+        }
+        
+        if (todayAttendance.total > 0) {
+          attendanceRate = Math.round(((todayAttendance.present + todayAttendance.late) / todayAttendance.total) * 100);
+        }
+      } catch (err) {
+        console.log("Attendance stats calculation skipped:", err);
+      }
+      
+      try {
+        const overduePayments = await storage.getOverduePayments(schoolId);
+        overdueCount = overduePayments.length;
+        
+        const allPayments = await storage.getSchoolFeePayments(schoolId, currentTerm.id);
+        let collected = 0;
+        let pending = 0;
+        
+        allPayments.forEach((payment: { status: string; amount: number }) => {
+          if (payment.status === 'completed') {
+            collected += payment.amount;
+          } else if (payment.status === 'pending') {
+            pending += payment.amount;
+          }
+        });
+        
+        feeStats.collected = collected;
+        feeStats.pending = pending;
+        feeStats.totalExpected = collected + pending;
+        feeStats.collectionRate = feeStats.totalExpected > 0 
+          ? Math.round((collected / feeStats.totalExpected) * 100) 
+          : 0;
+      } catch (err) {
+        console.log("Fee stats calculation skipped:", err);
+      }
+    }
+    
+    const recentAnnouncements = announcements
+      .filter(a => a.isPublished)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())
+      .slice(0, 5);
     
     res.json({
       totalStudents: students.length,
@@ -898,6 +957,30 @@ router.get("/api/school/dashboard/stats", requireSchoolContext, checkTrialStatus
       totalUsers: students.length + teachers.length + parents.length + admins.length,
       totalClasses: classes.length,
       totalSubjects: subjects.length,
+      currentTerm: currentTerm ? {
+        id: currentTerm.id,
+        name: currentTerm.name,
+        sessionYear: currentTerm.sessionYear,
+        startDate: currentTerm.startDate,
+        endDate: currentTerm.endDate,
+      } : null,
+      attendance: {
+        rate: attendanceRate,
+        today: todayAttendance,
+      },
+      fees: {
+        collected: feeStats.collected,
+        pending: feeStats.pending,
+        collectionRate: feeStats.collectionRate,
+        overdueCount: overdueCount,
+      },
+      recentAnnouncements: recentAnnouncements.map(a => ({
+        id: a.id,
+        title: a.title,
+        type: a.type,
+        createdAt: a.createdAt,
+        isPinned: a.isPinned,
+      })),
     });
   } catch (error: any) {
     console.error("Error fetching dashboard stats:", error);
