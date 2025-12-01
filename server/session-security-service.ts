@@ -2,7 +2,7 @@ import { db } from "./db";
 import { userActiveSessions, securityEvents, type InsertUserActiveSession, type InsertSecurityEvent } from "@shared/schema";
 import { eq, desc, and, gte, lte, count, sql, or, isNull } from "drizzle-orm";
 import type { Request } from "express";
-import UAParser from "ua-parser-js";
+import { UAParser } from "ua-parser-js";
 
 // Parse user agent to extract device info
 function parseUserAgent(userAgent: string | undefined) {
