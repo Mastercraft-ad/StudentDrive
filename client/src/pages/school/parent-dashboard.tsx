@@ -3,8 +3,11 @@ import { Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
+import { PageHeader } from "@/components/page-header";
+import { DashboardSkeleton } from "@/components/loading-skeleton";
+import { ErrorState } from "@/components/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -61,7 +64,7 @@ export default function ParentDashboard() {
   const [selectedChild, setSelectedChild] = useState<string>("");
   const [selectedTerm, setSelectedTerm] = useState<string>("");
 
-  const { data: children, isLoading: childrenLoading } = useQuery<ChildInfo[]>({
+  const { data: children, isLoading: childrenLoading, error: childrenError, refetch: refetchChildren } = useQuery<ChildInfo[]>({
     queryKey: ["/api/school/parent/children"],
   });
 
@@ -131,12 +134,19 @@ export default function ParentDashboard() {
   if (childrenLoading) {
     return (
       <div className="p-6 space-y-6">
-        <Skeleton className="h-10 w-48" />
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
+        <DashboardSkeleton />
+      </div>
+    );
+  }
+
+  if (childrenError) {
+    return (
+      <div className="p-6 space-y-6">
+        <ErrorState
+          title="Failed to load dashboard"
+          message="We couldn't fetch your children's data. Please try again."
+          onRetry={() => refetchChildren()}
+        />
       </div>
     );
   }

@@ -2,9 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import { Link } from "wouter";
+import { PageHeader } from "@/components/page-header";
+import { DashboardSkeleton, CardSkeleton } from "@/components/loading-skeleton";
+import { ErrorState } from "@/components/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users,
   GraduationCap,
@@ -65,7 +68,7 @@ interface DashboardStats {
 }
 
 export default function SchoolDashboard() {
-  const { data: stats, isLoading } = useQuery<DashboardStats>({
+  const { data: stats, isLoading, error, refetch } = useQuery<DashboardStats>({
     queryKey: ["/api/school/dashboard/stats"],
   });
 
@@ -165,19 +168,19 @@ export default function SchoolDashboard() {
   if (isLoading) {
     return (
       <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-6 w-64" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-64 lg:col-span-2" />
-          <Skeleton className="h-64" />
-        </div>
+        <DashboardSkeleton />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-6">
+        <ErrorState
+          title="Failed to load dashboard"
+          message="We couldn't fetch your dashboard data. Please try again."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }

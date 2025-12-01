@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -22,6 +21,9 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeleton";
 import { TrendingUp, Save, Users, BookOpen, FileText, Calculator } from "lucide-react";
 import type { SchoolClass, SchoolSubject, SchoolUser, AssessmentType, StudentGrade, AcademicTerm } from "@shared/schema";
 
@@ -168,24 +170,30 @@ export default function GradesPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Grades</h1>
-          <p className="text-muted-foreground">Enter and manage student grades</p>
-        </div>
-        {selectedClass && selectedTerm && (
-          <Button 
-            onClick={handleCalculateResults} 
-            disabled={calculateResultsMutation.isPending}
-            variant="outline"
-            data-testid="button-calculate-results"
-          >
-            <Calculator className="h-4 w-4 mr-2" />
-            Calculate Term Results
-          </Button>
-        )}
-      </div>
+    <div className="p-4 md:p-6 space-y-6">
+      <PageHeader
+        title="Grades"
+        description="Enter and manage student grades"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
+          { label: "Academics", href: "/school/grades" },
+          { label: "Grades" }
+        ]}
+        actions={
+          selectedClass && selectedTerm ? (
+            <Button 
+              onClick={handleCalculateResults} 
+              disabled={calculateResultsMutation.isPending}
+              variant="outline"
+              data-testid="button-calculate-results"
+            >
+              <Calculator className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Calculate Term Results</span>
+              <span className="sm:hidden">Calculate</span>
+            </Button>
+          ) : undefined
+        }
+      />
 
       <Card>
         <CardHeader>

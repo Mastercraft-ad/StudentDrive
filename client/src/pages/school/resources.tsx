@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -30,6 +29,9 @@ import {
 } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { CardSkeleton } from "@/components/loading-skeleton";
 import {
   Plus,
   FileText,
@@ -93,7 +95,7 @@ export default function ResourcesPage() {
   const isStudent = currentUser?.user?.role === "school_student";
   const userClassId = currentUser?.user?.classId;
 
-  const { data: materials, isLoading } = useQuery<SchoolMaterial[]>({
+  const { data: materials, isLoading, error, refetch } = useQuery<SchoolMaterial[]>({
     queryKey: ["/api/school/materials"],
   });
 
@@ -287,26 +289,72 @@ export default function ResourcesPage() {
     return matchesSearch && matchesSubject && matchesClass;
   });
 
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Resources</h1>
-          <p className="text-muted-foreground">
-            {canManageResources 
-              ? "Manage school learning materials and documents" 
-              : "Browse and download school learning materials"}
-          </p>
+  if (isLoading) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Resources"
+          description={canManageResources 
+            ? "Manage school learning materials and documents" 
+            : "Browse and download school learning materials"}
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "Resources" }
+          ]}
+        />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <CardSkeleton count={6} />
         </div>
-        {canManageResources && (
-          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-resource">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Resource
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="max-w-lg">
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Resources"
+          description={canManageResources 
+            ? "Manage school learning materials and documents" 
+            : "Browse and download school learning materials"}
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "Resources" }
+          ]}
+        />
+        <ErrorState 
+          message="Failed to load resources. Please try again."
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-6 space-y-6">
+      <PageHeader
+        title="Resources"
+        description={canManageResources 
+          ? "Manage school learning materials and documents" 
+          : "Browse and download school learning materials"}
+        breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
+          { label: "Resources" }
+        ]}
+        actions={
+          canManageResources ? (
+            <Button data-testid="button-add-resource" onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Add Resource</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {canManageResources && (
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingMaterial ? "Edit Resource" : "Add Resource"}</DialogTitle>
             </DialogHeader>
@@ -488,8 +536,7 @@ export default function ResourcesPage() {
             </form>
           </DialogContent>
         </Dialog>
-        )}
-      </div>
+      )}
 
       <Card>
         <CardHeader>

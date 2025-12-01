@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
@@ -24,6 +23,9 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeleton";
 import { Plus, Calendar, Edit, Trash2, Check } from "lucide-react";
 import type { AcademicTerm } from "@shared/schema";
 
@@ -39,7 +41,7 @@ export default function TermsPage() {
     isCurrent: false,
   });
 
-  const { data: terms, isLoading } = useQuery<AcademicTerm[]>({
+  const { data: terms, isLoading, error, refetch } = useQuery<AcademicTerm[]>({
     queryKey: ["/api/school/terms"],
   });
 
@@ -143,101 +145,135 @@ export default function TermsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-64" />
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Academic Terms"
+          description="Manage academic sessions and terms"
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "Settings", href: "/school/terms" },
+            { label: "Terms" }
+          ]}
+        />
+        <TableSkeleton rows={5} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Academic Terms"
+          description="Manage academic sessions and terms"
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "Settings", href: "/school/terms" },
+            { label: "Terms" }
+          ]}
+        />
+        <ErrorState 
+          message="Failed to load academic terms. Please try again."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Academic Terms</h1>
-          <p className="text-muted-foreground">Manage academic sessions and terms</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-term">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Term
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingTerm ? "Edit Term" : "Add New Academic Term"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Term Name</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g., First Term"
-                    required
-                    data-testid="input-term-name"
-                  />
+    <div className="p-4 md:p-6 space-y-6">
+      <PageHeader
+        title="Academic Terms"
+        description="Manage academic sessions and terms"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
+          { label: "Settings", href: "/school/terms" },
+          { label: "Terms" }
+        ]}
+        actions={
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-term">
+                <Plus className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">Add Term</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingTerm ? "Edit Term" : "Add New Academic Term"}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Term Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="e.g., First Term"
+                      required
+                      data-testid="input-term-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sessionYear">Session Year</Label>
+                    <Input
+                      id="sessionYear"
+                      value={formData.sessionYear}
+                      onChange={(e) => setFormData({ ...formData, sessionYear: e.target.value })}
+                      placeholder="e.g., 2024/2025"
+                      required
+                      data-testid="input-term-session"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sessionYear">Session Year</Label>
-                  <Input
-                    id="sessionYear"
-                    value={formData.sessionYear}
-                    onChange={(e) => setFormData({ ...formData, sessionYear: e.target.value })}
-                    placeholder="e.g., 2024/2025"
-                    required
-                    data-testid="input-term-session"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate">Start Date</Label>
+                    <Input
+                      id="startDate"
+                      type="date"
+                      value={formData.startDate}
+                      onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                      required
+                      data-testid="input-term-start"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="endDate">End Date</Label>
+                    <Input
+                      id="endDate"
+                      type="date"
+                      value={formData.endDate}
+                      onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                      required
+                      data-testid="input-term-end"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startDate">Start Date</Label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    required
-                    data-testid="input-term-start"
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="isCurrent"
+                    checked={formData.isCurrent}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isCurrent: checked })}
+                    data-testid="switch-term-current"
                   />
+                  <Label htmlFor="isCurrent">Set as current term</Label>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endDate">End Date</Label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    required
-                    data-testid="input-term-end"
-                  />
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-term">
+                    {editingTerm ? "Update" : "Create"} Term
+                  </Button>
                 </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="isCurrent"
-                  checked={formData.isCurrent}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isCurrent: checked })}
-                  data-testid="switch-term-current"
-                />
-                <Label htmlFor="isCurrent">Set as current term</Label>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-save-term">
-                  {editingTerm ? "Update" : "Create"} Term
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
       <Card>
         <CardHeader>
@@ -309,11 +345,15 @@ export default function TermsPage() {
               </TableBody>
             </Table>
           ) : (
-            <div className="text-center py-12">
-              <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No academic terms found</h3>
-              <p className="text-muted-foreground">Create your first academic term to get started.</p>
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title="No academic terms found"
+              description="Create your first academic term to get started."
+              action={{
+                label: "Add Term",
+                onClick: () => setIsDialogOpen(true)
+              }}
+            />
           )}
         </CardContent>
       </Card>

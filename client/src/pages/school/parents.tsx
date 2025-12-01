@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +36,9 @@ import {
 } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeleton";
 import { Users, Edit, Trash2, Search, UserPlus, Link, Unlink, GraduationCap } from "lucide-react";
 import type { SchoolUser, ParentStudentLink } from "@shared/schema";
 
@@ -70,7 +72,7 @@ export default function ParentsPage() {
     relationship: "parent",
   });
 
-  const { data: parents, isLoading } = useQuery<SchoolUser[]>({
+  const { data: parents, isLoading, error, refetch } = useQuery<SchoolUser[]>({
     queryKey: ["/api/school/users", { role: "parent" }],
   });
 
@@ -240,28 +242,62 @@ export default function ParentsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-64" />
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Parents / Guardians"
+          description="Manage parent accounts and link them to students"
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "Users", href: "/school/parents" },
+            { label: "Parents" }
+          ]}
+        />
+        <TableSkeleton rows={6} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Parents / Guardians"
+          description="Manage parent accounts and link them to students"
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "Users", href: "/school/parents" },
+            { label: "Parents" }
+          ]}
+        />
+        <ErrorState 
+          message="Failed to load parents. Please try again."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Parents / Guardians</h1>
-          <p className="text-muted-foreground">Manage parent accounts and link them to students</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-parent">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Parent
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+    <div className="p-4 md:p-6 space-y-6">
+      <PageHeader
+        title="Parents / Guardians"
+        description="Manage parent accounts and link them to students"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
+          { label: "Users", href: "/school/parents" },
+          { label: "Parents" }
+        ]}
+        actions={
+          <Button data-testid="button-add-parent" onClick={() => setIsDialogOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Add Parent</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        }
+      />
+
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingParent ? "Edit Parent" : "Add New Parent"}</DialogTitle>
               <DialogDescription>
@@ -400,7 +436,6 @@ export default function ParentsPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
 
       <Dialog open={isLinkDialogOpen} onOpenChange={(open) => { setIsLinkDialogOpen(open); if (!open) setLinkingParent(null); }}>
         <DialogContent>
@@ -594,11 +629,15 @@ export default function ParentsPage() {
               })}
             </Accordion>
           ) : (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No parents found</h3>
-              <p className="text-muted-foreground">Add your first parent to get started.</p>
-            </div>
+            <EmptyState
+              icon={Users}
+              title="No parents found"
+              description="Add your first parent to get started."
+              action={{
+                label: "Add Parent",
+                onClick: () => setIsDialogOpen(true)
+              }}
+            />
           )}
         </CardContent>
       </Card>

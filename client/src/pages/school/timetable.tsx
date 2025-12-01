@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +20,10 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Clock, Calendar, Edit, Trash2 } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeleton";
+import { Plus, Clock, Calendar, Edit, Trash2, AlertCircle } from "lucide-react";
 import type { SchoolClass, SchoolSubject, SchoolUser, TimetablePeriod, TimetableEntry } from "@shared/schema";
 
 const DAYS_OF_WEEK = [
@@ -46,7 +48,7 @@ export default function TimetablePage() {
     room: "",
   });
 
-  const { data: classes } = useQuery<SchoolClass[]>({
+  const { data: classes, isLoading: classesLoading, error: classesError, refetch: refetchClasses } = useQuery<SchoolClass[]>({
     queryKey: ["/api/school/classes"],
   });
 
@@ -62,7 +64,7 @@ export default function TimetablePage() {
     queryKey: ["/api/school/timetable-periods"],
   });
 
-  const { data: entries, isLoading } = useQuery<TimetableEntry[]>({
+  const { data: entries, isLoading, error: entriesError, refetch: refetchEntries } = useQuery<TimetableEntry[]>({
     queryKey: ["/api/school/timetable", { classId: selectedClass }],
     enabled: !!selectedClass,
   });
@@ -157,13 +159,16 @@ export default function TimetablePage() {
   const sortedPeriods = periods?.slice().sort((a, b) => a.orderIndex - b.orderIndex);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Timetable</h1>
-          <p className="text-muted-foreground">Manage class schedules and timetables</p>
-        </div>
-      </div>
+    <div className="p-4 md:p-6 space-y-6">
+      <PageHeader
+        title="Timetable"
+        description="Manage class schedules and timetables"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
+          { label: "Academics", href: "/school/timetable" },
+          { label: "Timetable" }
+        ]}
+      />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
@@ -297,7 +302,13 @@ export default function TimetablePage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-96" />
+              <TableSkeleton rows={6} columns={6} />
+            ) : entriesError ? (
+              <ErrorState
+                title="Failed to load timetable"
+                message="There was an error loading the timetable entries."
+                onRetry={() => refetchEntries()}
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">

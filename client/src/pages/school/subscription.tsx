@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { PageHeader } from "@/components/page-header";
+import { ErrorState } from "@/components/empty-state";
+import { CardSkeleton } from "@/components/loading-skeleton";
 import type { SubscriptionPlan, SubscriptionPayment } from "@shared/schema";
 import {
   CreditCard,
@@ -64,7 +67,7 @@ export default function SubscriptionPage() {
   const [showUpgradeDialog, setShowUpgradeDialog] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
 
-  const { data: subscription, isLoading: subLoading } = useQuery<SubscriptionStatus>({
+  const { data: subscription, isLoading: subLoading, error: subError, refetch: refetchSub } = useQuery<SubscriptionStatus>({
     queryKey: ["/api/school/subscription"],
   });
 
@@ -181,11 +184,22 @@ export default function SubscriptionPage() {
   if (subLoading || plansLoading) {
     return (
       <div className="p-6 space-y-6">
-        <Skeleton className="h-8 w-64" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64 lg:col-span-2" />
+          <CardSkeleton />
+          <div className="lg:col-span-2"><CardSkeleton /></div>
         </div>
+      </div>
+    );
+  }
+
+  if (subError) {
+    return (
+      <div className="p-6 space-y-6">
+        <ErrorState
+          title="Failed to load subscription"
+          message="We couldn't load your subscription information. Please try again."
+          onRetry={() => refetchSub()}
+        />
       </div>
     );
   }
@@ -198,12 +212,15 @@ export default function SubscriptionPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Subscription & Billing</h1>
-          <p className="text-muted-foreground">Manage your school's subscription and payment history</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Subscription & Billing"
+        description="Manage your school's subscription and payment history"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
+          { label: "Settings", href: "/school/subscription" },
+          { label: "Subscription" }
+        ]}
+      />
 
       {isTrialExpiring && (
         <Alert variant="destructive" data-testid="alert-trial-expiring">

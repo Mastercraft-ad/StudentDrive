@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -25,6 +24,9 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { CardSkeleton } from "@/components/loading-skeleton";
 import { Plus, Bell, Megaphone, Pin, Edit, Trash2, Eye, Calendar, Users } from "lucide-react";
 import type { SchoolAnnouncement, SchoolClass } from "@shared/schema";
 
@@ -54,7 +56,7 @@ export default function AnnouncementsPage() {
     queryKey: ["/api/school/auth/me"],
   });
 
-  const { data: announcements, isLoading } = useQuery<SchoolAnnouncement[]>({
+  const { data: announcements, isLoading, error, refetch } = useQuery<SchoolAnnouncement[]>({
     queryKey: ["/api/school/announcements"],
   });
 
@@ -197,23 +199,65 @@ export default function AnnouncementsPage() {
   const pinnedAnnouncements = announcements?.filter((a) => a.isPinned && a.isPublished) || [];
   const regularAnnouncements = announcements?.filter((a) => !a.isPinned) || [];
 
-  return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Announcements</h1>
-          <p className="text-muted-foreground">
-            {isAdmin ? "Create and manage school announcements" : "View school announcements"}
-          </p>
+  if (isLoading) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Announcements"
+          description={isAdmin ? "Create and manage school announcements" : "View school announcements"}
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "Announcements" }
+          ]}
+        />
+        <div className="grid gap-4 md:grid-cols-2">
+          <CardSkeleton count={4} />
         </div>
-        {isAdmin && (
-          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-announcement">
-                <Plus className="h-4 w-4 mr-2" />
-                New Announcement
-              </Button>
-            </DialogTrigger>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Announcements"
+          description={isAdmin ? "Create and manage school announcements" : "View school announcements"}
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "Announcements" }
+          ]}
+        />
+        <ErrorState 
+          message="Failed to load announcements. Please try again."
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 md:p-6 space-y-6">
+      <PageHeader
+        title="Announcements"
+        description={isAdmin ? "Create and manage school announcements" : "View school announcements"}
+        breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
+          { label: "Announcements" }
+        ]}
+        actions={
+          isAdmin ? (
+            <Button data-testid="button-add-announcement" onClick={() => setIsDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">New Announcement</span>
+              <span className="sm:hidden">New</span>
+            </Button>
+          ) : undefined
+        }
+      />
+
+      {isAdmin && (
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editingAnnouncement ? "Edit Announcement" : "Create Announcement"}</DialogTitle>
@@ -340,7 +384,6 @@ export default function AnnouncementsPage() {
             </DialogContent>
           </Dialog>
         )}
-      </div>
 
       {isAdmin && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
