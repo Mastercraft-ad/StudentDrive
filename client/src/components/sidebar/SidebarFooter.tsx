@@ -6,12 +6,15 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { NavItem } from "./NavItem";
 import { isPathActive } from "@/config/navigation";
 import type { NavItem as NavItemType } from "@/config/navigation";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface SidebarFooterProps {
   footerItems?: NavItemType[];
@@ -21,6 +24,8 @@ export function SidebarFooter({ footerItems = [] }: SidebarFooterProps) {
   const [location, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   const handleLogout = async () => {
     try {
@@ -30,11 +35,8 @@ export function SidebarFooter({ footerItems = [] }: SidebarFooterProps) {
       });
 
       if (response.ok) {
-        // Clear auth state first
         queryClient.setQueryData(["/api/auth/user"], null);
         await queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-        
-        // Then redirect
         setLocation("/login");
         
         toast({
@@ -51,35 +53,52 @@ export function SidebarFooter({ footerItems = [] }: SidebarFooterProps) {
     }
   };
 
+  const logoutButton = (
+    <SidebarMenuButton
+      onClick={handleLogout}
+      data-testid="button-logout"
+      className={cn(
+        "group h-10 transition-all duration-200 text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
+        isCollapsed ? "w-10 justify-center px-0" : "px-3"
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <LogOut className="w-5 h-5 flex-shrink-0" />
+        {!isCollapsed && (
+          <span className="text-sm font-medium">Logout</span>
+        )}
+      </div>
+    </SidebarMenuButton>
+  );
+
   return (
-    <BaseSidebarFooter className="mt-auto border-t border-border/40 px-3 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2">
+    <BaseSidebarFooter className="mt-auto border-t border-border p-2">
       {footerItems.length > 0 && (
         <>
-          <SidebarMenu className="space-y-1">
+          <SidebarMenu className="space-y-1 px-2 mb-2">
             {footerItems.map((item) => {
               const isActive = isPathActive(item.url, location);
               return <NavItem key={item.title} item={item} isActive={isActive} />;
             })}
           </SidebarMenu>
-          <Separator className="my-3 bg-slate-700/50 group-data-[collapsible=icon]:hidden" />
+          <Separator className="my-2" />
         </>
       )}
       
-      <SidebarMenu>
+      <SidebarMenu className="px-2">
         <SidebarMenuItem>
-          <SidebarMenuButton
-            onClick={handleLogout}
-            tooltip="Logout"
-            data-testid="button-logout"
-            className="text-slate-300 hover:bg-red-500/10 hover:text-red-400 transition-colors duration-150 h-10 px-2.5 rounded-lg group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:px-0"
-          >
-            <div className="flex items-center gap-3 w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-              <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
-              <span className="font-medium text-[13px] group-data-[collapsible=icon]:hidden">
+          {isCollapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {logoutButton}
+              </TooltipTrigger>
+              <TooltipContent side="right" className="font-medium">
                 Logout
-              </span>
-            </div>
-          </SidebarMenuButton>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            logoutButton
+          )}
         </SidebarMenuItem>
       </SidebarMenu>
     </BaseSidebarFooter>

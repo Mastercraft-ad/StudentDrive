@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation, useRouter } from "wouter";
+import { Link, useLocation } from "wouter";
 import {
   SidebarMenuButton,
   SidebarMenuItem,
@@ -14,7 +14,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ChevronDown } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NavItem } from "@/config/navigation";
 import { isPathActive, isPathWithin } from "@/config/navigation";
@@ -23,25 +24,17 @@ interface CollapsibleNavGroupProps {
   item: NavItem;
 }
 
-const baseStyles = "transition-colors duration-150 h-10 px-2.5 rounded-lg";
-const activeStyles = "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm";
-const inactiveStyles = "text-slate-300 hover:bg-slate-800 hover:text-slate-100";
-const subItemBaseStyles = "transition-colors duration-150 h-9 px-2.5 rounded-md";
-const subItemActiveStyles = "bg-primary/10 text-primary hover:bg-primary/20";
-const subItemInactiveStyles = "text-slate-400 hover:bg-slate-800 hover:text-slate-200";
-
 export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
   const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(() => isPathWithin(item.url, location));
   const [popoverOpen, setPopoverOpen] = useState(false);
   const { state } = useSidebar();
-  const isWithinSection = isPathWithin(item.url, location);
+  const isWithinSection = item.children?.some(child => isPathActive(child.url, location)) || false;
+  const isCollapsed = state === "collapsed";
 
   if (!item.children || item.children.length === 0) {
     return null;
   }
-
-  const isCollapsed = state === "collapsed";
 
   const handleNavigation = (url: string) => {
     setPopoverOpen(false);
@@ -52,22 +45,34 @@ export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
     return (
       <SidebarMenuItem>
         <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-          <PopoverTrigger asChild>
-            <SidebarMenuButton
-              tooltip={item.title}
-              data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-              className={cn(
-                "transition-colors duration-150 w-10 h-10 px-0 rounded-lg",
-                isWithinSection ? activeStyles : inactiveStyles
-              )}
-            >
-              <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
-            </SidebarMenuButton>
-          </PopoverTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <SidebarMenuButton
+                  data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+                  className={cn(
+                    "group h-10 w-10 justify-center px-0 transition-all duration-200",
+                    isWithinSection 
+                      ? "bg-primary/10 border border-primary/20" 
+                      : "hover:bg-accent"
+                  )}
+                >
+                  <item.icon className={cn(
+                    "w-5 h-5 flex-shrink-0 transition-colors",
+                    isWithinSection ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                  )} />
+                </SidebarMenuButton>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="font-medium">
+              {item.title}
+            </TooltipContent>
+          </Tooltip>
           <PopoverContent 
             side="right" 
             align="start" 
-            className="w-56 p-2 bg-slate-900 border-slate-700"
+            sideOffset={8}
+            className="w-48 p-2"
             data-testid={`popover-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
           >
             <div className="space-y-1">
@@ -77,16 +82,16 @@ export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
                   <button
                     key={subItem.title}
                     onClick={() => handleNavigation(subItem.url)}
-                    data-testid={`nav-${item.title.toLowerCase()}-${subItem.title.toLowerCase()}`}
+                    data-testid={`nav-${item.title.toLowerCase()}-${subItem.title.toLowerCase().replace(/\s+/g, '-')}`}
                     className={cn(
-                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[13px] transition-colors cursor-pointer",
+                      "w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
                       isSubActive 
-                        ? "bg-primary/10 text-primary hover:bg-primary/20" 
-                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                        ? "bg-primary/10 text-primary font-medium" 
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                   >
-                    <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate font-medium">{subItem.title}</span>
+                    <subItem.icon className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate">{subItem.title}</span>
                   </button>
                 );
               })}
@@ -100,39 +105,36 @@ export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen} className="group/collapsible">
       <SidebarMenuItem>
-        <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
+        <CollapsibleTrigger asChild>
           <SidebarMenuButton
-            asChild
-            tooltip={item.title}
             data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
             className={cn(
-              baseStyles,
-              isWithinSection ? activeStyles : inactiveStyles,
-              "group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:px-0 flex-1"
+              "group h-10 px-3 transition-all duration-200",
+              isWithinSection 
+                ? "bg-primary/10 border border-primary/20" 
+                : "hover:bg-accent"
             )}
           >
-            <Link href={item.url} className="flex items-center gap-3 flex-1 group-data-[collapsible=icon]:justify-center">
-              <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
-              <span className="font-medium text-[13px] group-data-[collapsible=icon]:hidden">
+            <div className="flex items-center gap-3 w-full">
+              <item.icon className={cn(
+                "w-5 h-5 flex-shrink-0 transition-colors",
+                isWithinSection ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+              )} />
+              <span className={cn(
+                "text-sm font-medium truncate flex-1 transition-colors",
+                isWithinSection ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+              )}>
                 {item.title}
               </span>
-            </Link>
+              <ChevronRight className={cn(
+                "w-4 h-4 text-muted-foreground transition-transform duration-200",
+                isOpen && "rotate-90"
+              )} />
+            </div>
           </SidebarMenuButton>
-          <CollapsibleTrigger asChild>
-            <button
-              className={cn(
-                "p-1.5 rounded-md transition-colors group-data-[collapsible=icon]:hidden hover:bg-slate-800",
-                "text-slate-400 hover:text-slate-200"
-              )}
-              aria-label={`Toggle ${item.title} submenu`}
-              data-testid={`toggle-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-            >
-              <ChevronDown className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
-            </button>
-          </CollapsibleTrigger>
-        </div>
-        <CollapsibleContent className="transition-all duration-200 group-data-[collapsible=icon]:hidden">
-          <SidebarMenuSub className="ml-2.5 mt-1 space-y-0.5 border-l-2 border-slate-700/60 pl-2.5">
+        </CollapsibleTrigger>
+        <CollapsibleContent className="transition-all duration-200">
+          <SidebarMenuSub className="ml-4 mt-1 space-y-0.5 border-l border-border pl-3">
             {item.children.map((subItem) => {
               const isSubActive = isPathActive(subItem.url, location);
               return (
@@ -140,15 +142,17 @@ export function CollapsibleNavGroup({ item }: CollapsibleNavGroupProps) {
                   <SidebarMenuSubButton
                     asChild
                     isActive={isSubActive}
-                    data-testid={`nav-${item.title.toLowerCase()}-${subItem.title.toLowerCase()}`}
+                    data-testid={`nav-${item.title.toLowerCase()}-${subItem.title.toLowerCase().replace(/\s+/g, '-')}`}
                     className={cn(
-                      subItemBaseStyles,
-                      isSubActive ? subItemActiveStyles : subItemInactiveStyles
+                      "h-9 px-3 transition-all duration-200",
+                      isSubActive 
+                        ? "bg-primary/10 text-primary font-medium" 
+                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                   >
                     <Link href={subItem.url} className="flex items-center gap-2.5">
-                      <subItem.icon className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-[13px] truncate font-medium">{subItem.title}</span>
+                      <subItem.icon className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-sm truncate">{subItem.title}</span>
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

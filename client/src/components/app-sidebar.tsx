@@ -7,6 +7,7 @@ import { SidebarProfile } from "@/components/sidebar/SidebarProfile";
 import { SidebarSection } from "@/components/sidebar/SidebarSection";
 import { SidebarFooter } from "@/components/sidebar/SidebarFooter";
 import { menuConfig } from "@/config/navigation";
+import { Separator } from "@/components/ui/separator";
 
 export function AppSidebar() {
   const { user } = useAuth();
@@ -19,7 +20,10 @@ export function AppSidebar() {
   }
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border bg-slate-900 dark:bg-slate-950">
+    <Sidebar 
+      collapsible="icon" 
+      className="border-r border-border bg-card"
+    >
       <SidebarProfile
         firstName={user?.firstName}
         lastName={user?.lastName}
@@ -28,11 +32,14 @@ export function AppSidebar() {
         profileImageUrl={user?.profileImageUrl}
       />
 
-      <SidebarContent className="px-3 py-4 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-3">
-        <SidebarSection section={roleConfig.primary} showSeparator={!!roleConfig.secondary} />
+      <SidebarContent className="py-4">
+        <SidebarSection section={roleConfig.primary} />
         
         {roleConfig.secondary && (
-          <SidebarSection section={roleConfig.secondary} />
+          <>
+            <Separator className="my-3 mx-4" />
+            <SidebarSection section={roleConfig.secondary} />
+          </>
         )}
       </SidebarContent>
 

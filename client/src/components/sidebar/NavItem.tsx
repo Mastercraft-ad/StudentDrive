@@ -1,5 +1,6 @@
 import { Link } from "wouter";
-import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { NavItem as NavItemType } from "@/config/navigation";
 
@@ -8,31 +9,63 @@ interface NavItemProps {
   isActive: boolean;
 }
 
-const baseStyles = "transition-colors duration-150 h-10 px-2.5 rounded-lg";
-const activeStyles = "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm";
-const inactiveStyles = "text-slate-300 hover:bg-slate-800 hover:text-slate-100";
-
 export function NavItem({ item, isActive }: NavItemProps) {
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
+
+  const buttonContent = (
+    <Link href={item.url} className="flex items-center gap-3 w-full">
+      <item.icon className={cn(
+        "flex-shrink-0 transition-colors",
+        isCollapsed ? "w-5 h-5" : "w-5 h-5",
+        isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+      )} />
+      {!isCollapsed && (
+        <span className={cn(
+          "text-sm font-medium truncate transition-colors",
+          isActive ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+        )}>
+          {item.title}
+        </span>
+      )}
+    </Link>
+  );
+
+  const menuButton = (
+    <SidebarMenuButton
+      asChild
+      isActive={isActive}
+      data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
+      className={cn(
+        "group h-10 transition-all duration-200",
+        isCollapsed ? "w-10 justify-center px-0" : "px-3",
+        isActive 
+          ? "bg-primary/10 border border-primary/20" 
+          : "hover:bg-accent"
+      )}
+    >
+      {buttonContent}
+    </SidebarMenuButton>
+  );
+
+  if (isCollapsed) {
+    return (
+      <SidebarMenuItem>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {menuButton}
+          </TooltipTrigger>
+          <TooltipContent side="right" className="font-medium">
+            {item.title}
+          </TooltipContent>
+        </Tooltip>
+      </SidebarMenuItem>
+    );
+  }
+
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton
-        asChild
-        isActive={isActive}
-        tooltip={item.title}
-        data-testid={`nav-${item.title.toLowerCase().replace(/\s+/g, '-')}`}
-        className={cn(
-          baseStyles,
-          isActive ? activeStyles : inactiveStyles,
-          "group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:px-0"
-        )}
-      >
-        <Link href={item.url} className="flex items-center gap-3 w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-          <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
-          <span className="font-medium text-[13px] group-data-[collapsible=icon]:hidden truncate">
-            {item.title}
-          </span>
-        </Link>
-      </SidebarMenuButton>
+      {menuButton}
     </SidebarMenuItem>
   );
 }
