@@ -200,7 +200,6 @@ export const courses = pgTable("courses", {
   description: text("description"),
   code: varchar("code", { length: 50 }),
   institutionId: varchar("institution_id").references(() => institutions.id),
-  instructorId: varchar("instructor_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -208,10 +207,6 @@ export const coursesRelations = relations(courses, ({ one, many }) => ({
   institution: one(institutions, {
     fields: [courses.institutionId],
     references: [institutions.id],
-  }),
-  instructor: one(users, {
-    fields: [courses.instructorId],
-    references: [users.id],
   }),
   materials: many(materials),
   quizzes: many(quizzes),

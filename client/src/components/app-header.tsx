@@ -54,7 +54,6 @@ export function AppHeader() {
       
       const labelMap: Record<string, string> = {
         "admin": "Admin",
-        "instructor": "Instructor",
         "institution": "Institution",
         "student": "Student",
         "resources": "Resources",
@@ -78,7 +77,6 @@ export function AppHeader() {
         "bookmarks": "Bookmarks",
         "settings": "Settings",
         "students": "Students",
-        "instructors": "Instructors",
       };
 
       const label = labelMap[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);

@@ -163,7 +163,6 @@ export interface IStorage {
   bulkCreateInstitutions(institutionsData: InsertInstitution[]): Promise<{ added: number; skipped: number; errors: string[] }>;
   createInstitutionWithOwner(institutionData: InsertInstitution, userId: string, onboardingData: Partial<UpsertUser>): Promise<{ institution: Institution; user: User }>;
   getUsersByInstitution(institutionId: string): Promise<User[]>;
-  getInstructorsByInstitution(institutionId: string): Promise<User[]>;
   getStudentsByInstitution(institutionId: string): Promise<User[]>;
   
   // Institution Review operations
@@ -189,7 +188,6 @@ export interface IStorage {
   // Material operations
   getMaterials(): Promise<Material[]>;
   getMaterialsByCourse(courseId: string): Promise<Material[]>;
-  getMaterialsByInstructor(instructorId: string): Promise<Material[]>;
   getMaterialsByUser(userId: string): Promise<Material[]>;
   getMaterial(id: string): Promise<Material | undefined>;
   createMaterial(material: InsertMaterial): Promise<Material>;
@@ -201,7 +199,6 @@ export interface IStorage {
   // Quiz operations
   getQuizzes(): Promise<Quiz[]>;
   getQuizzesByCourse(courseId: string): Promise<Quiz[]>;
-  getQuizzesByInstructor(instructorId: string): Promise<Quiz[]>;
   getQuiz(id: string): Promise<Quiz | undefined>;
   createQuiz(quiz: InsertQuiz): Promise<Quiz>;
   getQuizzesForModeration(status?: string): Promise<Quiz[]>;
@@ -660,13 +657,6 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users).where(eq(users.institutionId, institutionId));
   }
 
-  async getInstructorsByInstitution(institutionId: string): Promise<User[]> {
-    return await db
-      .select()
-      .from(users)
-      .where(and(eq(users.institutionId, institutionId), eq(users.role, 'instructor')));
-  }
-
   async getStudentsByInstitution(institutionId: string): Promise<User[]> {
     return await db
       .select()
@@ -827,9 +817,6 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(materials).where(eq(materials.courseId, courseId));
   }
 
-  async getMaterialsByInstructor(instructorId: string): Promise<Material[]> {
-    return await db.select().from(materials).where(eq(materials.uploadedById, instructorId));
-  }
 
   async getMaterial(id: string): Promise<Material | undefined> {
     const [material] = await db.select().from(materials).where(eq(materials.id, id));
@@ -897,9 +884,6 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(quizzes).where(eq(quizzes.courseId, courseId));
   }
 
-  async getQuizzesByInstructor(instructorId: string): Promise<Quiz[]> {
-    return await db.select().from(quizzes).where(eq(quizzes.createdById, instructorId));
-  }
 
   async getQuiz(id: string): Promise<Quiz | undefined> {
     const [quiz] = await db.select().from(quizzes).where(eq(quizzes.id, id));

@@ -1228,66 +1228,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/instructor/stats", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
-    try {
-      const materials = await storage.getMaterialsByInstructor(req.user.id);
-      const quizzes = await storage.getQuizzesByInstructor(req.user.id);
-      const courses = await storage.getCourses();
-      const instructorCourses = courses.filter(c => c.instructorId === req.user.id);
-
-      let totalAttempts = 0;
-      let totalScore = 0;
-      
-      for (const quiz of quizzes) {
-        const attempts = await storage.getQuizAttemptsByQuiz(quiz.id);
-        totalAttempts += attempts.length;
-        totalScore += attempts.reduce((sum, a) => sum + (a.score / a.totalQuestions) * 100, 0);
-      }
-
-      const avgScore = totalAttempts > 0 ? Math.round(totalScore / totalAttempts) : 0;
-
-      const allAttempts = await Promise.all(
-        quizzes.map(q => storage.getQuizAttemptsByQuiz(q.id))
-      );
-      const uniqueStudents = new Set(allAttempts.flat().map(a => a.studentId));
-
-      res.json({
-        coursesCount: instructorCourses.length,
-        materialsCount: materials.length,
-        studentsCount: uniqueStudents.size,
-        avgScore,
-      });
-    } catch (error) {
-      console.error("Error fetching instructor stats:", error);
-      res.status(500).json({ message: "Failed to fetch instructor stats" });
-    }
-  });
-
-  app.get("/api/instructor/materials", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
-    try {
-      const materials = await storage.getMaterialsByInstructor(req.user.id);
-      res.json(materials);
-    } catch (error) {
-      console.error("Error fetching instructor materials:", error);
-      res.status(500).json({ message: "Failed to fetch instructor materials" });
-    }
-  });
-
-  app.get("/api/instructor/quizzes", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
-    try {
-      const quizzes = await storage.getQuizzesByInstructor(req.user.id);
-      res.json(quizzes);
-    } catch (error) {
-      console.error("Error fetching instructor quizzes:", error);
-      res.status(500).json({ message: "Failed to fetch instructor quizzes" });
-    }
-  });
-
   app.get("/api/institution/stats", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
     try {
       const allUsers = await storage.getAllUsers();
       const students = allUsers.filter(u => u.role === "student" && u.institutionId === req.user.institutionId);
-      const instructors = allUsers.filter(u => u.role === "instructor" && u.institutionId === req.user.institutionId);
       const courses = await storage.getCourses();
       const institutionCourses = courses.filter(c => c.institutionId === req.user.institutionId);
 
@@ -1304,7 +1248,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         studentsCount: students.length,
-        instructorsCount: instructors.length,
         coursesCount: institutionCourses.length,
         avgPerformance,
       });
@@ -1389,7 +1332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: z.string().min(1).optional(),
         lastName: z.string().min(1).optional(),
         email: z.string().email().optional(),
-        role: z.enum(['student', 'instructor', 'institution', 'admin']).optional(),
+        role: z.enum(['student', 'institution', 'admin']).optional(),
         emailVerified: z.boolean().optional(),
         onboardingCompleted: z.boolean().optional(),
       });
@@ -1759,7 +1702,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Institution Management Routes (for institution role)
-  app.get("/api/institution/stats", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+  app.get("/api/institution/management/stats", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
     try {
       if (req.user.role !== 'institution') {
         return res.status(403).json({ message: "Access denied" });
@@ -1770,13 +1713,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const students = await storage.getStudentsByInstitution(req.user.institutionId);
-      const instructors = await storage.getInstructorsByInstitution(req.user.institutionId);
       const courses = await storage.getCoursesByInstitution(req.user.institutionId);
       const programmes = await storage.getProgrammesByInstitution(req.user.institutionId);
 
       res.json({
         studentsCount: students.length,
-        instructorsCount: instructors.length,
         coursesCount: courses.length,
         programmesCount: programmes.length,
         averagePerformance: 0,
@@ -1784,42 +1725,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching institution stats:", error);
       res.status(500).json({ message: "Failed to fetch institution stats" });
-    }
-  });
-
-  app.get("/api/institution/instructors", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
-    try {
-      if (req.user.role !== 'institution') {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      if (!req.user.institutionId) {
-        return res.status(400).json({ message: "Institution not linked to user" });
-      }
-
-      const instructors = await storage.getInstructorsByInstitution(req.user.institutionId);
-      
-      // Sanitize to remove sensitive fields
-      const sanitizedInstructors = instructors.map(instructor => ({
-        id: instructor.id,
-        email: instructor.email,
-        firstName: instructor.firstName,
-        lastName: instructor.lastName,
-        gender: instructor.gender,
-        specialization: instructor.specialization,
-        yearsOfExperience: instructor.yearsOfExperience,
-        teachingSubjects: instructor.teachingSubjects,
-        qualifications: instructor.qualifications,
-        teachingMethods: instructor.teachingMethods,
-        bio: instructor.bio,
-        onboardingCompleted: instructor.onboardingCompleted,
-        createdAt: instructor.createdAt,
-      }));
-      
-      res.json(sanitizedInstructors);
-    } catch (error) {
-      console.error("Error fetching instructors:", error);
-      res.status(500).json({ message: "Failed to fetch instructors" });
     }
   });
 

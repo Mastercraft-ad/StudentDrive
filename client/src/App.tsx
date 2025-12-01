@@ -133,10 +133,6 @@ function Router({
             path="/institution/students"
             component={InstitutionDashboard}
           />
-          <Route
-            path="/institution/instructors"
-            component={InstitutionDashboard}
-          />
           <Route path="/institution/courses" component={Resources} />
           <Route path="/material/:id" component={MaterialDetail} />
           <Route path="/institution/analytics" component={Performance} />

@@ -1064,8 +1064,8 @@ export default function InstitutionsManagement() {
                           <TableRow key={programme.id}>
                             <TableCell className="font-medium">
                               <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-md bg-role-instructor/10 flex items-center justify-center">
-                                  <GraduationCap className="h-5 w-5 text-role-instructor" />
+                                <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center">
+                                  <GraduationCap className="h-5 w-5 text-primary" />
                                 </div>
                                 {programme.name}
                               </div>

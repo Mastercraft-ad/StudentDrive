@@ -360,7 +360,7 @@ export default function InstitutionOnboarding({ onComplete }: InstitutionOnboard
               <div className="space-y-6">
                 <div>
                   <CardTitle className="text-xl mb-2">About Your Institution</CardTitle>
-                  <CardDescription>Provide a description of your institution for students and instructors</CardDescription>
+                  <CardDescription>Provide a description of your institution for students and visitors</CardDescription>
                 </div>
 
                 <div className="space-y-2">
