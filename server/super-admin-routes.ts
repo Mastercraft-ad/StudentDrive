@@ -885,4 +885,597 @@ router.get("/api/super-admin/impersonation/logs", isAuthenticated, requireOnboar
   }
 });
 
+// ============= Active Sessions Management =============
+import {
+  getActiveSessions,
+  getActiveSessionsCount,
+  getSessionStats,
+  forceTerminateSession,
+  forceTerminateUserSessions,
+  forceTerminateSchoolSessions,
+  cleanupExpiredSessions,
+  getSecurityEvents,
+  getSecurityEventsCount,
+  getSecurityEventStats,
+  resolveSecurityEvent,
+  logSecurityEvent,
+} from "./session-security-service";
+
+// Get active sessions with filters
+router.get("/api/super-admin/sessions", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { 
+      limit = "50", 
+      offset = "0", 
+      platform = "all", 
+      schoolId, 
+      userId,
+      isActive = "true",
+    } = req.query;
+
+    const sessions = await getActiveSessions({
+      limit: parseInt(limit as string),
+      offset: parseInt(offset as string),
+      platform: platform as "lms" | "sms" | "all",
+      schoolId: schoolId as string | undefined,
+      userId: userId as string | undefined,
+      isActive: isActive === "true",
+    });
+
+    const total = await getActiveSessionsCount({
+      platform: platform as "lms" | "sms" | "all",
+      schoolId: schoolId as string | undefined,
+    });
+
+    res.json({
+      sessions,
+      total,
+      limit: parseInt(limit as string),
+      offset: parseInt(offset as string),
+    });
+  } catch (error: any) {
+    console.error("Error fetching active sessions:", error);
+    res.status(500).json({ message: "Failed to fetch active sessions" });
+  }
+});
+
+// Get session stats
+router.get("/api/super-admin/sessions/stats", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const stats = await getSessionStats();
+    res.json(stats);
+  } catch (error: any) {
+    console.error("Error fetching session stats:", error);
+    res.status(500).json({ message: "Failed to fetch session stats" });
+  }
+});
+
+// Force terminate a single session
+router.post("/api/super-admin/sessions/:sessionId/terminate", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    const { reason } = req.body;
+
+    const terminated = await forceTerminateSession({
+      sessionId,
+      terminatedBy: req.user.id,
+      reason,
+    });
+
+    if (!terminated) {
+      return res.status(404).json({ message: "Session not found or already terminated" });
+    }
+
+    // Log security event
+    await logSecurityEvent({
+      eventType: "session_terminated",
+      severity: "warning",
+      platform: terminated.platform as "lms" | "sms",
+      schoolId: terminated.schoolId || undefined,
+      schoolName: terminated.schoolName || undefined,
+      targetUserId: terminated.userId || undefined,
+      targetUserEmail: terminated.userEmail,
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: "super_admin",
+      description: `Session terminated by super admin: ${terminated.userEmail}`,
+      metadata: { sessionId, reason },
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: "Session terminated successfully",
+      session: terminated,
+    });
+  } catch (error: any) {
+    console.error("Error terminating session:", error);
+    res.status(500).json({ message: "Failed to terminate session" });
+  }
+});
+
+// Force terminate all sessions for a user
+router.post("/api/super-admin/sessions/user/:userId/terminate-all", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const { reason } = req.body;
+
+    const terminated = await forceTerminateUserSessions({
+      userId,
+      terminatedBy: req.user.id,
+      reason,
+    });
+
+    // Log security event
+    await logSecurityEvent({
+      eventType: "session_terminated",
+      severity: "warning",
+      platform: "lms",
+      targetUserId: userId,
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: "super_admin",
+      description: `All sessions terminated for user by super admin (${terminated.length} sessions)`,
+      metadata: { userId, reason, sessionCount: terminated.length },
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: `${terminated.length} session(s) terminated successfully`,
+      count: terminated.length,
+    });
+  } catch (error: any) {
+    console.error("Error terminating user sessions:", error);
+    res.status(500).json({ message: "Failed to terminate user sessions" });
+  }
+});
+
+// Force terminate all sessions for a school
+router.post("/api/super-admin/sessions/school/:schoolId/terminate-all", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { schoolId } = req.params;
+    const { reason } = req.body;
+
+    const [school] = await db.select().from(schools).where(eq(schools.id, schoolId));
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    const terminated = await forceTerminateSchoolSessions({
+      schoolId,
+      terminatedBy: req.user.id,
+      reason,
+    });
+
+    // Log security event
+    await logSecurityEvent({
+      eventType: "session_terminated",
+      severity: "warning",
+      platform: "sms",
+      schoolId,
+      schoolName: school.name,
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: "super_admin",
+      description: `All sessions terminated for school ${school.name} by super admin (${terminated.length} sessions)`,
+      metadata: { schoolId, schoolName: school.name, reason, sessionCount: terminated.length },
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: `${terminated.length} session(s) terminated for ${school.name}`,
+      count: terminated.length,
+    });
+  } catch (error: any) {
+    console.error("Error terminating school sessions:", error);
+    res.status(500).json({ message: "Failed to terminate school sessions" });
+  }
+});
+
+// Cleanup expired sessions
+router.post("/api/super-admin/sessions/cleanup", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const cleaned = await cleanupExpiredSessions();
+    res.json({
+      success: true,
+      message: `${cleaned} expired session(s) cleaned up`,
+      count: cleaned,
+    });
+  } catch (error: any) {
+    console.error("Error cleaning up sessions:", error);
+    res.status(500).json({ message: "Failed to cleanup sessions" });
+  }
+});
+
+// ============= Security Events =============
+
+// Get security events with filters
+router.get("/api/super-admin/security-events", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { 
+      limit = "50", 
+      offset = "0", 
+      platform = "all", 
+      eventType,
+      severity,
+      schoolId,
+      targetUserId,
+      ipAddress,
+      isResolved,
+      startDate,
+      endDate,
+    } = req.query;
+
+    const events = await getSecurityEvents({
+      limit: parseInt(limit as string),
+      offset: parseInt(offset as string),
+      platform: platform as "lms" | "sms" | "all",
+      eventType: eventType as string | undefined,
+      severity: severity as string | undefined,
+      schoolId: schoolId as string | undefined,
+      targetUserId: targetUserId as string | undefined,
+      ipAddress: ipAddress as string | undefined,
+      isResolved: isResolved !== undefined ? isResolved === "true" : undefined,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+    });
+
+    const total = await getSecurityEventsCount({
+      platform: platform as "lms" | "sms" | "all",
+      eventType: eventType as string | undefined,
+      severity: severity as string | undefined,
+      isResolved: isResolved !== undefined ? isResolved === "true" : undefined,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+    });
+
+    res.json({
+      events,
+      total,
+      limit: parseInt(limit as string),
+      offset: parseInt(offset as string),
+    });
+  } catch (error: any) {
+    console.error("Error fetching security events:", error);
+    res.status(500).json({ message: "Failed to fetch security events" });
+  }
+});
+
+// Get security event stats
+router.get("/api/super-admin/security-events/stats", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const stats = await getSecurityEventStats({
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+    });
+    
+    res.json(stats);
+  } catch (error: any) {
+    console.error("Error fetching security event stats:", error);
+    res.status(500).json({ message: "Failed to fetch security event stats" });
+  }
+});
+
+// Resolve a security event
+router.post("/api/super-admin/security-events/:eventId/resolve", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { eventId } = req.params;
+    const { notes } = req.body;
+
+    const resolved = await resolveSecurityEvent({
+      eventId,
+      resolvedBy: req.user.id,
+      notes,
+    });
+
+    if (!resolved) {
+      return res.status(404).json({ message: "Security event not found" });
+    }
+
+    res.json({
+      success: true,
+      message: "Security event resolved",
+      event: resolved,
+    });
+  } catch (error: any) {
+    console.error("Error resolving security event:", error);
+    res.status(500).json({ message: "Failed to resolve security event" });
+  }
+});
+
+// ============= Bulk School Operations =============
+
+// Bulk activate schools
+router.post("/api/super-admin/schools/bulk/activate", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { schoolIds } = req.body;
+
+    if (!Array.isArray(schoolIds) || schoolIds.length === 0) {
+      return res.status(400).json({ message: "schoolIds array is required" });
+    }
+
+    const results = await Promise.all(
+      schoolIds.map(async (schoolId: string) => {
+        try {
+          const [updated] = await db.update(schools)
+            .set({ isActive: true })
+            .where(eq(schools.id, schoolId))
+            .returning();
+          
+          if (updated) {
+            await logPlatformActivity({
+              activityType: "admin_action",
+              platform: "sms",
+              description: `School ${updated.name} activated by super admin`,
+              entityType: "school",
+              entityId: schoolId,
+              entityName: updated.name,
+              actorId: req.user.id,
+              actorType: "super_admin",
+              actorEmail: req.user.email,
+              schoolId,
+              schoolName: updated.name,
+              metadata: { action: "bulk_activate" },
+              severity: "info",
+              req,
+            });
+          }
+          
+          return { schoolId, success: true, name: updated?.name };
+        } catch (error) {
+          return { schoolId, success: false, error: "Failed to activate" };
+        }
+      })
+    );
+
+    const successCount = results.filter(r => r.success).length;
+    
+    // Log bulk action
+    await logSecurityEvent({
+      eventType: "bulk_action",
+      severity: "info",
+      platform: "sms",
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: "super_admin",
+      description: `Bulk activated ${successCount} schools`,
+      metadata: { action: "bulk_activate", schoolIds, results },
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: `${successCount} of ${schoolIds.length} schools activated`,
+      results,
+    });
+  } catch (error: any) {
+    console.error("Error bulk activating schools:", error);
+    res.status(500).json({ message: "Failed to activate schools" });
+  }
+});
+
+// Bulk deactivate schools
+router.post("/api/super-admin/schools/bulk/deactivate", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { schoolIds, reason } = req.body;
+
+    if (!Array.isArray(schoolIds) || schoolIds.length === 0) {
+      return res.status(400).json({ message: "schoolIds array is required" });
+    }
+
+    const results = await Promise.all(
+      schoolIds.map(async (schoolId: string) => {
+        try {
+          const [updated] = await db.update(schools)
+            .set({ isActive: false })
+            .where(eq(schools.id, schoolId))
+            .returning();
+          
+          if (updated) {
+            // Terminate all sessions for this school
+            await forceTerminateSchoolSessions({
+              schoolId,
+              terminatedBy: req.user.id,
+              reason: reason || "School deactivated",
+            });
+            
+            await logPlatformActivity({
+              activityType: "admin_action",
+              platform: "sms",
+              description: `School ${updated.name} deactivated by super admin`,
+              entityType: "school",
+              entityId: schoolId,
+              entityName: updated.name,
+              actorId: req.user.id,
+              actorType: "super_admin",
+              actorEmail: req.user.email,
+              schoolId,
+              schoolName: updated.name,
+              metadata: { action: "bulk_deactivate", reason },
+              severity: "warning",
+              req,
+            });
+          }
+          
+          return { schoolId, success: true, name: updated?.name };
+        } catch (error) {
+          return { schoolId, success: false, error: "Failed to deactivate" };
+        }
+      })
+    );
+
+    const successCount = results.filter(r => r.success).length;
+    
+    // Log bulk action
+    await logSecurityEvent({
+      eventType: "bulk_action",
+      severity: "warning",
+      platform: "sms",
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: "super_admin",
+      description: `Bulk deactivated ${successCount} schools`,
+      metadata: { action: "bulk_deactivate", schoolIds, reason, results },
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: `${successCount} of ${schoolIds.length} schools deactivated`,
+      results,
+    });
+  } catch (error: any) {
+    console.error("Error bulk deactivating schools:", error);
+    res.status(500).json({ message: "Failed to deactivate schools" });
+  }
+});
+
+// Bulk delete schools (soft delete by deactivating and marking)
+router.post("/api/super-admin/schools/bulk/delete", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { schoolIds, reason, hardDelete = false } = req.body;
+
+    if (!Array.isArray(schoolIds) || schoolIds.length === 0) {
+      return res.status(400).json({ message: "schoolIds array is required" });
+    }
+
+    const results = await Promise.all(
+      schoolIds.map(async (schoolId: string) => {
+        try {
+          const [school] = await db.select().from(schools).where(eq(schools.id, schoolId));
+          
+          if (!school) {
+            return { schoolId, success: false, error: "School not found" };
+          }
+          
+          // Terminate all sessions first
+          await forceTerminateSchoolSessions({
+            schoolId,
+            terminatedBy: req.user.id,
+            reason: reason || "School deleted",
+          });
+          
+          if (hardDelete) {
+            // Hard delete - remove from database (cascades to related tables)
+            await db.delete(schools).where(eq(schools.id, schoolId));
+          } else {
+            // Soft delete - just deactivate
+            await db.update(schools)
+              .set({ isActive: false })
+              .where(eq(schools.id, schoolId));
+          }
+          
+          await logPlatformActivity({
+            activityType: "admin_action",
+            platform: "sms",
+            description: `School ${school.name} ${hardDelete ? 'permanently deleted' : 'soft deleted'} by super admin`,
+            entityType: "school",
+            entityId: schoolId,
+            entityName: school.name,
+            actorId: req.user.id,
+            actorType: "super_admin",
+            actorEmail: req.user.email,
+            metadata: { action: hardDelete ? "hard_delete" : "soft_delete", reason },
+            severity: "error",
+            req,
+          });
+          
+          return { schoolId, success: true, name: school.name };
+        } catch (error) {
+          return { schoolId, success: false, error: "Failed to delete" };
+        }
+      })
+    );
+
+    const successCount = results.filter(r => r.success).length;
+    
+    // Log bulk action
+    await logSecurityEvent({
+      eventType: "bulk_action",
+      severity: "critical",
+      platform: "sms",
+      actorId: req.user.id,
+      actorEmail: req.user.email,
+      actorRole: "super_admin",
+      description: `Bulk ${hardDelete ? 'permanently' : 'soft'} deleted ${successCount} schools`,
+      metadata: { action: hardDelete ? "bulk_hard_delete" : "bulk_soft_delete", schoolIds, reason, results },
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: `${successCount} of ${schoolIds.length} schools ${hardDelete ? 'permanently deleted' : 'soft deleted'}`,
+      results,
+    });
+  } catch (error: any) {
+    console.error("Error bulk deleting schools:", error);
+    res.status(500).json({ message: "Failed to delete schools" });
+  }
+});
+
+// Bulk update subscription status
+router.post("/api/super-admin/schools/bulk/update-subscription", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { schoolIds, subscriptionStatus } = req.body;
+
+    if (!Array.isArray(schoolIds) || schoolIds.length === 0) {
+      return res.status(400).json({ message: "schoolIds array is required" });
+    }
+
+    const validStatuses = ["active", "trial", "expired", "cancelled", "pending"];
+    if (!validStatuses.includes(subscriptionStatus)) {
+      return res.status(400).json({ message: "Invalid subscription status" });
+    }
+
+    const results = await Promise.all(
+      schoolIds.map(async (schoolId: string) => {
+        try {
+          const [updated] = await db.update(schools)
+            .set({ subscriptionStatus })
+            .where(eq(schools.id, schoolId))
+            .returning();
+          
+          if (updated) {
+            await logPlatformActivity({
+              activityType: "admin_action",
+              platform: "sms",
+              description: `School ${updated.name} subscription status updated to ${subscriptionStatus}`,
+              entityType: "school",
+              entityId: schoolId,
+              entityName: updated.name,
+              actorId: req.user.id,
+              actorType: "super_admin",
+              actorEmail: req.user.email,
+              schoolId,
+              schoolName: updated.name,
+              metadata: { action: "bulk_update_subscription", newStatus: subscriptionStatus },
+              severity: "info",
+              req,
+            });
+          }
+          
+          return { schoolId, success: true, name: updated?.name };
+        } catch (error) {
+          return { schoolId, success: false, error: "Failed to update" };
+        }
+      })
+    );
+
+    const successCount = results.filter(r => r.success).length;
+
+    res.json({
+      success: true,
+      message: `${successCount} of ${schoolIds.length} schools updated to ${subscriptionStatus}`,
+      results,
+    });
+  } catch (error: any) {
+    console.error("Error bulk updating schools:", error);
+    res.status(500).json({ message: "Failed to update schools" });
+  }
+});
+
 export default router;
