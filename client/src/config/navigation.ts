@@ -31,6 +31,8 @@ import {
   Activity,
   Database,
   Crown,
+  Monitor,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 
@@ -219,6 +221,8 @@ export const menuConfig: MenuConfig = {
       items: [
         { title: "Dashboard", url: "/super-admin", icon: Crown },
         { title: "Live Activity", url: "/super-admin/activity-feed", icon: Activity },
+        { title: "Active Sessions", url: "/super-admin/active-sessions", icon: Monitor },
+        { title: "Security Events", url: "/super-admin/security-events", icon: ShieldAlert },
         { title: "Impersonation Logs", url: "/super-admin/impersonation-logs", icon: Shield },
         { title: "Platform Analytics", url: "/super-admin/analytics", icon: BarChart3 },
       ],

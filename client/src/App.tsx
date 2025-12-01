@@ -32,6 +32,8 @@ import SuperAdminUsers from "@/pages/super-admin/users";
 import SuperAdminSchools from "@/pages/super-admin/schools";
 import SuperAdminSchoolUsers from "@/pages/super-admin/school-users";
 import SuperAdminActivityFeed from "@/pages/super-admin/activity-feed";
+import SuperAdminActiveSessions from "@/pages/super-admin/active-sessions";
+import SuperAdminSecurityEvents from "@/pages/super-admin/security-events";
 import SuperAdminImpersonationLogs from "@/pages/super-admin/impersonation-logs";
 import SuperAdminSubscriptions from "@/pages/super-admin/subscriptions";
 import SuperAdminSubscriptionPlans from "@/pages/super-admin/subscription-plans";
@@ -224,6 +226,8 @@ function Router({
           <Route path="/" component={SuperAdminDashboard} />
           <Route path="/super-admin" component={SuperAdminDashboard} />
           <Route path="/super-admin/activity-feed" component={SuperAdminActivityFeed} />
+          <Route path="/super-admin/active-sessions" component={SuperAdminActiveSessions} />
+          <Route path="/super-admin/security-events" component={SuperAdminSecurityEvents} />
           <Route path="/super-admin/impersonation-logs" component={SuperAdminImpersonationLogs} />
           <Route path="/super-admin/users" component={SuperAdminUsers} />
           <Route path="/super-admin/schools" component={SuperAdminSchools} />
