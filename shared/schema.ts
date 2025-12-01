@@ -1995,3 +1995,126 @@ export const insertSchoolMessageSchema = createInsertSchema(schoolMessages).omit
 
 export type InsertSchoolMessage = z.infer<typeof insertSchoolMessageSchema>;
 export type SchoolMessage = typeof schoolMessages.$inferSelect;
+
+// ============================================
+// SUPER ADMIN ACTIVITY FEED
+// Tracks platform-wide activities for real-time monitoring
+// ============================================
+
+export const platformActivityFeed = pgTable("platform_activity_feed", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  activityType: varchar("activity_type", { length: 50 }).notNull(),
+  
+  platform: varchar("platform", { length: 10 }).notNull(),
+  
+  entityType: varchar("entity_type", { length: 50 }),
+  entityId: varchar("entity_id"),
+  entityName: varchar("entity_name"),
+  
+  actorId: varchar("actor_id").references(() => users.id, { onDelete: 'set null' }),
+  actorType: varchar("actor_type", { length: 20 }),
+  actorName: varchar("actor_name"),
+  actorEmail: varchar("actor_email"),
+  
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'set null' }),
+  schoolName: varchar("school_name"),
+  
+  description: text("description").notNull(),
+  metadata: jsonb("metadata"),
+  
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  severity: varchar("severity", { length: 20 }).default("info").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_activity_feed_created").on(table.createdAt),
+  index("IDX_activity_feed_platform").on(table.platform),
+  index("IDX_activity_feed_school").on(table.schoolId),
+  index("IDX_activity_feed_type").on(table.activityType),
+  index("IDX_activity_feed_actor").on(table.actorId),
+]);
+
+export const platformActivityFeedRelations = relations(platformActivityFeed, ({ one }) => ({
+  school: one(schools, {
+    fields: [platformActivityFeed.schoolId],
+    references: [schools.id],
+  }),
+  actor: one(users, {
+    fields: [platformActivityFeed.actorId],
+    references: [users.id],
+  }),
+}));
+
+export const insertPlatformActivityFeedSchema = createInsertSchema(platformActivityFeed).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPlatformActivityFeed = z.infer<typeof insertPlatformActivityFeedSchema>;
+export type PlatformActivityFeed = typeof platformActivityFeed.$inferSelect;
+export type SelectPlatformActivityFeed = typeof platformActivityFeed.$inferSelect;
+
+// ============================================
+// SUPER ADMIN IMPERSONATION LOGS
+// Tracks when super admin impersonates school admins
+// ============================================
+
+export const impersonationLogs = pgTable("impersonation_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  superAdminId: varchar("super_admin_id").references(() => users.id, { onDelete: 'set null' }).notNull(),
+  superAdminEmail: varchar("super_admin_email").notNull(),
+  
+  targetSchoolId: varchar("target_school_id").references(() => schools.id, { onDelete: 'set null' }).notNull(),
+  targetSchoolName: varchar("target_school_name").notNull(),
+  targetUserId: varchar("target_user_id").references(() => schoolUsers.id, { onDelete: 'set null' }),
+  targetUserEmail: varchar("target_user_email"),
+  targetUserRole: varchar("target_user_role", { length: 20 }),
+  
+  action: varchar("action", { length: 20 }).notNull(),
+  
+  reason: text("reason"),
+  
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  
+  sessionToken: varchar("session_token"),
+  
+  startedAt: timestamp("started_at").defaultNow(),
+  endedAt: timestamp("ended_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_impersonation_super_admin").on(table.superAdminId),
+  index("IDX_impersonation_school").on(table.targetSchoolId),
+  index("IDX_impersonation_created").on(table.createdAt),
+]);
+
+export const impersonationLogsRelations = relations(impersonationLogs, ({ one }) => ({
+  superAdmin: one(users, {
+    fields: [impersonationLogs.superAdminId],
+    references: [users.id],
+  }),
+  targetSchool: one(schools, {
+    fields: [impersonationLogs.targetSchoolId],
+    references: [schools.id],
+  }),
+  targetUser: one(schoolUsers, {
+    fields: [impersonationLogs.targetUserId],
+    references: [schoolUsers.id],
+  }),
+}));
+
+export const insertImpersonationLogSchema = createInsertSchema(impersonationLogs).omit({
+  id: true,
+  createdAt: true,
+  startedAt: true,
+  endedAt: true,
+});
+
+export type InsertImpersonationLog = z.infer<typeof insertImpersonationLogSchema>;
+export type ImpersonationLog = typeof impersonationLogs.$inferSelect;
+export type SelectImpersonationLog = typeof impersonationLogs.$inferSelect;

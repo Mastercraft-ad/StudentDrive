@@ -133,6 +133,37 @@ A comprehensive school management system with subdomain-based multi-tenancy. Eac
 - `PATCH /api/school/settings` - Updates school settings including integrations
 - `GET /api/school/analytics` - Returns dashboard analytics with period parameter support
 
+**Phase 2 Super Admin Features (Added December 2025):**
+- **Live Activity Feed** (server/platform-activity-logger.ts, client/src/pages/super-admin/activity-feed.tsx)
+  - Real-time monitoring of platform-wide activities
+  - Activity types: user_registered, school_registered, payment_received, impersonation events, etc.
+  - Platform filtering (LMS/SMS/All), auto-refresh with configurable intervals
+  - Activity statistics breakdown by type
+  - `platform_activity_feed` table for storing activities
+- **Impersonation System**
+  - Super admin can impersonate school admins for troubleshooting
+  - All impersonation actions are logged in `impersonation_logs` table
+  - Session token generation for secure impersonation
+  - Reason tracking for audit purposes
+  - Start/end impersonation actions logged to activity feed
+- **School Users View** (client/src/pages/super-admin/school-users.tsx)
+  - View all users within a specific school
+  - Role-based filtering (admin, teacher, student, parent)
+  - Search functionality for user lookup
+  - Edit user details with change tracking
+  - Role statistics display
+
+**API Routes Added for Super Admin Phase 2:**
+- `GET /api/super-admin/activity-feed` - Paginated activity feed with filters
+- `GET /api/super-admin/activity-feed/stats` - Activity statistics
+- `GET /api/super-admin/schools/:schoolId/users` - School users list
+- `GET /api/super-admin/schools/:schoolId/users/:userId` - Single user details
+- `PATCH /api/super-admin/schools/:schoolId/users/:userId` - Update school user
+- `POST /api/super-admin/impersonate/:schoolId` - Start impersonation
+- `POST /api/super-admin/impersonate/:schoolId/end` - End impersonation
+- `GET /api/super-admin/impersonation/active` - Check active impersonation
+- `GET /api/super-admin/impersonation/logs` - Impersonation audit logs
+
 **School Resources:**
 - `school_materials` - Private school resource library
 

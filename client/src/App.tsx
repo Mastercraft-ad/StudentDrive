@@ -28,6 +28,8 @@ import AdminBlogEditor from "@/pages/admin/blog-editor";
 import SuperAdminDashboard from "@/pages/super-admin/dashboard";
 import SuperAdminUsers from "@/pages/super-admin/users";
 import SuperAdminSchools from "@/pages/super-admin/schools";
+import SuperAdminSchoolUsers from "@/pages/super-admin/school-users";
+import SuperAdminActivityFeed from "@/pages/super-admin/activity-feed";
 import SuperAdminSubscriptions from "@/pages/super-admin/subscriptions";
 import SuperAdminSubscriptionPlans from "@/pages/super-admin/subscription-plans";
 import SuperAdminAnalytics from "@/pages/super-admin/analytics";
@@ -218,8 +220,10 @@ function Router({
         <>
           <Route path="/" component={SuperAdminDashboard} />
           <Route path="/super-admin" component={SuperAdminDashboard} />
+          <Route path="/super-admin/activity-feed" component={SuperAdminActivityFeed} />
           <Route path="/super-admin/users" component={SuperAdminUsers} />
           <Route path="/super-admin/schools" component={SuperAdminSchools} />
+          <Route path="/super-admin/schools/:schoolId/users" component={SuperAdminSchoolUsers} />
           <Route path="/super-admin/institutions" component={AdminInstitutions} />
           <Route path="/super-admin/courses" component={AdminCourses} />
           <Route path="/super-admin/materials" component={AdminContentModeration} />

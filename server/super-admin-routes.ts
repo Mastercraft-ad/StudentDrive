@@ -10,9 +10,20 @@ import {
   materials,
   quizzes,
   courses,
+  schoolClasses,
 } from "@shared/schema";
-import { eq, desc, sql, and, count, sum, gte, lte } from "drizzle-orm";
+import { eq, desc, sql, and, count, sum, gte, lte, or, like, ilike } from "drizzle-orm";
 import { isAuthenticated, requireOnboarding } from "./auth";
+import { 
+  getPlatformActivityFeed, 
+  getActivityFeedCount, 
+  getActivityStats,
+  logImpersonation,
+  getImpersonationLogs,
+  getActiveImpersonation,
+  logPlatformActivity,
+} from "./platform-activity-logger";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -498,6 +509,379 @@ router.patch("/api/super-admin/settings", isAuthenticated, requireOnboarding, re
   } catch (error: any) {
     console.error("Error updating settings:", error);
     res.status(500).json({ message: "Failed to update settings" });
+  }
+});
+
+// ============================================
+// ACTIVITY FEED ROUTES
+// ============================================
+
+router.get("/api/super-admin/activity-feed", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { 
+      limit = "50", 
+      offset = "0", 
+      platform = "all", 
+      activityType, 
+      schoolId,
+      startDate,
+      endDate,
+      severity,
+    } = req.query;
+
+    const activities = await getPlatformActivityFeed({
+      limit: parseInt(limit as string),
+      offset: parseInt(offset as string),
+      platform: platform as "lms" | "sms" | "all",
+      activityType: activityType as string | undefined,
+      schoolId: schoolId as string | undefined,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+      severity: severity as string | undefined,
+    });
+
+    const total = await getActivityFeedCount({
+      platform: platform as "lms" | "sms" | "all",
+      activityType: activityType as string | undefined,
+      schoolId: schoolId as string | undefined,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+    });
+
+    res.json({
+      activities,
+      total,
+      limit: parseInt(limit as string),
+      offset: parseInt(offset as string),
+    });
+  } catch (error: any) {
+    console.error("Error fetching activity feed:", error);
+    res.status(500).json({ message: "Failed to fetch activity feed" });
+  }
+});
+
+router.get("/api/super-admin/activity-feed/stats", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    const stats = await getActivityStats(
+      startDate ? new Date(startDate as string) : undefined,
+      endDate ? new Date(endDate as string) : undefined
+    );
+
+    res.json(stats);
+  } catch (error: any) {
+    console.error("Error fetching activity stats:", error);
+    res.status(500).json({ message: "Failed to fetch activity stats" });
+  }
+});
+
+// ============================================
+// SCHOOL USERS ROUTES
+// ============================================
+
+router.get("/api/super-admin/schools/:schoolId/users", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { schoolId } = req.params;
+    const { role, search, limit = "50", offset = "0" } = req.query;
+
+    const school = await db.select().from(schools).where(eq(schools.id, schoolId)).limit(1);
+    if (!school[0]) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    let conditions = [eq(schoolUsers.schoolId, schoolId)];
+
+    if (role && role !== "all") {
+      conditions.push(eq(schoolUsers.role, role as string));
+    }
+
+    if (search) {
+      const searchTerm = `%${search}%`;
+      conditions.push(
+        or(
+          ilike(schoolUsers.firstName, searchTerm),
+          ilike(schoolUsers.lastName, searchTerm),
+          ilike(schoolUsers.email, searchTerm)
+        ) as any
+      );
+    }
+
+    const usersResult = await db.select()
+      .from(schoolUsers)
+      .where(and(...conditions))
+      .orderBy(desc(schoolUsers.createdAt))
+      .limit(parseInt(limit as string))
+      .offset(parseInt(offset as string));
+
+    const [totalResult] = await db.select({ count: count() })
+      .from(schoolUsers)
+      .where(and(...conditions));
+
+    const roleStats = await db.select({
+      role: schoolUsers.role,
+      count: count(),
+    })
+      .from(schoolUsers)
+      .where(eq(schoolUsers.schoolId, schoolId))
+      .groupBy(schoolUsers.role);
+
+    res.json({
+      school: school[0],
+      users: usersResult,
+      total: totalResult?.count || 0,
+      roleStats: roleStats.reduce((acc, item) => {
+        acc[item.role || 'other'] = item.count;
+        return acc;
+      }, {} as Record<string, number>),
+    });
+  } catch (error: any) {
+    console.error("Error fetching school users:", error);
+    res.status(500).json({ message: "Failed to fetch school users" });
+  }
+});
+
+router.get("/api/super-admin/schools/:schoolId/users/:userId", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { schoolId, userId } = req.params;
+
+    const [user] = await db.select()
+      .from(schoolUsers)
+      .where(and(
+        eq(schoolUsers.schoolId, schoolId),
+        eq(schoolUsers.id, userId)
+      ));
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    let classInfo = null;
+    if (user.classId) {
+      const [cls] = await db.select()
+        .from(schoolClasses)
+        .where(eq(schoolClasses.id, user.classId));
+      classInfo = cls;
+    }
+
+    res.json({
+      ...user,
+      class: classInfo,
+    });
+  } catch (error: any) {
+    console.error("Error fetching school user:", error);
+    res.status(500).json({ message: "Failed to fetch school user" });
+  }
+});
+
+router.patch("/api/super-admin/schools/:schoolId/users/:userId", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { schoolId, userId } = req.params;
+    const updates = req.body;
+
+    const safeUpdates: Record<string, any> = {};
+    const allowedFields = ['firstName', 'lastName', 'email', 'phone', 'isActive', 'role'];
+    
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined) {
+        safeUpdates[field] = updates[field];
+      }
+    }
+
+    const [updatedUser] = await db.update(schoolUsers)
+      .set(safeUpdates)
+      .where(and(
+        eq(schoolUsers.schoolId, schoolId),
+        eq(schoolUsers.id, userId)
+      ))
+      .returning();
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await logPlatformActivity({
+      activityType: "school_user_updated",
+      platform: "sms",
+      description: `Super admin updated user ${updatedUser.firstName} ${updatedUser.lastName} in school`,
+      entityType: "school_user",
+      entityId: userId,
+      entityName: `${updatedUser.firstName} ${updatedUser.lastName}`,
+      actorId: req.user.id,
+      actorType: "super_admin",
+      actorEmail: req.user.email,
+      schoolId,
+      metadata: { updates: safeUpdates },
+      severity: "info",
+      req,
+    });
+
+    res.json(updatedUser);
+  } catch (error: any) {
+    console.error("Error updating school user:", error);
+    res.status(500).json({ message: "Failed to update school user" });
+  }
+});
+
+// ============================================
+// IMPERSONATION ROUTES
+// ============================================
+
+router.post("/api/super-admin/impersonate/:schoolId", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { schoolId } = req.params;
+    const { reason, targetUserId } = req.body;
+
+    if (!reason || typeof reason !== 'string' || reason.trim().length < 5) {
+      return res.status(400).json({ 
+        message: "A valid reason is required for impersonation (minimum 5 characters)" 
+      });
+    }
+
+    const sanitizedReason = reason.trim().substring(0, 500);
+
+    const [school] = await db.select().from(schools).where(eq(schools.id, schoolId));
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    let targetUser = null;
+    if (targetUserId) {
+      const [user] = await db.select()
+        .from(schoolUsers)
+        .where(and(
+          eq(schoolUsers.schoolId, schoolId),
+          eq(schoolUsers.id, targetUserId)
+        ));
+      
+      if (!user) {
+        return res.status(404).json({ 
+          message: "Target user not found" 
+        });
+      }
+      
+      if (user.role !== 'school_admin') {
+        return res.status(400).json({ 
+          message: "Impersonation is only allowed for school admins. Target user has role: " + user.role
+        });
+      }
+      
+      targetUser = user;
+    } else {
+      const [adminUser] = await db.select()
+        .from(schoolUsers)
+        .where(and(
+          eq(schoolUsers.schoolId, schoolId),
+          eq(schoolUsers.role, 'school_admin')
+        ))
+        .limit(1);
+      targetUser = adminUser;
+    }
+
+    if (!targetUser) {
+      return res.status(404).json({ message: "No school admin found to impersonate" });
+    }
+    
+    if (targetUser.role !== 'school_admin') {
+      return res.status(400).json({ 
+        message: "Impersonation is only allowed for school admins" 
+      });
+    }
+
+    const sessionToken = crypto.randomBytes(32).toString('hex');
+
+    const impersonationLog = await logImpersonation({
+      superAdminId: req.user.id,
+      superAdminEmail: req.user.email,
+      targetSchoolId: schoolId,
+      targetSchoolName: school.name,
+      targetUserId: targetUser.id,
+      targetUserEmail: targetUser.email,
+      targetUserRole: targetUser.role,
+      action: "start",
+      reason: sanitizedReason,
+      sessionToken,
+      req,
+    });
+
+    res.json({
+      success: true,
+      impersonationId: impersonationLog?.id,
+      sessionToken,
+      school: {
+        id: school.id,
+        name: school.name,
+        subdomain: school.subdomain,
+      },
+      targetUser: {
+        id: targetUser.id,
+        firstName: targetUser.firstName,
+        lastName: targetUser.lastName,
+        email: targetUser.email,
+        role: targetUser.role,
+      },
+      message: `Impersonation started for ${school.name}`,
+    });
+  } catch (error: any) {
+    console.error("Error starting impersonation:", error);
+    res.status(500).json({ message: "Failed to start impersonation" });
+  }
+});
+
+router.post("/api/super-admin/impersonate/:schoolId/end", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { schoolId } = req.params;
+
+    const [school] = await db.select().from(schools).where(eq(schools.id, schoolId));
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
+    }
+
+    await logImpersonation({
+      superAdminId: req.user.id,
+      superAdminEmail: req.user.email,
+      targetSchoolId: schoolId,
+      targetSchoolName: school.name,
+      action: "end",
+      req,
+    });
+
+    res.json({
+      success: true,
+      message: `Impersonation ended for ${school.name}`,
+    });
+  } catch (error: any) {
+    console.error("Error ending impersonation:", error);
+    res.status(500).json({ message: "Failed to end impersonation" });
+  }
+});
+
+router.get("/api/super-admin/impersonation/active", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const activeImpersonation = await getActiveImpersonation(req.user.id);
+    res.json({ active: activeImpersonation });
+  } catch (error: any) {
+    console.error("Error checking active impersonation:", error);
+    res.status(500).json({ message: "Failed to check active impersonation" });
+  }
+});
+
+router.get("/api/super-admin/impersonation/logs", isAuthenticated, requireOnboarding, requireSuperAdmin, async (req: any, res: Response) => {
+  try {
+    const { limit = "50", offset = "0", schoolId, startDate, endDate } = req.query;
+
+    const logs = await getImpersonationLogs({
+      limit: parseInt(limit as string),
+      offset: parseInt(offset as string),
+      schoolId: schoolId as string | undefined,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+    });
+
+    res.json({ logs });
+  } catch (error: any) {
+    console.error("Error fetching impersonation logs:", error);
+    res.status(500).json({ message: "Failed to fetch impersonation logs" });
   }
 });
 

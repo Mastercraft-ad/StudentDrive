@@ -218,7 +218,8 @@ export const menuConfig: MenuConfig = {
       label: "Super Admin",
       items: [
         { title: "Dashboard", url: "/super-admin", icon: Crown },
-        { title: "Platform Analytics", url: "/super-admin/analytics", icon: Activity },
+        { title: "Live Activity", url: "/super-admin/activity-feed", icon: Activity },
+        { title: "Platform Analytics", url: "/super-admin/analytics", icon: BarChart3 },
       ],
     },
     secondary: {

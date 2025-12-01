@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -36,6 +38,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Link, useLocation } from "wouter";
 import { 
   School, 
   Search, 
@@ -52,6 +55,9 @@ import {
   Phone,
   Globe,
   AlertTriangle,
+  UserCog,
+  Shield,
+  Eye,
 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -71,6 +77,9 @@ export default function SuperAdminSchools() {
   const [subscriptionFilter, setSubscriptionFilter] = useState<string>("all");
   const [selectedSchool, setSelectedSchool] = useState<SchoolWithStats | null>(null);
   const [showSchoolDialog, setShowSchoolDialog] = useState(false);
+  const [showImpersonateDialog, setShowImpersonateDialog] = useState(false);
+  const [impersonateReason, setImpersonateReason] = useState("");
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
 
   const { data: schools = [], isLoading } = useQuery<SchoolWithStats[]>({
@@ -90,6 +99,36 @@ export default function SuperAdminSchools() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  const impersonateMutation = useMutation({
+    mutationFn: async ({ schoolId, reason }: { schoolId: string; reason: string }) => {
+      return await apiRequest("POST", `/api/super-admin/impersonate/${schoolId}`, { reason });
+    },
+    onSuccess: (data: any) => {
+      setShowImpersonateDialog(false);
+      setImpersonateReason("");
+      toast({ 
+        title: "Impersonation Started", 
+        description: `You are now viewing as ${data.school?.name}. Session token created.`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleImpersonate = (school: SchoolWithStats) => {
+    setSelectedSchool(school);
+    setShowImpersonateDialog(true);
+  };
+
+  const handleStartImpersonation = () => {
+    if (!selectedSchool) return;
+    impersonateMutation.mutate({ 
+      schoolId: selectedSchool.id, 
+      reason: impersonateReason 
+    });
+  };
 
   const getSubscriptionBadge = (status: string) => {
     switch (status) {
@@ -349,13 +388,25 @@ export default function SuperAdminSchools() {
                             setSelectedSchool(school);
                             setShowSchoolDialog(true);
                           }}>
+                            <Eye className="h-4 w-4 mr-2" />
                             View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/super-admin/schools/${school.id}/users`}>
+                              <Users className="h-4 w-4 mr-2" />
+                              View Users
+                            </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => {
                             window.open(`https://${school.subdomain}.studentdrive.com`, '_blank');
                           }}>
                             <ExternalLink className="h-4 w-4 mr-2" />
                             Visit Portal
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleImpersonate(school)}>
+                            <Shield className="h-4 w-4 mr-2" />
+                            Impersonate School
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => {
@@ -503,16 +554,81 @@ export default function SuperAdminSchools() {
               )}
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2">
             <Button variant="outline" onClick={() => setShowSchoolDialog(false)}>
               Close
             </Button>
             {selectedSchool && (
-              <Button onClick={() => window.open(`https://${selectedSchool.subdomain}.studentdrive.com`, '_blank')}>
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Visit Portal
-              </Button>
+              <>
+                <Button 
+                  variant="outline"
+                  asChild
+                  data-testid="button-view-users"
+                >
+                  <Link href={`/super-admin/schools/${selectedSchool.id}/users`}>
+                    <Users className="h-4 w-4 mr-2" />
+                    View Users
+                  </Link>
+                </Button>
+                <Button onClick={() => window.open(`https://${selectedSchool.subdomain}.studentdrive.com`, '_blank')}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Visit Portal
+                </Button>
+              </>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showImpersonateDialog} onOpenChange={setShowImpersonateDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-amber-500" />
+              Impersonate School
+            </DialogTitle>
+            <DialogDescription>
+              You are about to impersonate {selectedSchool?.name}. This action will be logged for audit purposes.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSchool && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-md bg-amber-500/10 border border-amber-500/20">
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  Impersonation allows you to view the school's dashboard as their administrator. 
+                  All actions during impersonation will be tracked.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="reason">Reason for Impersonation (optional)</Label>
+                <Textarea
+                  id="reason"
+                  placeholder="e.g., Troubleshooting login issues..."
+                  value={impersonateReason}
+                  onChange={(e) => setImpersonateReason(e.target.value)}
+                  className="resize-none"
+                  data-testid="input-impersonate-reason"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowImpersonateDialog(false);
+                setImpersonateReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleStartImpersonation}
+              disabled={impersonateMutation.isPending}
+              data-testid="button-start-impersonation"
+            >
+              {impersonateMutation.isPending ? "Starting..." : "Start Impersonation"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
