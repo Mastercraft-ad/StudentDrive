@@ -95,8 +95,10 @@ export const requireEmailVerified: RequestHandler = (req: any, res, next) => {
 };
 
 export const requireOnboarding: RequestHandler = (req: any, res, next) => {
-  if (req.isAuthenticated() && req.user?.onboardingCompleted) {
-    return next();
+  if (req.isAuthenticated()) {
+    if (req.user?.role === 'super_admin' || req.user?.onboardingCompleted) {
+      return next();
+    }
   }
   res.status(403).json({ message: "Onboarding required" });
 };

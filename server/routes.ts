@@ -10,6 +10,7 @@ import { setupAuth, isAuthenticated, requireEmailVerified, requireOnboarding, ge
 import { sendVerificationEmail } from "./email";
 import { getUserStatistics, getUserActivityLogs, logUserActivity, updateUserStatistics } from "./activity-logger";
 import schoolRoutes from "./school-routes";
+import superAdminRoutes from "./super-admin-routes";
 import {
   insertCourseSchema,
   insertMaterialSchema,
@@ -141,6 +142,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register school management system routes
   app.use(schoolRoutes);
+  app.use(superAdminRoutes);
 
   const getBaseUrl = (req: Request) => {
     if (process.env.REPLIT_DOMAINS) {

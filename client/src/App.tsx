@@ -25,6 +25,13 @@ import AdminBlogPosts from "@/pages/admin/blog-posts";
 import AdminBlogCategories from "@/pages/admin/blog-categories";
 import AdminBlogTags from "@/pages/admin/blog-tags";
 import AdminBlogEditor from "@/pages/admin/blog-editor";
+import SuperAdminDashboard from "@/pages/super-admin/dashboard";
+import SuperAdminUsers from "@/pages/super-admin/users";
+import SuperAdminSchools from "@/pages/super-admin/schools";
+import SuperAdminSubscriptions from "@/pages/super-admin/subscriptions";
+import SuperAdminSubscriptionPlans from "@/pages/super-admin/subscription-plans";
+import SuperAdminAnalytics from "@/pages/super-admin/analytics";
+import SuperAdminSettings from "@/pages/super-admin/settings";
 import Resources from "@/pages/resources";
 import MaterialDetail from "@/pages/material-detail";
 import SchoolDashboard from "@/pages/school/dashboard";
@@ -73,7 +80,7 @@ function Router({
   showLanding?: boolean;
   showOnboarding?: boolean;
 }) {
-  const { isStudent, isInstitution, isAdmin } = useAuth();
+  const { isStudent, isInstitution, isAdmin, isSuperAdmin } = useAuth();
 
   // Show onboarding for verified users who haven't completed onboarding
   if (showOnboarding) {
@@ -202,6 +209,31 @@ function Router({
           <Route path="/institutions/:slug" component={InstitutionDetail} />
           <Route path="/admin/analytics" component={Performance} />
           <Route path="/admin/settings" component={Settings} />
+          <Route path="/settings" component={Settings} />
+        </>
+      )}
+
+      {/* Super Admin Routes */}
+      {isSuperAdmin && (
+        <>
+          <Route path="/" component={SuperAdminDashboard} />
+          <Route path="/super-admin" component={SuperAdminDashboard} />
+          <Route path="/super-admin/users" component={SuperAdminUsers} />
+          <Route path="/super-admin/schools" component={SuperAdminSchools} />
+          <Route path="/super-admin/institutions" component={AdminInstitutions} />
+          <Route path="/super-admin/courses" component={AdminCourses} />
+          <Route path="/super-admin/materials" component={AdminContentModeration} />
+          <Route path="/super-admin/quizzes" component={AdminCourses} />
+          <Route path="/super-admin/subscriptions" component={SuperAdminSubscriptions} />
+          <Route path="/super-admin/subscription-plans" component={SuperAdminSubscriptionPlans} />
+          <Route path="/super-admin/analytics" component={SuperAdminAnalytics} />
+          <Route path="/super-admin/settings" component={SuperAdminSettings} />
+          <Route path="/super-admin/blog/posts" component={AdminBlogPosts} />
+          <Route path="/super-admin/blog/categories" component={AdminBlogCategories} />
+          <Route path="/super-admin/blog/tags" component={AdminBlogTags} />
+          <Route path="/super-admin/blog/new" component={AdminBlogEditor} />
+          <Route path="/super-admin/blog/edit/:id" component={AdminBlogEditor} />
+          <Route path="/material/:id" component={MaterialDetail} />
           <Route path="/settings" component={Settings} />
         </>
       )}
