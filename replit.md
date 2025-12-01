@@ -140,17 +140,28 @@ A comprehensive school management system with subdomain-based multi-tenancy. Eac
   - Platform filtering (LMS/SMS/All), auto-refresh with configurable intervals
   - Activity statistics breakdown by type
   - `platform_activity_feed` table for storing activities
-- **Impersonation System**
+- **Impersonation System** (client/src/contexts/ImpersonationContext.tsx)
   - Super admin can impersonate school admins for troubleshooting
+  - ImpersonationContext for session state management
+  - ImpersonationBanner component (client/src/components/impersonation-banner.tsx)
+    - Persistent amber banner when impersonation is active
+    - Shows school name, target user, duration
+    - "End Session" button to terminate impersonation
   - All impersonation actions are logged in `impersonation_logs` table
   - Session token generation for secure impersonation
   - Reason tracking for audit purposes
   - Start/end impersonation actions logged to activity feed
+- **Impersonation Logs Page** (client/src/pages/super-admin/impersonation-logs.tsx)
+  - Complete audit trail of all impersonation sessions
+  - Session statistics: total sessions, active now, schools accessed
+  - Filtering by school and search functionality
+  - Detailed log view with timestamps and technical details
 - **School Users View** (client/src/pages/super-admin/school-users.tsx)
   - View all users within a specific school
   - Role-based filtering (admin, teacher, student, parent)
   - Search functionality for user lookup
   - Edit user details with change tracking
+  - Impersonate specific users with reason dialog
   - Role statistics display
 
 **API Routes Added for Super Admin Phase 2:**

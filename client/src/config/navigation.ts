@@ -219,6 +219,7 @@ export const menuConfig: MenuConfig = {
       items: [
         { title: "Dashboard", url: "/super-admin", icon: Crown },
         { title: "Live Activity", url: "/super-admin/activity-feed", icon: Activity },
+        { title: "Impersonation Logs", url: "/super-admin/impersonation-logs", icon: Shield },
         { title: "Platform Analytics", url: "/super-admin/analytics", icon: BarChart3 },
       ],
     },

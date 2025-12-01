@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -31,10 +32,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useImpersonation } from "@/contexts/ImpersonationContext";
 import { Link } from "wouter";
 import { 
   ArrowLeft,
@@ -53,6 +62,8 @@ import {
   MoreVertical,
   CheckCircle,
   XCircle,
+  Eye,
+  AlertTriangle,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -95,10 +106,14 @@ const roleConfig: Record<string, { label: string; icon: any; color: string }> = 
 
 function UserRow({ 
   user, 
-  onEdit 
+  school,
+  onEdit,
+  onImpersonate,
 }: { 
-  user: SchoolUser; 
+  user: SchoolUser;
+  school: School;
   onEdit: (user: SchoolUser) => void;
+  onImpersonate: (user: SchoolUser, school: School) => void;
 }) {
   const roleInfo = roleConfig[user.role] || { 
     label: user.role, 
@@ -151,14 +166,31 @@ function UserRow({
         {format(new Date(user.createdAt), "MMM d, yyyy")}
       </TableCell>
       <TableCell>
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => onEdit(user)}
-          data-testid={`button-edit-user-${user.id}`}
-        >
-          <Edit className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              data-testid={`button-user-actions-${user.id}`}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onEdit(user)}>
+              <Edit className="h-4 w-4 mr-2" />
+              Edit User
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              onClick={() => onImpersonate(user, school)}
+              className="text-amber-600"
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Impersonate User
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   );
@@ -313,11 +345,15 @@ export default function SchoolUsersPage() {
   const [, params] = useRoute("/super-admin/schools/:schoolId/users");
   const schoolId = params?.schoolId;
   const { toast } = useToast();
+  const { startImpersonation, isImpersonating, isStarting: isImpersonationStarting } = useImpersonation();
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [editingUser, setEditingUser] = useState<SchoolUser | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showImpersonateDialog, setShowImpersonateDialog] = useState(false);
+  const [impersonateUser, setImpersonateUser] = useState<{user: SchoolUser; school: School} | null>(null);
+  const [impersonateReason, setImpersonateReason] = useState("");
 
   const { data, isLoading, error } = useQuery<SchoolUsersResponse>({
     queryKey: ["/api/super-admin/schools", schoolId, "users", { role: roleFilter, search }],
@@ -352,6 +388,7 @@ export default function SchoolUsersPage() {
     },
   });
 
+
   const handleEditUser = (user: SchoolUser) => {
     setEditingUser(user);
     setShowEditDialog(true);
@@ -359,6 +396,39 @@ export default function SchoolUsersPage() {
 
   const handleSaveUser = (updates: Partial<SchoolUser>) => {
     updateUserMutation.mutate(updates);
+  };
+
+  const handleImpersonateUser = (user: SchoolUser, school: School) => {
+    if (isImpersonating) {
+      toast({
+        title: "Already Impersonating",
+        description: "Please end your current impersonation session first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setImpersonateUser({ user, school });
+    setShowImpersonateDialog(true);
+  };
+
+  const handleStartImpersonation = async () => {
+    if (!impersonateUser) return;
+    try {
+      await startImpersonation(
+        impersonateUser.school.id, 
+        impersonateReason, 
+        impersonateUser.user.id
+      );
+      setShowImpersonateDialog(false);
+      setImpersonateUser(null);
+      setImpersonateReason("");
+      toast({ 
+        title: "Impersonation Started", 
+        description: `You are now viewing as ${impersonateUser.user.firstName} ${impersonateUser.user.lastName}`,
+      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
   if (!schoolId) {
@@ -497,12 +567,14 @@ export default function SchoolUsersPage() {
                   Array.from({ length: 5 }).map((_, i) => (
                     <UserRowSkeleton key={i} />
                   ))
-                ) : data?.users && data.users.length > 0 ? (
+                ) : data?.users && data.users.length > 0 && data?.school ? (
                   data.users.map((user) => (
                     <UserRow 
                       key={user.id} 
-                      user={user} 
+                      user={user}
+                      school={data.school}
                       onEdit={handleEditUser}
+                      onImpersonate={handleImpersonateUser}
                     />
                   ))
                 ) : (
@@ -528,6 +600,88 @@ export default function SchoolUsersPage() {
         onSave={handleSaveUser}
         isPending={updateUserMutation.isPending}
       />
+
+      <Dialog open={showImpersonateDialog} onOpenChange={setShowImpersonateDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-amber-500" />
+              Impersonate User
+            </DialogTitle>
+            <DialogDescription>
+              You will view the system as this user. All actions will be logged.
+            </DialogDescription>
+          </DialogHeader>
+          {impersonateUser && (
+            <div className="space-y-4 py-4">
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md">
+                <div className="flex items-center gap-2 text-amber-600">
+                  <AlertTriangle className="h-4 w-4" />
+                  <span className="text-sm font-medium">Sensitive Action</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This action is logged for security and compliance purposes.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Target User</p>
+                <div className="p-3 bg-muted/50 rounded-md">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={impersonateUser.user.profileImageUrl || undefined} />
+                      <AvatarFallback>
+                        {(impersonateUser.user.firstName?.[0] || '') + (impersonateUser.user.lastName?.[0] || '')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">
+                        {impersonateUser.user.firstName} {impersonateUser.user.lastName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{impersonateUser.user.email}</p>
+                      <Badge variant="outline" className="mt-1 text-xs">
+                        {impersonateUser.user.role}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reason">Reason for impersonation</Label>
+                <Textarea
+                  id="reason"
+                  placeholder="e.g., Support ticket #12345, Troubleshooting user issue..."
+                  value={impersonateReason}
+                  onChange={(e) => setImpersonateReason(e.target.value)}
+                  className="min-h-[80px]"
+                  data-testid="input-impersonate-reason"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowImpersonateDialog(false);
+                setImpersonateUser(null);
+                setImpersonateReason("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleStartImpersonation}
+              disabled={isImpersonationStarting || !impersonateReason.trim()}
+              className="bg-amber-500 hover:bg-amber-600"
+              data-testid="button-start-impersonation"
+            >
+              {isImpersonationStarting ? "Starting..." : "Start Impersonation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

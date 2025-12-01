@@ -3,6 +3,8 @@ import { Switch, Route } from "wouter";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { AppHeader } from "@/components/app-header";
+import { ImpersonationProvider } from "@/contexts/ImpersonationContext";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
@@ -30,6 +32,7 @@ import SuperAdminUsers from "@/pages/super-admin/users";
 import SuperAdminSchools from "@/pages/super-admin/schools";
 import SuperAdminSchoolUsers from "@/pages/super-admin/school-users";
 import SuperAdminActivityFeed from "@/pages/super-admin/activity-feed";
+import SuperAdminImpersonationLogs from "@/pages/super-admin/impersonation-logs";
 import SuperAdminSubscriptions from "@/pages/super-admin/subscriptions";
 import SuperAdminSubscriptionPlans from "@/pages/super-admin/subscription-plans";
 import SuperAdminAnalytics from "@/pages/super-admin/analytics";
@@ -221,6 +224,7 @@ function Router({
           <Route path="/" component={SuperAdminDashboard} />
           <Route path="/super-admin" component={SuperAdminDashboard} />
           <Route path="/super-admin/activity-feed" component={SuperAdminActivityFeed} />
+          <Route path="/super-admin/impersonation-logs" component={SuperAdminImpersonationLogs} />
           <Route path="/super-admin/users" component={SuperAdminUsers} />
           <Route path="/super-admin/schools" component={SuperAdminSchools} />
           <Route path="/super-admin/schools/:schoolId/users" component={SuperAdminSchoolUsers} />
@@ -274,14 +278,17 @@ export default function App() {
   }
 
   return (
-    <SidebarProvider style={style as CSSProperties}>
-      <AppSidebar />
-      <SidebarInset className="flex flex-col h-screen overflow-hidden">
-        <AppHeader />
-        <main className="flex-1 overflow-y-auto bg-muted/30">
-          <Router />
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <ImpersonationProvider>
+      <SidebarProvider style={style as CSSProperties}>
+        <AppSidebar />
+        <SidebarInset className="flex flex-col h-screen overflow-hidden">
+          <ImpersonationBanner />
+          <AppHeader />
+          <main className="flex-1 overflow-y-auto bg-muted/30">
+            <Router />
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </ImpersonationProvider>
   );
 }
