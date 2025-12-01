@@ -16,5 +16,6 @@ export function useAuth() {
     isStudent: user?.role === "student",
     isInstitution: user?.role === "institution",
     isAdmin: user?.role === "admin",
+    isSuperAdmin: user?.role === "super_admin",
   };
 }

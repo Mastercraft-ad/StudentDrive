@@ -25,6 +25,12 @@ import {
   Calculator,
   CreditCard,
   MessageSquare,
+  Building2,
+  School,
+  Layers,
+  Activity,
+  Database,
+  Crown,
   type LucideIcon,
 } from "lucide-react";
 
@@ -206,6 +212,48 @@ export const menuConfig: MenuConfig = {
       ],
     },
     footer: [],
+  },
+  super_admin: {
+    primary: {
+      label: "Super Admin",
+      items: [
+        { title: "Dashboard", url: "/super-admin", icon: Crown },
+        { title: "Platform Analytics", url: "/super-admin/analytics", icon: Activity },
+      ],
+    },
+    secondary: {
+      label: "LMS Management",
+      items: [
+        { title: "All Users", url: "/super-admin/users", icon: Users },
+        { title: "Institutions", url: "/super-admin/institutions", icon: Building2 },
+        { title: "Courses", url: "/super-admin/courses", icon: BookOpen },
+        { title: "Materials", url: "/super-admin/materials", icon: FileText },
+        { title: "Quizzes", url: "/super-admin/quizzes", icon: ClipboardList },
+        { 
+          title: "Blog", 
+          url: "#", 
+          icon: Newspaper,
+          children: [
+            { title: "Posts", url: "/super-admin/blog/posts", icon: Newspaper },
+            { title: "Categories", url: "/super-admin/blog/categories", icon: FolderTree },
+            { title: "Tags", url: "/super-admin/blog/tags", icon: Tag },
+          ],
+        },
+      ],
+    },
+    footer: [
+      { 
+        title: "SMS Management", 
+        url: "#", 
+        icon: School,
+        children: [
+          { title: "All Schools", url: "/super-admin/schools", icon: School },
+          { title: "Subscriptions", url: "/super-admin/subscriptions", icon: CreditCard },
+          { title: "Subscription Plans", url: "/super-admin/subscription-plans", icon: Layers },
+        ],
+      },
+      { title: "System Settings", url: "/super-admin/settings", icon: Settings },
+    ],
   },
 };
 
