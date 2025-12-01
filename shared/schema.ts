@@ -2118,3 +2118,137 @@ export const insertImpersonationLogSchema = createInsertSchema(impersonationLogs
 export type InsertImpersonationLog = z.infer<typeof insertImpersonationLogSchema>;
 export type ImpersonationLog = typeof impersonationLogs.$inferSelect;
 export type SelectImpersonationLog = typeof impersonationLogs.$inferSelect;
+
+// Active User Sessions - for tracking and managing live sessions
+export const userActiveSessions = pgTable("user_active_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // User info (supports both LMS users and SMS school users)
+  userId: varchar("user_id"),
+  userEmail: varchar("user_email").notNull(),
+  userRole: varchar("user_role", { length: 50 }),
+  userName: varchar("user_name"),
+  
+  // Platform info
+  platform: varchar("platform", { length: 10 }).notNull(), // 'lms' or 'sms'
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }),
+  schoolName: varchar("school_name"),
+  
+  // Session details
+  sessionId: varchar("session_id").notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  deviceType: varchar("device_type", { length: 20 }), // 'desktop', 'mobile', 'tablet'
+  browser: varchar("browser", { length: 50 }),
+  os: varchar("os", { length: 50 }),
+  
+  // Status
+  isActive: boolean("is_active").default(true).notNull(),
+  lastActivityAt: timestamp("last_activity_at").defaultNow(),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+  terminatedAt: timestamp("terminated_at"),
+  terminatedBy: varchar("terminated_by"), // super admin who terminated
+  terminationReason: text("termination_reason"),
+}, (table) => [
+  index("IDX_active_sessions_user").on(table.userId),
+  index("IDX_active_sessions_school").on(table.schoolId),
+  index("IDX_active_sessions_platform").on(table.platform),
+  index("IDX_active_sessions_active").on(table.isActive),
+  index("IDX_active_sessions_session").on(table.sessionId),
+  index("IDX_active_sessions_created").on(table.createdAt),
+]);
+
+export const userActiveSessionsRelations = relations(userActiveSessions, ({ one }) => ({
+  school: one(schools, {
+    fields: [userActiveSessions.schoolId],
+    references: [schools.id],
+  }),
+}));
+
+export const insertUserActiveSessionSchema = createInsertSchema(userActiveSessions).omit({
+  id: true,
+  createdAt: true,
+  lastActivityAt: true,
+});
+
+export type InsertUserActiveSession = z.infer<typeof insertUserActiveSessionSchema>;
+export type UserActiveSession = typeof userActiveSessions.$inferSelect;
+
+// Security Events - for logging security-related events
+export const securityEvents = pgTable("security_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Event type
+  eventType: varchar("event_type", { length: 50 }).notNull(),
+  // Types: login_failed, login_success, password_reset_requested, password_changed,
+  // account_locked, account_unlocked, suspicious_activity, session_hijack_attempt,
+  // brute_force_detected, ip_blocked, mfa_failed, permission_denied
+  
+  // Severity level
+  severity: varchar("severity", { length: 20 }).default("info").notNull(),
+  // info, warning, error, critical
+  
+  // Platform info
+  platform: varchar("platform", { length: 10 }).notNull(), // 'lms' or 'sms'
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'set null' }),
+  schoolName: varchar("school_name"),
+  
+  // Target user info
+  targetUserId: varchar("target_user_id"),
+  targetUserEmail: varchar("target_user_email"),
+  targetUserRole: varchar("target_user_role", { length: 50 }),
+  
+  // Actor info (who performed the action - could be same as target or admin)
+  actorId: varchar("actor_id"),
+  actorEmail: varchar("actor_email"),
+  actorRole: varchar("actor_role", { length: 50 }),
+  
+  // Event details
+  description: text("description").notNull(),
+  metadata: jsonb("metadata"), // Additional context (attempt count, blocked duration, etc.)
+  
+  // Request info
+  ipAddress: varchar("ip_address", { length: 45 }),
+  userAgent: text("user_agent"),
+  requestPath: varchar("request_path"),
+  requestMethod: varchar("request_method", { length: 10 }),
+  
+  // Resolution
+  isResolved: boolean("is_resolved").default(false),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by"),
+  resolutionNotes: text("resolution_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_security_events_type").on(table.eventType),
+  index("IDX_security_events_severity").on(table.severity),
+  index("IDX_security_events_platform").on(table.platform),
+  index("IDX_security_events_school").on(table.schoolId),
+  index("IDX_security_events_target").on(table.targetUserId),
+  index("IDX_security_events_ip").on(table.ipAddress),
+  index("IDX_security_events_created").on(table.createdAt),
+  index("IDX_security_events_resolved").on(table.isResolved),
+]);
+
+export const securityEventsRelations = relations(securityEvents, ({ one }) => ({
+  school: one(schools, {
+    fields: [securityEvents.schoolId],
+    references: [schools.id],
+  }),
+}));
+
+export const insertSecurityEventSchema = createInsertSchema(securityEvents).omit({
+  id: true,
+  createdAt: true,
+  isResolved: true,
+  resolvedAt: true,
+  resolvedBy: true,
+  resolutionNotes: true,
+});
+
+export type InsertSecurityEvent = z.infer<typeof insertSecurityEventSchema>;
+export type SecurityEvent = typeof securityEvents.$inferSelect;
