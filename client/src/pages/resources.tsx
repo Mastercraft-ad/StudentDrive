@@ -222,7 +222,7 @@ export default function Resources() {
             Access study materials, lecture notes, and educational resources
           </p>
         </div>
-        {(user?.role === "student" || user?.role === "instructor") && (
+        {user?.role === "student" && (
           <Button asChild>
             <Link href="/student/upload">
               <Upload className="mr-2 h-4 w-4" />
@@ -357,7 +357,6 @@ export default function Resources() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Anyone</SelectItem>
-                      <SelectItem value="instructor">Instructors</SelectItem>
                       <SelectItem value="student">Students</SelectItem>
                     </SelectContent>
                   </Select>

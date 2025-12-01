@@ -342,8 +342,6 @@ export default function UsersManagement() {
     switch (role) {
       case "admin":
         return "bg-role-admin/10 text-role-admin border-role-admin/20";
-      case "instructor":
-        return "bg-role-instructor/10 text-role-instructor border-role-instructor/20";
       case "institution":
         return "bg-role-institution/10 text-role-institution border-role-institution/20";
       case "student":
@@ -460,7 +458,6 @@ export default function UsersManagement() {
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
                 <SelectItem value="student">Student</SelectItem>
-                <SelectItem value="instructor">Instructor</SelectItem>
                 <SelectItem value="institution">Institution</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
@@ -537,7 +534,6 @@ export default function UsersManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="student">Student</SelectItem>
-                      <SelectItem value="instructor">Instructor</SelectItem>
                       <SelectItem value="institution">Institution</SelectItem>
                     </SelectContent>
                   </Select>
@@ -775,7 +771,6 @@ export default function UsersManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="student">Student</SelectItem>
-                    <SelectItem value="instructor">Instructor</SelectItem>
                     <SelectItem value="institution">Institution</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>

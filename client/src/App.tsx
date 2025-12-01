@@ -14,9 +14,6 @@ import Blog from "@/pages/blog";
 import BlogDetail from "@/pages/blog-detail";
 import StudentDashboard from "@/pages/student/dashboard";
 import StudentUploadMaterial from "@/pages/student/upload-material";
-import InstructorDashboard from "@/pages/instructor/dashboard";
-import InstructorCreateMaterial from "@/pages/instructor/create-material";
-import InstructorCreateQuiz from "@/pages/instructor/create-quiz";
 import InstitutionDashboard from "@/pages/institution/dashboard";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminUsers from "@/pages/admin/users";
@@ -76,7 +73,7 @@ function Router({
   showLanding?: boolean;
   showOnboarding?: boolean;
 }) {
-  const { isStudent, isInstructor, isInstitution, isAdmin } = useAuth();
+  const { isStudent, isInstitution, isAdmin } = useAuth();
 
   // Show onboarding for verified users who haven't completed onboarding
   if (showOnboarding) {
@@ -121,30 +118,6 @@ function Router({
           <Route path="/quiz/:id" component={QuizTake} />
           <Route path="/performance" component={Performance} />
           <Route path="/bookmarks" component={Bookmarks} />
-          <Route path="/institutions" component={InstitutionsDirectory} />
-          <Route path="/institutions/:slug" component={InstitutionDetail} />
-          <Route path="/settings" component={Settings} />
-        </>
-      )}
-
-      {/* Instructor Routes */}
-      {isInstructor && (
-        <>
-          <Route path="/" component={InstructorDashboard} />
-          <Route path="/instructor" component={InstructorDashboard} />
-          <Route path="/instructor/courses" component={InstructorDashboard} />
-          <Route path="/instructor/materials" component={Resources} />
-          <Route
-            path="/instructor/materials/create"
-            component={InstructorCreateMaterial}
-          />
-          <Route path="/material/:id" component={MaterialDetail} />
-          <Route path="/instructor/quizzes" component={Quizzes} />
-          <Route
-            path="/instructor/quizzes/create"
-            component={InstructorCreateQuiz}
-          />
-          <Route path="/instructor/analytics" component={Performance} />
           <Route path="/institutions" component={InstitutionsDirectory} />
           <Route path="/institutions/:slug" component={InstitutionDetail} />
           <Route path="/settings" component={Settings} />

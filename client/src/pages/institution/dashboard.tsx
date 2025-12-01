@@ -30,15 +30,10 @@ export default function InstitutionDashboard() {
 
   const { data: stats, isLoading: statsLoading } = useQuery<{
     studentsCount?: number;
-    instructorsCount?: number;
     programmesCount?: number;
     coursesCount?: number;
   }>({
     queryKey: ["/api/institution/stats"],
-  });
-
-  const { data: instructors, isLoading: instructorsLoading } = useQuery<User[]>({
-    queryKey: ["/api/institution/instructors"],
   });
 
   const { data: students, isLoading: studentsLoading } = useQuery<User[]>({
@@ -62,7 +57,7 @@ export default function InstitutionDashboard() {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-3">
         <Card className="hover-elevate border-role-institution/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -77,23 +72,6 @@ export default function InstitutionDashboard() {
               </div>
             )}
             <p className="text-xs text-muted-foreground">Enrolled students</p>
-          </CardContent>
-        </Card>
-
-        <Card className="hover-elevate border-role-institution/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Instructors</CardTitle>
-            <UserCheck className="h-4 w-4 text-role-institution" />
-          </CardHeader>
-          <CardContent>
-            {statsLoading ? (
-              <Skeleton className="h-8 w-16" />
-            ) : (
-              <div className="text-2xl font-bold" data-testid="stat-instructors">
-                {stats?.instructorsCount || 0}
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground">Active instructors</p>
           </CardContent>
         </Card>
 
@@ -140,9 +118,8 @@ export default function InstitutionDashboard() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="students" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="students">Students</TabsTrigger>
-              <TabsTrigger value="instructors">Instructors</TabsTrigger>
               <TabsTrigger value="programmes">Programmes</TabsTrigger>
             </TabsList>
 
@@ -188,58 +165,6 @@ export default function InstitutionDashboard() {
                 <div className="text-center py-12 text-muted-foreground">
                   <Users className="h-16 w-16 mx-auto mb-4 opacity-20" />
                   <p>No students have joined your institution yet</p>
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="instructors" className="space-y-4">
-              {instructorsLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ) : instructors && instructors.length > 0 ? (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Experience</TableHead>
-                        <TableHead>Specialization</TableHead>
-                        <TableHead>Status</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {instructors.map((instructor) => (
-                        <TableRow key={instructor.id}>
-                          <TableCell className="font-medium">
-                            {instructor.firstName} {instructor.lastName}
-                          </TableCell>
-                          <TableCell>{instructor.email}</TableCell>
-                          <TableCell>
-                            {instructor.yearsOfExperience ? `${instructor.yearsOfExperience} years` : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            {instructor.specialization && instructor.specialization.length > 0
-                              ? instructor.specialization.slice(0, 2).join(", ")
-                              : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={instructor.onboardingCompleted ? "default" : "secondary"}>
-                              {instructor.onboardingCompleted ? "Active" : "Pending"}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <UserCheck className="h-16 w-16 mx-auto mb-4 opacity-20" />
-                  <p>No instructors have joined your institution yet</p>
                 </div>
               )}
             </TabsContent>

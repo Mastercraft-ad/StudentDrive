@@ -34,7 +34,7 @@ export const users = pgTable("users", {
   lastName: varchar("last_name"),
   gender: varchar("gender", { length: 20 }), // male, female, other, prefer_not_to_say
   profileImageUrl: varchar("profile_image_url"),
-  role: varchar("role", { length: 20 }), // student, instructor, institution, admin - null until onboarding
+  role: varchar("role", { length: 20 }), // student, institution, admin - null until onboarding
   institutionId: varchar("institution_id").references(() => institutions.id),
   bio: text("bio"),
   emailVerified: boolean("email_verified").default(false).notNull(),
@@ -50,13 +50,6 @@ export const users = pgTable("users", {
   studyGoals: text("study_goals").array(),
   learningStyle: text("learning_style").array(),
   studySchedule: text("study_schedule").array(),
-  
-  // Instructor-specific fields
-  specialization: text("specialization").array(),
-  yearsOfExperience: integer("years_of_experience"),
-  teachingSubjects: text("teaching_subjects").array(),
-  qualifications: text("qualifications").array(),
-  teachingMethods: text("teaching_methods").array(),
   
   // Institution-specific fields
   institutionName: varchar("institution_name"),

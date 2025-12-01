@@ -46,7 +46,7 @@ const loginSchema = z.object({
 });
 
 const baseOnboardingSchema = z.object({
-  role: z.enum(["student", "instructor", "institution", "admin"]),
+  role: z.enum(["student", "institution", "admin"]),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   gender: z.enum(["male", "female", "other", "prefer_not_to_say"]).optional(),
@@ -65,17 +65,6 @@ const studentOnboardingSchema = baseOnboardingSchema.extend({
   studyGoals: z.array(z.string()).min(2, "Please select at least 2 study goals"),
   learningStyle: z.array(z.string()).min(2, "Please select at least 2 learning styles"),
   studySchedule: z.array(z.string()).min(1, "Please select at least 1 study schedule"),
-});
-
-const instructorOnboardingSchema = baseOnboardingSchema.extend({
-  role: z.literal("instructor"),
-  institutionId: z.string().min(1, "Please select your institution").transform(val => val === "no-institution" ? null : val),
-  specialization: z.array(z.string()).min(1, "Please select at least 1 specialization"),
-  yearsOfExperience: z.number().min(0).max(50),
-  teachingSubjects: z.array(z.string()).min(1, "Please select at least 1 subject"),
-  qualifications: z.array(z.string()).min(1, "Please select at least 1 qualification"),
-  teachingMethods: z.array(z.string()).min(1, "Please select at least 1 teaching method"),
-  bio: z.string().min(10, "Bio must be at least 10 characters"),
 });
 
 const institutionOnboardingSchema = baseOnboardingSchema.extend({
@@ -291,13 +280,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(400).json({ message: "Selected programme does not belong to the selected institution" });
           }
         }
-        
-        await storage.updateUser(req.user.id, {
-          ...data,
-          onboardingCompleted: true,
-        });
-      } else if (role === "instructor") {
-        data = instructorOnboardingSchema.parse(req.body);
         
         await storage.updateUser(req.user.id, {
           ...data,

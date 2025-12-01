@@ -73,26 +73,6 @@ export const menuConfig: MenuConfig = {
       { title: "Settings", url: "/settings", icon: Settings },
     ],
   },
-  instructor: {
-    primary: {
-      label: "Main",
-      items: [
-        { title: "Dashboard", url: "/instructor", icon: Home },
-        { title: "My Courses", url: "/instructor/courses", icon: BookOpen },
-        { title: "Materials", url: "/instructor/materials", icon: FileText },
-        { title: "Quizzes", url: "/instructor/quizzes", icon: ClipboardList },
-      ],
-    },
-    secondary: {
-      label: "Analytics",
-      items: [
-        { title: "Analytics", url: "/instructor/analytics", icon: BarChart3 },
-      ],
-    },
-    footer: [
-      { title: "Settings", url: "/settings", icon: Settings },
-    ],
-  },
   institution: {
     primary: {
       label: "School Management",

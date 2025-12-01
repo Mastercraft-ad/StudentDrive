@@ -14,7 +14,6 @@ export function useAuth() {
     isLoading,
     isAuthenticated: !!user,
     isStudent: user?.role === "student",
-    isInstructor: user?.role === "instructor",
     isInstitution: user?.role === "institution",
     isAdmin: user?.role === "admin",
   };
