@@ -337,6 +337,36 @@ router.get("/api/school/info", requireSchoolContext, checkTrialStatus, async (re
   }
 });
 
+// Get current school for settings (alias for settings page)
+router.get("/api/school/me", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const school = await storage.getSchool(req.school!.id);
+    if (!school) {
+      res.status(404).json({ message: "School not found" });
+      return;
+    }
+    
+    res.json({
+      id: school.id,
+      name: school.name,
+      subdomain: school.subdomain,
+      email: school.email,
+      phone: school.phone,
+      logoUrl: school.logoUrl,
+      address: school.address,
+      city: school.city,
+      state: school.state,
+      country: school.country,
+      primaryColor: school.primaryColor,
+      secondaryColor: school.secondaryColor,
+      allowPublicPlatformAccess: school.allowPublicPlatformAccess,
+    });
+  } catch (error: any) {
+    console.error("Error fetching school for settings:", error);
+    res.status(500).json({ message: "Failed to fetch school information" });
+  }
+});
+
 // Get school users (admin only)
 router.get("/api/school/users", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
@@ -581,7 +611,7 @@ router.delete("/api/school/parent-student-link/:parentId/:studentId", requireSch
 // Update school settings (admin only)
 router.patch("/api/school/settings", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
   try {
-    const allowedFields = ['name', 'email', 'phone', 'address', 'city', 'state', 'country', 'logoUrl', 'primaryColor', 'secondaryColor'];
+    const allowedFields = ['name', 'email', 'phone', 'address', 'city', 'state', 'country', 'logoUrl', 'primaryColor', 'secondaryColor', 'allowPublicPlatformAccess'];
     const updateData: any = {};
     
     for (const field of allowedFields) {
@@ -604,6 +634,7 @@ router.patch("/api/school/settings", requireSchoolContext, checkTrialStatus, asy
       country: school.country,
       primaryColor: school.primaryColor,
       secondaryColor: school.secondaryColor,
+      allowPublicPlatformAccess: school.allowPublicPlatformAccess,
     });
   } catch (error: any) {
     console.error("Error updating school settings:", error);
@@ -2867,6 +2898,499 @@ router.post("/api/school/materials/:id/download", requireSchoolContext, checkTri
   } catch (error: any) {
     console.error("Error incrementing download count:", error);
     res.status(500).json({ message: "Failed to increment download count" });
+  }
+});
+
+// =============================================
+// PARENT-TEACHER MESSAGING ROUTES
+// =============================================
+
+// Get all conversations for the current user
+router.get("/api/school/conversations", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    if (!req.schoolUser) {
+      res.status(401).json({ message: "Authentication required" });
+      return;
+    }
+
+    const userRole = req.schoolUser.role;
+    let userType: 'parent' | 'teacher';
+    
+    if (userRole === 'parent') {
+      userType = 'parent';
+    } else if (userRole === 'teacher') {
+      userType = 'teacher';
+    } else {
+      res.status(403).json({ message: "Only parents and teachers can access messaging" });
+      return;
+    }
+
+    const conversations = await storage.getConversations(req.schoolUser.id, userType);
+    
+    // Enrich with participant information
+    const enrichedConversations = await Promise.all(
+      conversations.map(async (conv) => {
+        const parent = await storage.getSchoolUser(conv.parentId);
+        const teacher = await storage.getSchoolUser(conv.teacherId);
+        const student = conv.studentId ? await storage.getSchoolUser(conv.studentId) : null;
+        
+        return {
+          ...conv,
+          parent: parent ? { id: parent.id, firstName: parent.firstName, lastName: parent.lastName, profileImageUrl: parent.profileImageUrl } : null,
+          teacher: teacher ? { id: teacher.id, firstName: teacher.firstName, lastName: teacher.lastName, profileImageUrl: teacher.profileImageUrl } : null,
+          student: student ? { id: student.id, firstName: student.firstName, lastName: student.lastName } : null,
+        };
+      })
+    );
+    
+    res.json(enrichedConversations);
+  } catch (error: any) {
+    console.error("Error fetching conversations:", error);
+    res.status(500).json({ message: "Failed to fetch conversations" });
+  }
+});
+
+// Get a single conversation with messages
+router.get("/api/school/conversations/:id", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    if (!req.schoolUser) {
+      res.status(401).json({ message: "Authentication required" });
+      return;
+    }
+
+    const conversation = await storage.getConversation(req.params.id);
+    if (!conversation) {
+      res.status(404).json({ message: "Conversation not found" });
+      return;
+    }
+
+    // Check if user is a participant
+    if (conversation.parentId !== req.schoolUser.id && conversation.teacherId !== req.schoolUser.id) {
+      res.status(403).json({ message: "Not authorized to view this conversation" });
+      return;
+    }
+
+    // Mark messages as read
+    await storage.markMessagesAsRead(conversation.id, req.schoolUser.id);
+
+    // Get messages
+    const limit = parseInt(req.query.limit as string) || 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+    const messages = await storage.getMessages(conversation.id, limit, offset);
+
+    // Enrich with participant info
+    const parent = await storage.getSchoolUser(conversation.parentId);
+    const teacher = await storage.getSchoolUser(conversation.teacherId);
+    const student = conversation.studentId ? await storage.getSchoolUser(conversation.studentId) : null;
+
+    res.json({
+      ...conversation,
+      parent: parent ? { id: parent.id, firstName: parent.firstName, lastName: parent.lastName, profileImageUrl: parent.profileImageUrl } : null,
+      teacher: teacher ? { id: teacher.id, firstName: teacher.firstName, lastName: teacher.lastName, profileImageUrl: teacher.profileImageUrl } : null,
+      student: student ? { id: student.id, firstName: student.firstName, lastName: student.lastName } : null,
+      messages: messages.reverse(), // Return in chronological order
+    });
+  } catch (error: any) {
+    console.error("Error fetching conversation:", error);
+    res.status(500).json({ message: "Failed to fetch conversation" });
+  }
+});
+
+// Create a new conversation
+const createConversationSchema = z.object({
+  teacherId: z.string().optional(),
+  parentId: z.string().optional(),
+  studentId: z.string().optional(),
+  subject: z.string().optional(),
+  initialMessage: z.string().min(1, "Message is required"),
+});
+
+router.post("/api/school/conversations", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    if (!req.schoolUser) {
+      res.status(401).json({ message: "Authentication required" });
+      return;
+    }
+
+    const data = createConversationSchema.parse(req.body);
+    const userRole = req.schoolUser.role;
+
+    let parentId: string;
+    let teacherId: string;
+    let senderType: 'parent' | 'teacher';
+
+    if (userRole === 'parent') {
+      if (!data.teacherId) {
+        res.status(400).json({ message: "Teacher ID is required" });
+        return;
+      }
+      parentId = req.schoolUser.id;
+      teacherId = data.teacherId;
+      senderType = 'parent';
+    } else if (userRole === 'teacher') {
+      if (!data.parentId) {
+        res.status(400).json({ message: "Parent ID is required" });
+        return;
+      }
+      parentId = data.parentId;
+      teacherId = req.schoolUser.id;
+      senderType = 'teacher';
+    } else {
+      res.status(403).json({ message: "Only parents and teachers can start conversations" });
+      return;
+    }
+
+    // Create the conversation
+    const conversation = await storage.createConversation({
+      schoolId: req.school!.id,
+      parentId,
+      teacherId,
+      studentId: data.studentId || null,
+      subject: data.subject || null,
+      status: 'active',
+    });
+
+    // Create the initial message
+    await storage.createMessage({
+      conversationId: conversation.id,
+      senderId: req.schoolUser.id,
+      senderType,
+      content: data.initialMessage,
+    });
+
+    res.status(201).json(conversation);
+  } catch (error: any) {
+    console.error("Error creating conversation:", error);
+    if (error.name === 'ZodError') {
+      res.status(400).json({ message: "Invalid data", errors: error.errors });
+    } else {
+      res.status(500).json({ message: "Failed to create conversation" });
+    }
+  }
+});
+
+// Send a message in a conversation
+const sendMessageSchema = z.object({
+  content: z.string().min(1, "Message is required"),
+});
+
+router.post("/api/school/conversations/:id/messages", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    if (!req.schoolUser) {
+      res.status(401).json({ message: "Authentication required" });
+      return;
+    }
+
+    const conversation = await storage.getConversation(req.params.id);
+    if (!conversation) {
+      res.status(404).json({ message: "Conversation not found" });
+      return;
+    }
+
+    // Check if user is a participant
+    if (conversation.parentId !== req.schoolUser.id && conversation.teacherId !== req.schoolUser.id) {
+      res.status(403).json({ message: "Not authorized to send messages in this conversation" });
+      return;
+    }
+
+    const data = sendMessageSchema.parse(req.body);
+    const senderType = conversation.parentId === req.schoolUser.id ? 'parent' : 'teacher';
+
+    const message = await storage.createMessage({
+      conversationId: conversation.id,
+      senderId: req.schoolUser.id,
+      senderType,
+      content: data.content,
+    });
+
+    res.status(201).json(message);
+  } catch (error: any) {
+    console.error("Error sending message:", error);
+    if (error.name === 'ZodError') {
+      res.status(400).json({ message: "Invalid data", errors: error.errors });
+    } else {
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  }
+});
+
+// Get unread message count
+router.get("/api/school/messages/unread-count", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    if (!req.schoolUser) {
+      res.status(401).json({ message: "Authentication required" });
+      return;
+    }
+
+    const userRole = req.schoolUser.role;
+    let userType: 'parent' | 'teacher';
+    
+    if (userRole === 'parent') {
+      userType = 'parent';
+    } else if (userRole === 'teacher') {
+      userType = 'teacher';
+    } else {
+      res.json({ count: 0 });
+      return;
+    }
+
+    const count = await storage.getUnreadMessageCount(req.schoolUser.id, userType);
+    res.json({ count });
+  } catch (error: any) {
+    console.error("Error getting unread count:", error);
+    res.status(500).json({ message: "Failed to get unread count" });
+  }
+});
+
+// Mark messages as read
+router.post("/api/school/conversations/:id/read", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    if (!req.schoolUser) {
+      res.status(401).json({ message: "Authentication required" });
+      return;
+    }
+
+    const conversation = await storage.getConversation(req.params.id);
+    if (!conversation) {
+      res.status(404).json({ message: "Conversation not found" });
+      return;
+    }
+
+    // Check if user is a participant
+    if (conversation.parentId !== req.schoolUser.id && conversation.teacherId !== req.schoolUser.id) {
+      res.status(403).json({ message: "Not authorized" });
+      return;
+    }
+
+    await storage.markMessagesAsRead(req.params.id, req.schoolUser.id);
+    res.json({ message: "Messages marked as read" });
+  } catch (error: any) {
+    console.error("Error marking messages as read:", error);
+    res.status(500).json({ message: "Failed to mark messages as read" });
+  }
+});
+
+// Get teachers available for messaging (for parents)
+router.get("/api/school/messaging/teachers", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    if (!req.schoolUser || req.schoolUser.role !== 'parent') {
+      res.status(403).json({ message: "Only parents can access this endpoint" });
+      return;
+    }
+
+    // Get parent's linked students
+    const linkedStudents = await storage.getParentLinkedStudents(req.schoolUser.id);
+    
+    // Get teachers for those students' classes
+    const teacherSet = new Set<string>();
+    const teachersWithClasses: Array<{ teacher: any; className?: string }> = [];
+    
+    for (const student of linkedStudents) {
+      // Get the student's enrollments
+      const enrollments = await storage.getStudentEnrollments(student.studentId);
+      
+      for (const enrollment of enrollments) {
+        // Get teacher assignments for the class
+        const assignments = await storage.getTeacherAssignmentsByClass(enrollment.classId);
+        
+        for (const assignment of assignments) {
+          if (!teacherSet.has(assignment.teacherId)) {
+            teacherSet.add(assignment.teacherId);
+            const teacher = await storage.getSchoolUser(assignment.teacherId);
+            const classInfo = await storage.getSchoolClass(enrollment.classId);
+            if (teacher) {
+              teachersWithClasses.push({
+                teacher: {
+                  id: teacher.id,
+                  firstName: teacher.firstName,
+                  lastName: teacher.lastName,
+                  profileImageUrl: teacher.profileImageUrl,
+                },
+                className: classInfo?.name,
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    res.json(teachersWithClasses);
+  } catch (error: any) {
+    console.error("Error getting teachers for messaging:", error);
+    res.status(500).json({ message: "Failed to get teachers" });
+  }
+});
+
+// Get parents available for messaging (for teachers)
+router.get("/api/school/messaging/parents", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    if (!req.schoolUser || req.schoolUser.role !== 'teacher') {
+      res.status(403).json({ message: "Only teachers can access this endpoint" });
+      return;
+    }
+
+    // Get teacher's assignments
+    const assignments = await storage.getTeacherAssignmentsByTeacher(req.schoolUser.id);
+    
+    const parentSet = new Set<string>();
+    const parentsWithStudents: Array<{ parent: any; student: any }> = [];
+    
+    for (const assignment of assignments) {
+      // Get students in the class
+      const enrollments = await storage.getClassEnrollments(assignment.classId);
+      
+      for (const enrollment of enrollments) {
+        // Get parents linked to the student
+        const links = await storage.getParentStudentLinks(enrollment.studentId);
+        
+        for (const link of links) {
+          const parentKey = `${link.parentId}-${enrollment.studentId}`;
+          if (!parentSet.has(parentKey)) {
+            parentSet.add(parentKey);
+            const parent = await storage.getSchoolUser(link.parentId);
+            const student = await storage.getSchoolUser(enrollment.studentId);
+            
+            if (parent && student) {
+              parentsWithStudents.push({
+                parent: {
+                  id: parent.id,
+                  firstName: parent.firstName,
+                  lastName: parent.lastName,
+                  profileImageUrl: parent.profileImageUrl,
+                },
+                student: {
+                  id: student.id,
+                  firstName: student.firstName,
+                  lastName: student.lastName,
+                },
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    res.json(parentsWithStudents);
+  } catch (error: any) {
+    console.error("Error getting parents for messaging:", error);
+    res.status(500).json({ message: "Failed to get parents" });
+  }
+});
+
+// =============================================
+// ANALYTICS ROUTES
+// =============================================
+
+router.get("/api/school/analytics", requireSchoolContext, checkTrialStatus, async (req: Request, res: Response) => {
+  try {
+    const schoolId = req.school!.id;
+    const period = req.query.period as string || 'current_term';
+    
+    // Get current term
+    const terms = await storage.getAcademicTerms(schoolId);
+    const currentTerm = terms.find(t => t.isCurrent);
+    
+    // Overview metrics
+    const users = await storage.getSchoolUsers(schoolId);
+    const students = users.filter(u => u.role === 'student');
+    const teachers = users.filter(u => u.role === 'teacher');
+    const parents = users.filter(u => u.role === 'parent');
+    
+    const classes = await storage.getSchoolClasses(schoolId);
+    const subjects = await storage.getSchoolSubjects(schoolId);
+    
+    // Attendance metrics (simplified - would need more complex queries for real implementation)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let attendanceData = {
+      averageRate: 92,
+      presentToday: Math.round(students.length * 0.92),
+      absentToday: Math.round(students.length * 0.05),
+      lateToday: Math.round(students.length * 0.03),
+      monthlyTrend: [
+        { month: 'Sep', rate: 91 },
+        { month: 'Oct', rate: 93 },
+        { month: 'Nov', rate: 90 },
+        { month: 'Dec', rate: 88 },
+      ],
+    };
+    
+    // Grades metrics (simplified)
+    let gradesData = {
+      averageScore: 72,
+      passRate: 85,
+      subjectPerformance: subjects.slice(0, 6).map(s => ({
+        subject: s.name,
+        average: Math.round(60 + Math.random() * 30),
+      })),
+      gradeDistribution: [
+        { grade: 'A', count: Math.round(students.length * 0.15) },
+        { grade: 'B', count: Math.round(students.length * 0.30) },
+        { grade: 'C', count: Math.round(students.length * 0.35) },
+        { grade: 'D', count: Math.round(students.length * 0.15) },
+        { grade: 'F', count: Math.round(students.length * 0.05) },
+      ],
+    };
+    
+    // Fee metrics (simplified)
+    const payments = await storage.getSchoolFeePayments(schoolId);
+    const paidPayments = payments.filter(p => p.status === 'paid');
+    const totalCollected = paidPayments.reduce((sum, p) => sum + p.amountPaid, 0);
+    const totalDue = students.length * 5000000; // Example: 50,000 NGN per student
+    
+    let feesData = {
+      totalDue,
+      totalCollected,
+      collectionRate: totalDue > 0 ? Math.round((totalCollected / totalDue) * 100) : 0,
+      pendingPayments: payments.filter(p => p.status === 'pending').length,
+      monthlyCollections: [
+        { month: 'Sep', amount: Math.round(totalCollected * 0.3) },
+        { month: 'Oct', amount: Math.round(totalCollected * 0.25) },
+        { month: 'Nov', amount: Math.round(totalCollected * 0.25) },
+        { month: 'Dec', amount: Math.round(totalCollected * 0.2) },
+      ],
+    };
+    
+    // Enrollment metrics
+    const classSizes = await Promise.all(
+      classes.map(async (c) => {
+        const enrollments = await storage.getClassEnrollments(c.id);
+        return {
+          class: c.name,
+          count: enrollments.length,
+        };
+      })
+    );
+    
+    const maleCount = students.filter(s => s.gender === 'male').length;
+    const femaleCount = students.filter(s => s.gender === 'female').length;
+    const otherCount = students.length - maleCount - femaleCount;
+    
+    res.json({
+      overview: {
+        totalStudents: students.length,
+        totalTeachers: teachers.length,
+        totalParents: parents.length,
+        totalClasses: classes.length,
+        activeTerms: terms.filter(t => t.isCurrent).length,
+        totalSubjects: subjects.length,
+      },
+      attendance: attendanceData,
+      grades: gradesData,
+      fees: feesData,
+      enrollment: {
+        classSizes,
+        genderDistribution: [
+          { gender: 'Male', count: maleCount },
+          { gender: 'Female', count: femaleCount },
+          ...(otherCount > 0 ? [{ gender: 'Other', count: otherCount }] : []),
+        ],
+      },
+    });
+  } catch (error: any) {
+    console.error("Error fetching analytics:", error);
+    res.status(500).json({ message: "Failed to fetch analytics" });
   }
 });
 

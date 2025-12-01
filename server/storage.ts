@@ -43,6 +43,8 @@ import {
   schoolNotifications,
   schoolMaterials,
   subscriptionPayments,
+  schoolConversations,
+  schoolMessages,
   type User,
   type UpsertUser,
   type Institution,
@@ -134,6 +136,10 @@ import {
   type InsertSchoolMaterial,
   type SubscriptionPayment,
   type InsertSubscriptionPayment,
+  type SchoolConversation,
+  type InsertSchoolConversation,
+  type SchoolMessage,
+  type InsertSchoolMessage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, sql, ne } from "drizzle-orm";
@@ -493,6 +499,20 @@ export interface IStorage {
   deleteSchoolMaterial(id: string): Promise<void>;
   incrementMaterialViewCount(id: string): Promise<void>;
   incrementMaterialDownloadCount(id: string): Promise<void>;
+  
+  // ============================================
+  // PARENT-TEACHER MESSAGING OPERATIONS
+  // ============================================
+  
+  getConversations(userId: string, userType: 'parent' | 'teacher'): Promise<SchoolConversation[]>;
+  getConversation(id: string): Promise<SchoolConversation | undefined>;
+  createConversation(conversation: InsertSchoolConversation): Promise<SchoolConversation>;
+  updateConversationLastMessage(id: string): Promise<void>;
+  
+  getMessages(conversationId: string, limit?: number, offset?: number): Promise<SchoolMessage[]>;
+  createMessage(message: InsertSchoolMessage): Promise<SchoolMessage>;
+  markMessagesAsRead(conversationId: string, userId: string): Promise<void>;
+  getUnreadMessageCount(userId: string, userType: 'parent' | 'teacher'): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2758,6 +2778,118 @@ export class DatabaseStorage implements IStorage {
     await db.update(schoolMaterials)
       .set({ downloadCount: sql`${schoolMaterials.downloadCount} + 1` })
       .where(eq(schoolMaterials.id, id));
+  }
+
+  // ============================================
+  // PARENT-TEACHER MESSAGING IMPLEMENTATIONS
+  // ============================================
+
+  async getConversations(userId: string, userType: 'parent' | 'teacher'): Promise<SchoolConversation[]> {
+    const condition = userType === 'parent' 
+      ? eq(schoolConversations.parentId, userId)
+      : eq(schoolConversations.teacherId, userId);
+    
+    return await db.select()
+      .from(schoolConversations)
+      .where(condition)
+      .orderBy(desc(schoolConversations.lastMessageAt));
+  }
+
+  async getConversation(id: string): Promise<SchoolConversation | undefined> {
+    const [conversation] = await db.select()
+      .from(schoolConversations)
+      .where(eq(schoolConversations.id, id));
+    return conversation;
+  }
+
+  async createConversation(conversationData: InsertSchoolConversation): Promise<SchoolConversation> {
+    const [conversation] = await db.insert(schoolConversations)
+      .values(conversationData)
+      .returning();
+    return conversation;
+  }
+
+  async updateConversationLastMessage(id: string): Promise<void> {
+    await db.update(schoolConversations)
+      .set({ lastMessageAt: new Date(), updatedAt: new Date() })
+      .where(eq(schoolConversations.id, id));
+  }
+
+  async getMessages(conversationId: string, limit: number = 50, offset: number = 0): Promise<SchoolMessage[]> {
+    return await db.select()
+      .from(schoolMessages)
+      .where(eq(schoolMessages.conversationId, conversationId))
+      .orderBy(desc(schoolMessages.createdAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async createMessage(messageData: InsertSchoolMessage): Promise<SchoolMessage> {
+    const [message] = await db.insert(schoolMessages)
+      .values(messageData)
+      .returning();
+    
+    // Update the conversation's last message timestamp and unread count
+    const conversation = await this.getConversation(messageData.conversationId);
+    if (conversation) {
+      const updateData: any = { 
+        lastMessageAt: new Date(), 
+        updatedAt: new Date() 
+      };
+      
+      // Increment the unread count for the other party
+      if (messageData.senderType === 'parent') {
+        updateData.teacherUnreadCount = sql`${schoolConversations.teacherUnreadCount} + 1`;
+      } else {
+        updateData.parentUnreadCount = sql`${schoolConversations.parentUnreadCount} + 1`;
+      }
+      
+      await db.update(schoolConversations)
+        .set(updateData)
+        .where(eq(schoolConversations.id, messageData.conversationId));
+    }
+    
+    return message;
+  }
+
+  async markMessagesAsRead(conversationId: string, userId: string): Promise<void> {
+    // Mark all unread messages in the conversation as read
+    await db.update(schoolMessages)
+      .set({ isRead: true, readAt: new Date() })
+      .where(
+        and(
+          eq(schoolMessages.conversationId, conversationId),
+          ne(schoolMessages.senderId, userId),
+          eq(schoolMessages.isRead, false)
+        )
+      );
+    
+    // Reset the unread count for the user
+    const conversation = await this.getConversation(conversationId);
+    if (conversation) {
+      if (conversation.parentId === userId) {
+        await db.update(schoolConversations)
+          .set({ parentUnreadCount: 0 })
+          .where(eq(schoolConversations.id, conversationId));
+      } else if (conversation.teacherId === userId) {
+        await db.update(schoolConversations)
+          .set({ teacherUnreadCount: 0 })
+          .where(eq(schoolConversations.id, conversationId));
+      }
+    }
+  }
+
+  async getUnreadMessageCount(userId: string, userType: 'parent' | 'teacher'): Promise<number> {
+    const condition = userType === 'parent' 
+      ? eq(schoolConversations.parentId, userId)
+      : eq(schoolConversations.teacherId, userId);
+    
+    const conversations = await db.select()
+      .from(schoolConversations)
+      .where(condition);
+    
+    const countField = userType === 'parent' ? 'parentUnreadCount' : 'teacherUnreadCount';
+    return conversations.reduce((total, conv) => total + (conv[countField] || 0), 0);
   }
 }
 

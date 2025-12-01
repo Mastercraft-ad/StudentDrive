@@ -65,6 +65,9 @@ import SchoolLogin from "@/pages/school/login";
 import SchoolRegister from "@/pages/school/register";
 import SchoolSubscription from "@/pages/school/subscription";
 import SubscriptionCallback from "@/pages/school/subscription-callback";
+import SchoolSettings from "@/pages/school/settings";
+import SchoolMessaging from "@/pages/school/messaging";
+import SchoolAnalytics from "@/pages/school/analytics";
 
 function Router({
   showLanding,
@@ -198,6 +201,12 @@ function Router({
           {/* Subscription Management */}
           <Route path="/school/subscription" component={SchoolSubscription} />
           <Route path="/school/subscription/callback" component={SubscriptionCallback} />
+          {/* School Settings */}
+          <Route path="/school/settings" component={SchoolSettings} />
+          {/* Messaging */}
+          <Route path="/school/messages" component={SchoolMessaging} />
+          {/* Analytics */}
+          <Route path="/school/analytics" component={SchoolAnalytics} />
         </>
       )}
 

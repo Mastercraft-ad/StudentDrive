@@ -24,6 +24,7 @@ import {
   FileSpreadsheet,
   Calculator,
   CreditCard,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -131,8 +132,9 @@ export const menuConfig: MenuConfig = {
         { title: "Timetable", url: "/school/timetable", icon: Clock },
         { title: "Announcements", url: "/school/announcements", icon: Bell },
         { title: "Resources", url: "/school/resources", icon: FolderOpen },
+        { title: "Analytics", url: "/school/analytics", icon: BarChart3 },
         { title: "Subscription", url: "/school/subscription", icon: CreditCard },
-        { title: "Settings", url: "/settings", icon: Settings },
+        { title: "School Settings", url: "/school/settings", icon: Settings },
       ],
     },
     footer: [],
@@ -173,6 +175,7 @@ export const menuConfig: MenuConfig = {
         { title: "Dashboard", url: "/school/parent-dashboard", icon: Home },
         { title: "Grades", url: "/school/parent/grades", icon: TrendingUp },
         { title: "Fees", url: "/school/parent/fees", icon: DollarSign },
+        { title: "Messages", url: "/school/messages", icon: MessageSquare },
       ],
     },
     secondary: {
@@ -192,6 +195,7 @@ export const menuConfig: MenuConfig = {
         { title: "My Schedule", url: "/school/teacher/schedule", icon: Clock },
         { title: "Attendance", url: "/school/attendance", icon: UserCheck },
         { title: "Grades", url: "/school/grades", icon: TrendingUp },
+        { title: "Messages", url: "/school/messages", icon: MessageSquare },
       ],
     },
     secondary: {

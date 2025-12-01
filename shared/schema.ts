@@ -909,6 +909,9 @@ export const schools = pgTable("schools", {
   isActive: boolean("is_active").default(true).notNull(),
   isVerified: boolean("is_verified").default(false).notNull(),
   
+  // Public Platform Integration
+  allowPublicPlatformAccess: boolean("allow_public_platform_access").default(false).notNull(), // Allow school students to access public platform features
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -1905,3 +1908,102 @@ export const insertSubscriptionPaymentSchema = createInsertSchema(subscriptionPa
 
 export type InsertSubscriptionPayment = z.infer<typeof insertSubscriptionPaymentSchema>;
 export type SubscriptionPayment = typeof subscriptionPayments.$inferSelect;
+
+// ============================================
+// PARENT-TEACHER MESSAGING SYSTEM
+// Enables communication between parents and teachers
+// ============================================
+
+export const schoolConversations = pgTable("school_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  schoolId: varchar("school_id").references(() => schools.id, { onDelete: 'cascade' }).notNull(),
+  
+  parentId: varchar("parent_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  teacherId: varchar("teacher_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  studentId: varchar("student_id").references(() => schoolUsers.id, { onDelete: 'cascade' }),
+  
+  subject: varchar("subject", { length: 255 }),
+  
+  lastMessageAt: timestamp("last_message_at").defaultNow(),
+  parentUnreadCount: integer("parent_unread_count").default(0).notNull(),
+  teacherUnreadCount: integer("teacher_unread_count").default(0).notNull(),
+  
+  status: varchar("status", { length: 20 }).default("active").notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const schoolConversationsRelations = relations(schoolConversations, ({ one, many }) => ({
+  school: one(schools, {
+    fields: [schoolConversations.schoolId],
+    references: [schools.id],
+  }),
+  parent: one(schoolUsers, {
+    fields: [schoolConversations.parentId],
+    references: [schoolUsers.id],
+    relationName: "parentConversations",
+  }),
+  teacher: one(schoolUsers, {
+    fields: [schoolConversations.teacherId],
+    references: [schoolUsers.id],
+    relationName: "teacherConversations",
+  }),
+  student: one(schoolUsers, {
+    fields: [schoolConversations.studentId],
+    references: [schoolUsers.id],
+    relationName: "studentConversations",
+  }),
+  messages: many(schoolMessages),
+}));
+
+export const insertSchoolConversationSchema = createInsertSchema(schoolConversations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastMessageAt: true,
+  parentUnreadCount: true,
+  teacherUnreadCount: true,
+});
+
+export type InsertSchoolConversation = z.infer<typeof insertSchoolConversationSchema>;
+export type SchoolConversation = typeof schoolConversations.$inferSelect;
+
+export const schoolMessages = pgTable("school_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").references(() => schoolConversations.id, { onDelete: 'cascade' }).notNull(),
+  
+  senderId: varchar("sender_id").references(() => schoolUsers.id, { onDelete: 'cascade' }).notNull(),
+  senderType: varchar("sender_type", { length: 20 }).notNull(),
+  
+  content: text("content").notNull(),
+  
+  isRead: boolean("is_read").default(false).notNull(),
+  readAt: timestamp("read_at"),
+  
+  attachmentUrl: varchar("attachment_url"),
+  attachmentType: varchar("attachment_type", { length: 50 }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const schoolMessagesRelations = relations(schoolMessages, ({ one }) => ({
+  conversation: one(schoolConversations, {
+    fields: [schoolMessages.conversationId],
+    references: [schoolConversations.id],
+  }),
+  sender: one(schoolUsers, {
+    fields: [schoolMessages.senderId],
+    references: [schoolUsers.id],
+  }),
+}));
+
+export const insertSchoolMessageSchema = createInsertSchema(schoolMessages).omit({
+  id: true,
+  createdAt: true,
+  isRead: true,
+  readAt: true,
+});
+
+export type InsertSchoolMessage = z.infer<typeof insertSchoolMessageSchema>;
+export type SchoolMessage = typeof schoolMessages.$inferSelect;
