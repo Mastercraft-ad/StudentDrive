@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { PageHeader } from "@/components/page-header";
 import { Plus, GraduationCap, Edit, Trash2, Search, UserPlus } from "lucide-react";
 import type { SchoolUser, SchoolClass } from "@shared/schema";
 
@@ -186,166 +187,169 @@ export default function StudentsPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Students</h1>
-          <p className="text-muted-foreground">Manage student registrations and profiles</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-student">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Student
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{editingStudent ? "Edit Student" : "Add New Student"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    required
-                    data-testid="input-student-firstname"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="middleName">Middle Name</Label>
-                  <Input
-                    id="middleName"
-                    value={formData.middleName}
-                    onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
-                    data-testid="input-student-middlename"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    required
-                    data-testid="input-student-lastname"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
-                    data-testid="input-student-email"
-                  />
-                </div>
-                {!editingStudent && (
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      required={!editingStudent}
-                      data-testid="input-student-password"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="admissionNumber">Admission Number</Label>
-                  <Input
-                    id="admissionNumber"
-                    value={formData.admissionNumber}
-                    onChange={(e) => setFormData({ ...formData, admissionNumber: e.target.value })}
-                    data-testid="input-student-admission"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Class</Label>
-                  <Select
-                    value={formData.classId}
-                    onValueChange={(value) => setFormData({ ...formData, classId: value })}
-                  >
-                    <SelectTrigger data-testid="select-student-class">
-                      <SelectValue placeholder="Select class" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {classes?.map((classItem) => (
-                        <SelectItem key={classItem.id} value={classItem.id}>
-                          {classItem.name} {classItem.section || ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Gender</Label>
-                  <Select
-                    value={formData.gender}
-                    onValueChange={(value) => setFormData({ ...formData, gender: value })}
-                  >
-                    <SelectTrigger data-testid="select-student-gender">
-                      <SelectValue placeholder="Select gender" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
-                  <Input
-                    id="dateOfBirth"
-                    type="date"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                    data-testid="input-student-dob"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    data-testid="input-student-phone"
-                  />
-                </div>
-              </div>
+      <PageHeader
+        title="Students"
+        description="Manage student registrations and profiles"
+        breadcrumbs={[
+          { label: "People", href: "/school/students" },
+          { label: "Students" }
+        ]}
+        actions={
+          <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-student">
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Student
+          </Button>
+        }
+      />
+
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingStudent ? "Edit Student" : "Add New Student"}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="firstName">First Name</Label>
                 <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  data-testid="input-student-address"
+                  id="firstName"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  required
+                  data-testid="input-student-firstname"
                 />
               </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
-                  Cancel
-                </Button>
-                <Button type="submit" data-testid="button-save-student">
-                  {editingStudent ? "Update" : "Add"} Student
-                </Button>
+              <div className="space-y-2">
+                <Label htmlFor="middleName">Middle Name</Label>
+                <Input
+                  id="middleName"
+                  value={formData.middleName}
+                  onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
+                  data-testid="input-student-middlename"
+                />
               </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last Name</Label>
+                <Input
+                  id="lastName"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  required
+                  data-testid="input-student-lastname"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                  data-testid="input-student-email"
+                />
+              </div>
+              {!editingStudent && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    required={!editingStudent}
+                    data-testid="input-student-password"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="admissionNumber">Admission Number</Label>
+                <Input
+                  id="admissionNumber"
+                  value={formData.admissionNumber}
+                  onChange={(e) => setFormData({ ...formData, admissionNumber: e.target.value })}
+                  data-testid="input-student-admission"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Class</Label>
+                <Select
+                  value={formData.classId}
+                  onValueChange={(value) => setFormData({ ...formData, classId: value })}
+                >
+                  <SelectTrigger data-testid="select-student-class">
+                    <SelectValue placeholder="Select class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classes?.map((classItem) => (
+                      <SelectItem key={classItem.id} value={classItem.id}>
+                        {classItem.name} {classItem.section || ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Gender</Label>
+                <Select
+                  value={formData.gender}
+                  onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                >
+                  <SelectTrigger data-testid="select-student-gender">
+                    <SelectValue placeholder="Select gender" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                <Input
+                  id="dateOfBirth"
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                  data-testid="input-student-dob"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  data-testid="input-student-phone"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                data-testid="input-student-address"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => { setIsDialogOpen(false); resetForm(); }}>
+                Cancel
+              </Button>
+              <Button type="submit" data-testid="button-save-student">
+                {editingStudent ? "Update" : "Add"} Student
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
