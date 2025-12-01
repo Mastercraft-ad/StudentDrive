@@ -5,13 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -31,7 +30,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { PageHeader } from "@/components/page-header";
-import { Plus, GraduationCap, Edit, Trash2, Search, UserPlus } from "lucide-react";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeleton";
+import { GraduationCap, Edit, Trash2, Search, UserPlus } from "lucide-react";
 import type { SchoolUser, SchoolClass } from "@shared/schema";
 
 export default function StudentsPage() {
@@ -55,7 +56,7 @@ export default function StudentsPage() {
     classId: "",
   });
 
-  const { data: students, isLoading } = useQuery<SchoolUser[]>({
+  const { data: students, isLoading, error, refetch } = useQuery<SchoolUser[]>({
     queryKey: ["/api/school/users", { role: "student" }],
   });
 
@@ -178,32 +179,62 @@ export default function StudentsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-64" />
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Students"
+          description="Manage student registrations and profiles"
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "People", href: "/school/students" },
+            { label: "Students" }
+          ]}
+        />
+        <TableSkeleton rows={5} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Students"
+          description="Manage student registrations and profiles"
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "People", href: "/school/students" },
+            { label: "Students" }
+          ]}
+        />
+        <ErrorState 
+          message="Failed to load students. Please try again."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <PageHeader
         title="Students"
         description="Manage student registrations and profiles"
         breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
           { label: "People", href: "/school/students" },
           { label: "Students" }
         ]}
         actions={
           <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-student">
             <UserPlus className="h-4 w-4 mr-2" />
-            Add Student
+            <span className="hidden sm:inline">Add Student</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         }
       />
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingStudent ? "Edit Student" : "Add New Student"}</DialogTitle>
           </DialogHeader>
@@ -387,55 +418,64 @@ export default function StudentsPage() {
         </CardHeader>
         <CardContent>
           {filteredStudents && filteredStudents.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Admission No.</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Class</TableHead>
-                  <TableHead>Gender</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredStudents.map((student) => (
-                  <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
-                    <TableCell className="font-medium">
-                      {student.firstName} {student.middleName ? `${student.middleName} ` : ""}{student.lastName}
-                    </TableCell>
-                    <TableCell>{student.admissionNumber || "-"}</TableCell>
-                    <TableCell>{student.email}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{getClassName(student.classId)}</Badge>
-                    </TableCell>
-                    <TableCell className="capitalize">{student.gender || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant={student.isActive ? "default" : "secondary"}>
-                        {student.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(student)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(student.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ScrollArea className="w-full">
+              <div className="min-w-[700px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="hidden sm:table-cell">Admission No.</TableHead>
+                      <TableHead className="hidden md:table-cell">Email</TableHead>
+                      <TableHead>Class</TableHead>
+                      <TableHead className="hidden lg:table-cell">Gender</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStudents.map((student) => (
+                      <TableRow key={student.id} data-testid={`row-student-${student.id}`}>
+                        <TableCell className="font-medium">
+                          <div>
+                            {student.firstName} {student.middleName ? `${student.middleName} ` : ""}{student.lastName}
+                          </div>
+                          <div className="text-xs text-muted-foreground md:hidden">{student.email}</div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">{student.admissionNumber || "-"}</TableCell>
+                        <TableCell className="hidden md:table-cell">{student.email}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{getClassName(student.classId)}</Badge>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell capitalize">{student.gender || "-"}</TableCell>
+                        <TableCell>
+                          <Badge variant={student.isActive ? "default" : "secondary"}>
+                            {student.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(student)} data-testid={`button-edit-student-${student.id}`}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(student.id)} data-testid={`button-delete-student-${student.id}`}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
           ) : (
-            <div className="text-center py-12">
-              <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No students found</h3>
-              <p className="text-muted-foreground">Add your first student to get started.</p>
-            </div>
+            <EmptyState
+              icon={GraduationCap}
+              title="No students found"
+              description={searchQuery || filterClass !== "all" ? "No students match your search or filter. Try different criteria." : "Add your first student to start managing student records."}
+              action={searchQuery || filterClass !== "all" ? undefined : { label: "Add Student", onClick: () => setIsDialogOpen(true) }}
+            />
           )}
         </CardContent>
       </Card>

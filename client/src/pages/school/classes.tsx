@@ -5,13 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -30,6 +29,9 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeleton";
 import { Plus, Users, BookOpen, Edit, Trash2, Search } from "lucide-react";
 import type { SchoolClass, SchoolUser } from "@shared/schema";
 
@@ -47,7 +49,7 @@ export default function ClassesPage() {
     description: "",
   });
 
-  const { data: classes, isLoading } = useQuery<SchoolClass[]>({
+  const { data: classes, isLoading, error, refetch } = useQuery<SchoolClass[]>({
     queryKey: ["/api/school/classes"],
   });
 
@@ -140,33 +142,67 @@ export default function ClassesPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-64" />
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Classes"
+          description="Manage your school classes and sections"
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "Academic", href: "/school/classes" },
+            { label: "Classes" }
+          ]}
+        />
+        <TableSkeleton rows={5} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Classes"
+          description="Manage your school classes and sections"
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "Academic", href: "/school/classes" },
+            { label: "Classes" }
+          ]}
+        />
+        <ErrorState 
+          message="Failed to load classes. Please try again."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Classes</h1>
-          <p className="text-muted-foreground">Manage your school classes and sections</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-class">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Class
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+    <div className="p-4 md:p-6 space-y-6">
+      <PageHeader
+        title="Classes"
+        description="Manage your school classes and sections"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
+          { label: "Academic", href: "/school/classes" },
+          { label: "Classes" }
+        ]}
+        actions={
+          <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-class">
+            <Plus className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Add Class</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        }
+      />
+
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingClass ? "Edit Class" : "Add New Class"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Class Name</Label>
                   <Input
@@ -189,7 +225,7 @@ export default function ClassesPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="level">Level (Numeric)</Label>
                   <Input
@@ -252,7 +288,6 @@ export default function ClassesPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
 
       <Card>
         <CardHeader>
@@ -275,66 +310,77 @@ export default function ClassesPage() {
         </CardHeader>
         <CardContent>
           {filteredClasses && filteredClasses.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Class Name</TableHead>
-                  <TableHead>Section</TableHead>
-                  <TableHead>Level</TableHead>
-                  <TableHead>Capacity</TableHead>
-                  <TableHead>Students</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredClasses.map((classItem) => (
-                  <TableRow key={classItem.id} data-testid={`row-class-${classItem.id}`}>
-                    <TableCell className="font-medium">{classItem.name}</TableCell>
-                    <TableCell>{classItem.section || "-"}</TableCell>
-                    <TableCell>{classItem.level || "-"}</TableCell>
-                    <TableCell>{classItem.capacity || "-"}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span>0</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={classItem.isActive ? "default" : "secondary"}>
-                        {classItem.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(classItem)}
-                          data-testid={`button-edit-class-${classItem.id}`}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteMutation.mutate(classItem.id)}
-                          data-testid={`button-delete-class-${classItem.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ScrollArea className="w-full">
+              <div className="min-w-[600px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Class Name</TableHead>
+                      <TableHead className="hidden sm:table-cell">Section</TableHead>
+                      <TableHead className="hidden md:table-cell">Level</TableHead>
+                      <TableHead className="hidden md:table-cell">Capacity</TableHead>
+                      <TableHead className="hidden sm:table-cell">Students</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredClasses.map((classItem) => (
+                      <TableRow key={classItem.id} data-testid={`row-class-${classItem.id}`}>
+                        <TableCell className="font-medium">
+                          <div>{classItem.name}</div>
+                          <div className="text-xs text-muted-foreground sm:hidden">
+                            {classItem.section && `Section ${classItem.section}`}
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">{classItem.section || "-"}</TableCell>
+                        <TableCell className="hidden md:table-cell">{classItem.level || "-"}</TableCell>
+                        <TableCell className="hidden md:table-cell">{classItem.capacity || "-"}</TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <div className="flex items-center gap-1">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span>0</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={classItem.isActive ? "default" : "secondary"}>
+                            {classItem.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(classItem)}
+                              data-testid={`button-edit-class-${classItem.id}`}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteMutation.mutate(classItem.id)}
+                              data-testid={`button-delete-class-${classItem.id}`}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
           ) : (
-            <div className="text-center py-12">
-              <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No classes found</h3>
-              <p className="text-muted-foreground">Create your first class to get started.</p>
-            </div>
+            <EmptyState
+              icon={BookOpen}
+              title="No classes found"
+              description={searchQuery ? "No classes match your search. Try a different search term." : "Create your first class to organize your students and curriculum."}
+              action={searchQuery ? undefined : { label: "Add Class", onClick: () => setIsDialogOpen(true) }}
+            />
           )}
         </CardContent>
       </Card>

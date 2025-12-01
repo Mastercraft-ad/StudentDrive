@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
@@ -30,7 +30,10 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Plus, Users, Edit, Trash2, Search, UserPlus } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeleton";
+import { Users, Edit, Trash2, Search, UserPlus } from "lucide-react";
 import type { SchoolUser } from "@shared/schema";
 
 export default function TeachersPage() {
@@ -54,7 +57,7 @@ export default function TeachersPage() {
     dateOfEmployment: "",
   });
 
-  const { data: teachers, isLoading } = useQuery<SchoolUser[]>({
+  const { data: teachers, isLoading, error, refetch } = useQuery<SchoolUser[]>({
     queryKey: ["/api/school/users", { role: "teacher" }],
   });
 
@@ -166,33 +169,67 @@ export default function TeachersPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-4">
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-64" />
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Teachers"
+          description="Manage teaching staff and assignments"
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "People", href: "/school/teachers" },
+            { label: "Teachers" }
+          ]}
+        />
+        <TableSkeleton rows={5} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <PageHeader
+          title="Teachers"
+          description="Manage teaching staff and assignments"
+          breadcrumbs={[
+            { label: "Dashboard", href: "/school/dashboard" },
+            { label: "People", href: "/school/teachers" },
+            { label: "Teachers" }
+          ]}
+        />
+        <ErrorState 
+          message="Failed to load teachers. Please try again."
+          onRetry={() => refetch()}
+        />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Teachers</h1>
-          <p className="text-muted-foreground">Manage teaching staff and assignments</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-teacher">
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add Teacher
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+    <div className="p-4 md:p-6 space-y-6">
+      <PageHeader
+        title="Teachers"
+        description="Manage teaching staff and assignments"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
+          { label: "People", href: "/school/teachers" },
+          { label: "Teachers" }
+        ]}
+        actions={
+          <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-teacher">
+            <UserPlus className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Add Teacher</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        }
+      />
+
+      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingTeacher ? "Edit Teacher" : "Add New Teacher"}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
                   <Input
@@ -223,7 +260,7 @@ export default function TeachersPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
@@ -249,7 +286,7 @@ export default function TeachersPage() {
                   </div>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="employeeId">Employee ID</Label>
                   <Input
@@ -285,7 +322,7 @@ export default function TeachersPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="qualification">Qualification</Label>
                   <Input
@@ -307,7 +344,7 @@ export default function TeachersPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
                   <Input
@@ -338,7 +375,6 @@ export default function TeachersPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
 
       <Card>
         <CardHeader>
@@ -361,53 +397,62 @@ export default function TeachersPage() {
         </CardHeader>
         <CardContent>
           {filteredTeachers && filteredTeachers.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Employee ID</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Qualification</TableHead>
-                  <TableHead>Specialization</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTeachers.map((teacher) => (
-                  <TableRow key={teacher.id} data-testid={`row-teacher-${teacher.id}`}>
-                    <TableCell className="font-medium">
-                      {teacher.firstName} {teacher.middleName ? `${teacher.middleName} ` : ""}{teacher.lastName}
-                    </TableCell>
-                    <TableCell>{teacher.employeeId || "-"}</TableCell>
-                    <TableCell>{teacher.email}</TableCell>
-                    <TableCell>{teacher.qualification || "-"}</TableCell>
-                    <TableCell>{teacher.specialization || "-"}</TableCell>
-                    <TableCell>
-                      <Badge variant={teacher.isActive ? "default" : "secondary"}>
-                        {teacher.isActive ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(teacher)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(teacher.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <ScrollArea className="w-full">
+              <div className="min-w-[700px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead className="hidden sm:table-cell">Employee ID</TableHead>
+                      <TableHead className="hidden md:table-cell">Email</TableHead>
+                      <TableHead className="hidden lg:table-cell">Qualification</TableHead>
+                      <TableHead className="hidden lg:table-cell">Specialization</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredTeachers.map((teacher) => (
+                      <TableRow key={teacher.id} data-testid={`row-teacher-${teacher.id}`}>
+                        <TableCell className="font-medium">
+                          <div>
+                            {teacher.firstName} {teacher.middleName ? `${teacher.middleName} ` : ""}{teacher.lastName}
+                          </div>
+                          <div className="text-xs text-muted-foreground md:hidden">{teacher.email}</div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">{teacher.employeeId || "-"}</TableCell>
+                        <TableCell className="hidden md:table-cell">{teacher.email}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{teacher.qualification || "-"}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{teacher.specialization || "-"}</TableCell>
+                        <TableCell>
+                          <Badge variant={teacher.isActive ? "default" : "secondary"}>
+                            {teacher.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => handleEdit(teacher)} data-testid={`button-edit-teacher-${teacher.id}`}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(teacher.id)} data-testid={`button-delete-teacher-${teacher.id}`}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <ScrollBar orientation="horizontal" />
+            </ScrollArea>
           ) : (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">No teachers found</h3>
-              <p className="text-muted-foreground">Add your first teacher to get started.</p>
-            </div>
+            <EmptyState
+              icon={Users}
+              title="No teachers found"
+              description={searchQuery ? "No teachers match your search. Try a different search term." : "Add your first teacher to get started with managing your teaching staff."}
+              action={searchQuery ? undefined : { label: "Add Teacher", onClick: () => setIsDialogOpen(true) }}
+            />
           )}
         </CardContent>
       </Card>

@@ -3,9 +3,9 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -23,6 +23,9 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/loading-skeleton";
 import { UserCheck, UserX, Clock, Calendar, Save, Users, BookOpen, BarChart3 } from "lucide-react";
 import { Link } from "wouter";
 import type { SchoolClass, SchoolUser, AttendanceRecord, AcademicTerm, SchoolSubject } from "@shared/schema";
@@ -212,19 +215,25 @@ export default function AttendancePage() {
   const stats = getAttendanceStats();
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">Attendance</h1>
-          <p className="text-muted-foreground">Mark and manage student attendance</p>
-        </div>
-        <Button variant="outline" asChild data-testid="button-view-reports">
-          <Link href="/school/attendance/reports">
-            <BarChart3 className="h-4 w-4 mr-2" />
-            View Reports
-          </Link>
-        </Button>
-      </div>
+    <div className="p-4 md:p-6 space-y-6">
+      <PageHeader
+        title="Attendance"
+        description="Mark and manage student attendance"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/school/dashboard" },
+          { label: "Academic", href: "/school/attendance" },
+          { label: "Attendance" }
+        ]}
+        actions={
+          <Button variant="outline" asChild data-testid="button-view-reports">
+            <Link href="/school/attendance/reports">
+              <BarChart3 className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">View Reports</span>
+              <span className="sm:hidden">Reports</span>
+            </Link>
+          </Button>
+        }
+      />
 
       <Card>
         <CardHeader>
