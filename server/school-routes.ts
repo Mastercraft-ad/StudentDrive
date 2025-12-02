@@ -3180,7 +3180,7 @@ router.get("/api/school/messaging/teachers", requireSchoolContext, checkTrialSta
     }
 
     // Get parent's linked students
-    const linkedStudents = await storage.getParentLinkedStudents(req.schoolUser.id);
+    const linkedStudents = await storage.getParentStudentLinks(req.schoolUser.id);
     
     // Get teachers for those students' classes
     const teacherSet = new Set<string>();
@@ -3337,7 +3337,7 @@ router.get("/api/school/analytics", requireSchoolContext, checkTrialStatus, asyn
     // Fee metrics (simplified)
     const payments = await storage.getSchoolFeePayments(schoolId);
     const paidPayments = payments.filter(p => p.status === 'paid');
-    const totalCollected = paidPayments.reduce((sum, p) => sum + p.amountPaid, 0);
+    const totalCollected = paidPayments.reduce((sum, p) => sum + p.amount, 0);
     const totalDue = students.length * 5000000; // Example: 50,000 NGN per student
     
     let feesData = {

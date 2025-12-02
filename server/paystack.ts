@@ -44,6 +44,7 @@ export interface PaystackPaymentData {
     feeTypeId: string;
     termId: string;
     paidById: string;
+    expectedAmount?: number;
     custom_fields?: Array<{
       display_name: string;
       variable_name: string;
