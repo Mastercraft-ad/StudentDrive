@@ -227,6 +227,26 @@ Over 70+ methods for comprehensive CRUD operations across all school management 
 - API routes are logically grouped by functionality (e.g., `/api/auth/*`, `/api/admin/*`).
 - File uploads are managed in a dedicated `uploads/` directory.
 
+### Navigation Access Control Plan (December 2025)
+
+**Role-Based Navigation Structure:**
+
+| Role | Primary Section | Secondary Section | Footer |
+|------|-----------------|-------------------|--------|
+| `student` | Dashboard, Resources, My Library, Quizzes | Upload, Performance, Bookmarks | Settings |
+| `institution` | School Management (Dashboard, Students, Teachers, Parents, Classes, Subjects, Terms) | Academic & Finance (Attendance, Grades, Fees, Timetable, Announcements, Resources, Analytics, Subscription, School Settings) | - |
+| `admin` | Dashboard, Users, Institutions, Content | Analytics, Blog (Posts, Categories, Tags), Settings | - |
+| `parent` | Dashboard, Grades, Fees, Messages | Announcements, Settings | - |
+| `teacher` | Dashboard, My Schedule, Attendance, Grades, Messages | Announcements, Resources, Settings | - |
+| `school_student` | Dashboard, My Timetable, My Grades | Announcements, Resources, Settings | - |
+| `super_admin` | Dashboard, Live Activity, Active Sessions, Security Events, Impersonation Logs, Platform Analytics | All Users, Institutions, Blog | SMS Management, System Settings |
+
+**Access Control Rules:**
+- Each role has exclusive access to its own menu configuration
+- No duplicate menu items within a single role
+- Admin role is separate from Super Admin role
+- Super Admin has full platform oversight including SMS Management
+
 ### External Dependencies
 - **Database**: PostgreSQL (via Neon)
 - **ORM**: Drizzle ORM
