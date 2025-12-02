@@ -205,6 +205,24 @@ student
 | `/api/school/*` | requireSchoolContext, checkTrialStatus | School-specific operations |
 | `/api/super-admin/*` | isAuthenticated, requireSuperAdmin | Platform management, analytics, impersonation |
 
+#### Rate Limiting Protection
+
+| Limiter | Window | Max Requests | Purpose |
+|---------|--------|--------------|---------|
+| General API | 15 min | 100 (prod) / 500 (dev) | Global API protection |
+| Authentication | 15 min | 10 (prod) / 50 (dev) | Login/auth endpoints |
+| Registration | 1 hour | 5 (prod) / 20 (dev) | New user registration |
+| Password Reset | 1 hour | 3 (prod) / 10 (dev) | Password reset requests |
+| File Upload | 1 hour | 30 (prod) / 100 (dev) | Upload endpoints |
+| Strict API | 1 min | 30 (prod) / 100 (dev) | Sensitive operations |
+| Webhooks | 1 min | 100 | Payment webhook endpoints |
+
+**Implementation Notes:**
+- Rate limiter executes BEFORE body parsing to prevent large-payload DoS attacks
+- Request body size limited to 1MB for JSON and URL-encoded payloads
+- Uses express-rate-limit with standard rate limit headers
+- IPv6 support enabled with x-forwarded-for header validation disabled
+
 ### Known Issues
 
 | Issue | Severity | Location | Description |
@@ -217,9 +235,8 @@ student
 ### Recommendations
 
 1. **Type Fixes**: Update storage interface and Drizzle schemas to resolve TypeScript errors
-2. **Rate Limiting**: Consider adding global rate limiting middleware for DoS protection
-3. **HTTPS**: Ensure production deployment uses HTTPS-only cookies
-4. **Audit Logs**: Consider adding audit logging for sensitive operations beyond security events
+2. **HTTPS**: Ensure production deployment uses HTTPS-only cookies
+3. **Audit Logs**: Consider adding audit logging for sensitive operations beyond security events
 
 ### Multi-Tenant Architecture
 
