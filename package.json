@@ -9,6 +9,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "create-admin": "tsx scripts/create-admin.ts",
+    "create-super-admin": "tsx scripts/create-super-admin.ts",
     "seed-admin": "tsx server/seed-admin.ts"
   },
   "dependencies": {

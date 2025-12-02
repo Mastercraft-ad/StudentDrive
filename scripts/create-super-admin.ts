@@ -3,17 +3,17 @@ import { users } from "../shared/schema";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "crypto";
 
-async function createModerator() {
-  const email = process.env.MODERATOR_EMAIL;
-  const password = process.env.MODERATOR_PASSWORD;
+async function createSuperAdmin() {
+  const email = process.env.SUPER_ADMIN_EMAIL;
+  const password = process.env.SUPER_ADMIN_PASSWORD;
   
   if (!email) {
-    console.error("Error: MODERATOR_EMAIL environment variable is required!");
+    console.error("Error: SUPER_ADMIN_EMAIL environment variable is required!");
     process.exit(1);
   }
   
   if (!password) {
-    console.error("Error: MODERATOR_PASSWORD environment variable is required!");
+    console.error("Error: SUPER_ADMIN_PASSWORD environment variable is required!");
     process.exit(1);
   }
 
@@ -22,12 +22,12 @@ async function createModerator() {
     process.exit(1);
   }
   
-  const existingUser = await db.query.users.findFirst({
+  const existingSuperAdmin = await db.query.users.findFirst({
     where: (users, { eq }) => eq(users.email, email),
   });
 
-  if (existingUser) {
-    console.log("User with this email already exists!");
+  if (existingSuperAdmin) {
+    console.log("Super admin with this email already exists!");
     process.exit(0);
   }
 
@@ -37,20 +37,20 @@ async function createModerator() {
     id: randomUUID(),
     email,
     password: hashedPassword,
-    role: "admin",
-    firstName: "Platform",
-    lastName: "Moderator",
+    role: "super_admin",
+    firstName: "Super",
+    lastName: "Admin",
     emailVerified: true,
     onboardingCompleted: true,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
 
-  console.log("Platform moderator created successfully!");
+  console.log("Super admin created successfully!");
   console.log("Email:", email);
   console.log("Password: ********** (stored securely)");
   
   process.exit(0);
 }
 
-createModerator().catch(console.error);
+createSuperAdmin().catch(console.error);
