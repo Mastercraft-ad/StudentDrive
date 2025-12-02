@@ -606,3 +606,10 @@
 [x] 546. Added route /school/parent-student-links in App.tsx
 [x] 547. All data-testid attributes added for testing compliance
 [x] 548. Parent portal features now complete with dedicated link management UI
+[x] 549. Security Fix: seed-admin.ts Hardcoded Password (Dec 2, 2025)
+[x] 550. Removed hardcoded email "mastercraft@gmail.com" from seed-admin.ts
+[x] 551. Removed hardcoded password "mastercraft80" from seed-admin.ts
+[x] 552. Now requires ADMIN_EMAIL and ADMIN_PASSWORD environment variables
+[x] 553. Added 12-character minimum password length validation
+[x] 554. Password no longer printed to console - shows "**********" instead
+[x] 555. Script now follows same security pattern as scripts/create-admin.ts
