@@ -48,6 +48,65 @@ The project employs a full-stack architecture. The frontend uses React, TypeScri
 **Navigation Access Control:**
 - Role-based navigation (`student`, `institution`, `admin`, `parent`, `teacher`, `school_student`, `super_admin`) with exclusive menu configurations and access control rules.
 
+### Role Relationship Matrix (December 2025)
+
+**Two Authentication Contexts:**
+1. **Platform Authentication** (`users` table) - Main platform roles
+2. **School Context Authentication** (`school_users` table) - School-specific roles
+
+**Platform Roles (users table):**
+| Role | Description | Primary Access |
+|------|-------------|----------------|
+| `student` | Individual learner | LMS resources, quizzes, library, performance |
+| `institution` | School admin | Full school management (SMS features) |
+| `admin` | Platform admin | User/content moderation, blog management |
+| `super_admin` | Super administrator | Platform oversight, impersonation, analytics |
+
+**School Context Roles (school_users table):**
+| Role | Description | Access Within School |
+|------|-------------|---------------------|
+| `school_admin` | School administrator | Full school management |
+| `teacher` | Teacher | Attendance, grades, schedule, messaging |
+| `parent` | Parent of students | View grades, fees, messaging with teachers |
+| `school_student` | School student | Timetable, grades, announcements |
+
+**Role Hierarchy & Dependencies:**
+```
+super_admin
+    └── Platform oversight (all schools, all users)
+    
+admin
+    └── Platform content/user management (no SMS access)
+    
+institution (maps to school_admin in school context)
+    ├── teacher (depends on institution for school data)
+    ├── parent (depends on institution for child data)
+    └── school_student (depends on institution for enrollment)
+    
+student
+    └── Independent LMS learner (no school context)
+```
+
+**Feature Accessibility by Role:**
+| Feature | student | institution | admin | super_admin | teacher | parent | school_student |
+|---------|---------|-------------|-------|-------------|---------|--------|----------------|
+| LMS Resources | ✓ | - | - | - | - | - | - |
+| Quizzes | ✓ | - | - | - | - | - | - |
+| School Dashboard | - | ✓ | - | ✓ | ✓ | ✓ | ✓ |
+| Attendance | - | ✓ | - | - | ✓ | View | View |
+| Grades | - | ✓ | - | - | ✓ | View | View |
+| Fees Management | - | ✓ | - | - | - | Pay | - |
+| Timetable | - | ✓ | - | - | View | - | View |
+| Blog Management | - | - | ✓ | ✓ | - | - | - |
+| User Management | - | - | ✓ | ✓ | - | - | - |
+| Impersonation | - | - | - | ✓ | - | - | - |
+| Platform Analytics | - | - | - | ✓ | - | - | - |
+
+**Routing Guard Implementation:**
+- Platform roles use `useAuth` hook with `isStudent`, `isInstitution`, `isAdmin`, `isSuperAdmin`
+- School context roles authenticate via `school-middleware.ts` with `requireSchoolRole()`
+- Navigation menus dynamically render based on `user.role` from current auth context
+
 ### External Dependencies
 - **Database**: PostgreSQL (via Neon)
 - **ORM**: Drizzle ORM
