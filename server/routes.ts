@@ -11,6 +11,7 @@ import { sendVerificationEmail } from "./email";
 import { getUserStatistics, getUserActivityLogs, logUserActivity, updateUserStatistics } from "./activity-logger";
 import schoolRoutes from "./school-routes";
 import superAdminRoutes from "./super-admin-routes";
+import { authLimiter, registrationLimiter, passwordResetLimiter, uploadLimiter } from "./rate-limiter";
 import {
   insertCourseSchema,
   insertMaterialSchema,
@@ -154,7 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return `${protocol}://${host}`;
   };
 
-  app.post("/api/auth/register", async (req: Request, res: Response) => {
+  app.post("/api/auth/register", registrationLimiter, async (req: Request, res: Response) => {
     try {
       const { email, password } = registerSchema.parse(req.body);
 
@@ -216,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/login", (req: Request, res: Response, next) => {
+  app.post("/api/auth/login", authLimiter, (req: Request, res: Response, next) => {
     try {
       loginSchema.parse(req.body);
     } catch (error: any) {
@@ -345,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/auth/change-password", isAuthenticated, async (req: any, res: Response) => {
+  app.post("/api/auth/change-password", isAuthenticated, passwordResetLimiter, async (req: any, res: Response) => {
     try {
       const changePasswordSchema = z.object({
         currentPassword: z.string().min(1, "Current password is required"),
@@ -558,7 +559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/upload", isAuthenticated, requireOnboarding, upload.single('file'), async (req: any, res: Response) => {
+  app.post("/api/upload", isAuthenticated, requireOnboarding, uploadLimiter, upload.single('file'), async (req: any, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
@@ -588,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   };
 
-  app.post("/api/upload-blog-image", isAuthenticated, requireAdmin, uploadBlogImage.single('file'), async (req: any, res: Response) => {
+  app.post("/api/upload-blog-image", isAuthenticated, requireAdmin, uploadLimiter, uploadBlogImage.single('file'), async (req: any, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });

@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { schoolContextMiddleware } from "./school-middleware";
+import { generalApiLimiter } from "./rate-limiter";
 
 const app = express();
 
@@ -13,14 +14,16 @@ declare module 'http' {
 
 app.use('/uploads', express.static('uploads'));
 
+app.use(generalApiLimiter);
+
 app.use(express.json({
+  limit: '1mb',
   verify: (req, _res, buf) => {
     req.rawBody = buf;
   }
 }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-// School context detection middleware - identifies school from subdomain
 app.use(schoolContextMiddleware);
 
 app.use((req, res, next) => {

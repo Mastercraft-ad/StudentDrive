@@ -7,6 +7,7 @@ import { nanoid } from "nanoid";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { authLimiter, registrationLimiter, uploadLimiter } from "./rate-limiter";
 
 // Ensure school materials upload directory exists
 const schoolMaterialsDir = 'uploads/school-materials/';
@@ -76,7 +77,7 @@ router.get("/api/schools/check-subdomain/:subdomain", async (req: Request, res: 
 });
 
 // Register a new school
-router.post("/api/schools/register", async (req: Request, res: Response) => {
+router.post("/api/schools/register", registrationLimiter, async (req: Request, res: Response) => {
   try {
     const validatedData = schoolRegistrationSchema.parse(req.body);
     
@@ -192,7 +193,7 @@ const schoolLoginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
-router.post("/api/school/auth/login", requireSchoolContext, async (req: Request, res: Response) => {
+router.post("/api/school/auth/login", requireSchoolContext, authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = schoolLoginSchema.parse(req.body);
     const schoolId = req.school!.id;
