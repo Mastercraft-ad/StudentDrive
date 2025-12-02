@@ -233,9 +233,6 @@ function Router({
           <Route path="/super-admin/schools" component={SuperAdminSchools} />
           <Route path="/super-admin/schools/:schoolId/users" component={SuperAdminSchoolUsers} />
           <Route path="/super-admin/institutions" component={AdminInstitutions} />
-          <Route path="/super-admin/courses" component={AdminCourses} />
-          <Route path="/super-admin/materials" component={AdminContentModeration} />
-          <Route path="/super-admin/quizzes" component={AdminCourses} />
           <Route path="/super-admin/subscriptions" component={SuperAdminSubscriptions} />
           <Route path="/super-admin/subscription-plans" component={SuperAdminSubscriptionPlans} />
           <Route path="/super-admin/analytics" component={SuperAdminAnalytics} />

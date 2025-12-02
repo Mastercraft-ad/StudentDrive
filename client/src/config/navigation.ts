@@ -29,7 +29,6 @@ import {
   School,
   Layers,
   Activity,
-  Database,
   Crown,
   Monitor,
   ShieldAlert,
@@ -228,13 +227,10 @@ export const menuConfig: MenuConfig = {
       ],
     },
     secondary: {
-      label: "LMS Management",
+      label: "Platform Management",
       items: [
         { title: "All Users", url: "/super-admin/users", icon: Users },
         { title: "Institutions", url: "/super-admin/institutions", icon: Building2 },
-        { title: "Courses", url: "/super-admin/courses", icon: BookOpen },
-        { title: "Materials", url: "/super-admin/materials", icon: FileText },
-        { title: "Quizzes", url: "/super-admin/quizzes", icon: ClipboardList },
         { 
           title: "Blog", 
           url: "#", 
