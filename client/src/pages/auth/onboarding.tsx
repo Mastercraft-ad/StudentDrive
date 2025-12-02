@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import RoleSelection from "./role-selection";
 import StudentOnboarding from "./student-onboarding";
 import InstitutionOnboarding from "./institution-onboarding";
 
@@ -10,26 +9,29 @@ export default function Onboarding() {
 
   useEffect(() => {
     if (user?.role) {
+      // User already has a role set
       setSelectedRole(user.role as "student" | "institution");
     } else {
+      // Check if this is an institution registration flow
       const pendingInstitution = sessionStorage.getItem('pendingInstitutionOnboarding');
       if (pendingInstitution === 'true') {
         sessionStorage.removeItem('pendingInstitutionOnboarding');
         setSelectedRole('institution');
+      } else {
+        // Default to student for LMS learners - no role selection needed
+        // since "student" is the only option for regular LMS registrations
+        setSelectedRole('student');
       }
     }
   }, [user?.role]);
-
-  const handleRoleSelect = (role: "student") => {
-    setSelectedRole(role);
-  };
 
   const handleOnboardingComplete = () => {
     window.location.href = "/";
   };
 
+  // Show nothing while determining role
   if (!selectedRole) {
-    return <RoleSelection onRoleSelect={handleRoleSelect} />;
+    return null;
   }
 
   if (selectedRole === "student") {
