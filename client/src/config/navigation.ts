@@ -32,6 +32,7 @@ import {
   Crown,
   Monitor,
   ShieldAlert,
+  Link2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -88,6 +89,7 @@ export const menuConfig: MenuConfig = {
         { title: "Students", url: "/school/students", icon: GraduationCap },
         { title: "Teachers", url: "/school/teachers", icon: Users },
         { title: "Parents", url: "/school/parents", icon: Users2 },
+        { title: "Family Links", url: "/school/parent-student-links", icon: Link2 },
         { title: "Classes", url: "/school/classes", icon: BookOpen },
         { title: "Subjects", url: "/school/subjects", icon: FileText },
         { title: "Terms", url: "/school/terms", icon: Calendar },

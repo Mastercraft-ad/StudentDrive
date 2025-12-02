@@ -57,6 +57,7 @@ import SchoolResources from "@/pages/school/resources";
 import SchoolStudents from "@/pages/school/students";
 import SchoolTeachers from "@/pages/school/teachers";
 import SchoolParents from "@/pages/school/parents";
+import SchoolParentStudentLinks from "@/pages/school/parent-student-links";
 import ParentDashboard from "@/pages/school/parent-dashboard";
 import ParentGrades from "@/pages/school/parent-grades";
 import ParentFees from "@/pages/school/parent-fees";
@@ -172,6 +173,7 @@ function Router({
           <Route path="/school/students" component={SchoolStudents} />
           <Route path="/school/teachers" component={SchoolTeachers} />
           <Route path="/school/parents" component={SchoolParents} />
+          <Route path="/school/parent-student-links" component={SchoolParentStudentLinks} />
           <Route path="/school/parent-dashboard" component={ParentDashboard} />
           <Route path="/school/parent/grades" component={ParentGrades} />
           <Route path="/school/parent/fees" component={ParentFees} />
