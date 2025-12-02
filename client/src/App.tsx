@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Login from "@/pages/auth/login";
+import AdminLogin from "@/pages/auth/admin-login";
 import Register from "@/pages/auth/register";
 import VerifyEmail from "@/pages/auth/verify-email";
 import Onboarding from "@/pages/auth/onboarding";
@@ -113,6 +114,7 @@ function Router({
         <Route path="/blog/:slug" component={BlogDetail} />
         <Route path="/school/login" component={SchoolLogin} />
         <Route path="/school/register" component={SchoolRegister} />
+        <Route path="/auth/admin" component={AdminLogin} />
         <Route component={Login} />
       </Switch>
     );
