@@ -11,7 +11,6 @@ export type ActivityType =
   | "material_download"
   | "quiz_taken"
   | "quiz_created"
-  | "blog_post_created"
   | "bookmark_created"
   | "profile_updated"
   | "password_changed";
@@ -50,7 +49,6 @@ export async function updateUserStatistics(
     materialsDownloaded?: number;
     quizzesTaken?: number;
     quizzesCreated?: number;
-    blogPostsCreated?: number;
     bookmarksCreated?: number;
     averageQuizScore?: number;
     totalTimeSpent?: number;
@@ -74,7 +72,6 @@ export async function updateUserStatistics(
         materialsDownloaded: updates.materialsDownloaded || 0,
         quizzesTaken: updates.quizzesTaken || 0,
         quizzesCreated: updates.quizzesCreated || 0,
-        blogPostsCreated: updates.blogPostsCreated || 0,
         bookmarksCreated: updates.bookmarksCreated || 0,
         averageQuizScore: updates.averageQuizScore,
         totalTimeSpent: updates.totalTimeSpent || 0,
@@ -92,7 +89,6 @@ export async function updateUserStatistics(
         if (updates.materialsDownloaded !== undefined) updateData.materialsDownloaded = updates.materialsDownloaded;
         if (updates.quizzesTaken !== undefined) updateData.quizzesTaken = updates.quizzesTaken;
         if (updates.quizzesCreated !== undefined) updateData.quizzesCreated = updates.quizzesCreated;
-        if (updates.blogPostsCreated !== undefined) updateData.blogPostsCreated = updates.blogPostsCreated;
         if (updates.bookmarksCreated !== undefined) updateData.bookmarksCreated = updates.bookmarksCreated;
         if (updates.averageQuizScore !== undefined) updateData.averageQuizScore = updates.averageQuizScore;
         if (updates.totalTimeSpent !== undefined) updateData.totalTimeSpent = updates.totalTimeSpent;
@@ -104,7 +100,6 @@ export async function updateUserStatistics(
         if (updates.materialsDownloaded !== undefined) updateData.materialsDownloaded = current.materialsDownloaded + updates.materialsDownloaded;
         if (updates.quizzesTaken !== undefined) updateData.quizzesTaken = current.quizzesTaken + updates.quizzesTaken;
         if (updates.quizzesCreated !== undefined) updateData.quizzesCreated = current.quizzesCreated + updates.quizzesCreated;
-        if (updates.blogPostsCreated !== undefined) updateData.blogPostsCreated = current.blogPostsCreated + updates.blogPostsCreated;
         if (updates.bookmarksCreated !== undefined) updateData.bookmarksCreated = current.bookmarksCreated + updates.bookmarksCreated;
         if (updates.averageQuizScore !== undefined) updateData.averageQuizScore = updates.averageQuizScore;
         if (updates.totalTimeSpent !== undefined) updateData.totalTimeSpent = (current.totalTimeSpent || 0) + updates.totalTimeSpent;

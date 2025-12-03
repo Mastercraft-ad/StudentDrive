@@ -68,8 +68,8 @@ export function PublicFooter() {
                 </a>
               </li>
               <li>
-                <a href="/blog" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Blog
+                <a href="/login" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  Login
                 </a>
               </li>
               <li>

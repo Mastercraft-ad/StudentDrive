@@ -39,12 +39,6 @@ export function PublicHeader() {
               >
                 Home
               </a>
-              <a 
-                href="/blog"
-                className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-              >
-                Blog
-              </a>
               <Button variant="outline" size="sm" asChild>
                 <Link href="/login">Sign In</Link>
               </Button>
@@ -77,13 +71,6 @@ export function PublicHeader() {
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Home
-                </a>
-                <a 
-                  href="/blog"
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors px-2 py-1"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Blog
                 </a>
                 <div className="flex flex-col gap-2 pt-2 border-t border-border/50">
                   <Button variant="outline" size="sm" asChild>

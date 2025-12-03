@@ -13,8 +13,6 @@ import AdminLogin from "@/pages/auth/admin-login";
 import Register from "@/pages/auth/register";
 import VerifyEmail from "@/pages/auth/verify-email";
 import Onboarding from "@/pages/auth/onboarding";
-import Blog from "@/pages/blog";
-import BlogDetail from "@/pages/blog-detail";
 import StudentDashboard from "@/pages/student/dashboard";
 import StudentUploadMaterial from "@/pages/student/upload-material";
 import InstitutionDashboard from "@/pages/institution/dashboard";
@@ -23,11 +21,6 @@ import AdminUsers from "@/pages/admin/users";
 import AdminInstitutions from "@/pages/admin/institutions";
 import AdminCourses from "@/pages/admin/courses";
 import AdminContentModeration from "@/pages/admin/content-moderation";
-import AdminBlog from "@/pages/admin/blog";
-import AdminBlogPosts from "@/pages/admin/blog-posts";
-import AdminBlogCategories from "@/pages/admin/blog-categories";
-import AdminBlogTags from "@/pages/admin/blog-tags";
-import AdminBlogEditor from "@/pages/admin/blog-editor";
 import SuperAdminDashboard from "@/pages/super-admin/dashboard";
 import SuperAdminUsers from "@/pages/super-admin/users";
 import SuperAdminSchools from "@/pages/super-admin/schools";
@@ -110,8 +103,6 @@ function Router({
         <Route path="/login" component={Login} />
         <Route path="/register" component={Register} />
         <Route path="/verify-email" component={VerifyEmail} />
-        <Route path="/blog" component={Blog} />
-        <Route path="/blog/:slug" component={BlogDetail} />
         <Route path="/school/login" component={SchoolLogin} />
         <Route path="/school/register" component={SchoolRegister} />
         <Route path="/auth/admin" component={AdminLogin} />
@@ -206,15 +197,6 @@ function Router({
           <Route path="/admin/institutions" component={AdminInstitutions} />
           <Route path="/admin/courses" component={AdminCourses} />
           <Route path="/admin/content" component={AdminContentModeration} />
-          <Route path="/admin/blog" component={AdminBlog} />
-          <Route path="/admin/blog/posts" component={AdminBlogPosts} />
-          <Route
-            path="/admin/blog/categories"
-            component={AdminBlogCategories}
-          />
-          <Route path="/admin/blog/tags" component={AdminBlogTags} />
-          <Route path="/admin/blog/new" component={AdminBlogEditor} />
-          <Route path="/admin/blog/edit/:id" component={AdminBlogEditor} />
           <Route path="/material/:id" component={MaterialDetail} />
           <Route path="/institutions" component={InstitutionsDirectory} />
           <Route path="/institutions/:slug" component={InstitutionDetail} />
@@ -241,11 +223,6 @@ function Router({
           <Route path="/super-admin/subscription-plans" component={SuperAdminSubscriptionPlans} />
           <Route path="/super-admin/analytics" component={SuperAdminAnalytics} />
           <Route path="/super-admin/settings" component={SuperAdminSettings} />
-          <Route path="/super-admin/blog/posts" component={AdminBlogPosts} />
-          <Route path="/super-admin/blog/categories" component={AdminBlogCategories} />
-          <Route path="/super-admin/blog/tags" component={AdminBlogTags} />
-          <Route path="/super-admin/blog/new" component={AdminBlogEditor} />
-          <Route path="/super-admin/blog/edit/:id" component={AdminBlogEditor} />
           <Route path="/material/:id" component={MaterialDetail} />
           <Route path="/settings" component={Settings} />
         </>

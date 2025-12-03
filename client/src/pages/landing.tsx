@@ -715,7 +715,7 @@ export default function Landing() {
                 <li><a href="/register" className="hover:text-white transition-colors">Sign Up Free</a></li>
                 <li><a href="/login" className="hover:text-white transition-colors">Learner Login</a></li>
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="/blog" className="hover:text-white transition-colors">Blog</a></li>
+                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
               </ul>
             </div>
 

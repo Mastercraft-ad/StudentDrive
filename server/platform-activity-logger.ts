@@ -27,7 +27,6 @@ export type PlatformActivityType =
   | "payment_failed"
   | "material_uploaded"
   | "quiz_created"
-  | "blog_post_published"
   | "announcement_created"
   | "grade_entered"
   | "attendance_marked"

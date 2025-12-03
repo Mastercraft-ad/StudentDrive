@@ -11,9 +11,6 @@ import {
   Shield,
   Library,
   Upload,
-  Newspaper,
-  FolderTree,
-  Tag,
   GraduationCap,
   Calendar,
   UserCheck,
@@ -142,16 +139,6 @@ export const menuConfig: MenuConfig = {
       label: "Management",
       items: [
         { title: "Analytics", url: "/admin/analytics", icon: BarChart3 },
-        {
-          title: "Blog",
-          url: "/admin/blog",
-          icon: Newspaper,
-          children: [
-            { title: "Posts", url: "/admin/blog/posts", icon: Newspaper },
-            { title: "Categories", url: "/admin/blog/categories", icon: FolderTree },
-            { title: "Tags", url: "/admin/blog/tags", icon: Tag },
-          ],
-        },
         { title: "Settings", url: "/admin/settings", icon: Settings },
       ],
     },
@@ -233,16 +220,6 @@ export const menuConfig: MenuConfig = {
       items: [
         { title: "All Users", url: "/super-admin/users", icon: Users },
         { title: "Institutions", url: "/super-admin/institutions", icon: Building2 },
-        { 
-          title: "Blog", 
-          url: "#", 
-          icon: Newspaper,
-          children: [
-            { title: "Posts", url: "/super-admin/blog/posts", icon: Newspaper },
-            { title: "Categories", url: "/super-admin/blog/categories", icon: FolderTree },
-            { title: "Tags", url: "/super-admin/blog/tags", icon: Tag },
-          ],
-        },
       ],
     },
     footer: [

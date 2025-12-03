@@ -81,7 +81,6 @@ interface UserStatistics {
   materialsDownloaded: number;
   quizzesTaken: number;
   quizzesCreated: number;
-  blogPostsCreated: number;
   bookmarksCreated: number;
   averageQuizScore: number | null;
   totalTimeSpent: number;
@@ -985,10 +984,6 @@ export default function UsersManagement() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Blog Posts:</span>
-                  <Badge variant="secondary">{userStatistics?.blogPostsCreated || 0}</Badge>
-                </div>
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Bookmarks:</span>
                   <Badge variant="secondary">{userStatistics?.bookmarksCreated || 0}</Badge>

@@ -65,7 +65,6 @@ export function AppHeader() {
         "institutions": "Institutions",
         "courses": "Courses",
         "content": "Content Moderation",
-        "blog": "Blog",
         "posts": "Posts",
         "categories": "Categories",
         "tags": "Tags",

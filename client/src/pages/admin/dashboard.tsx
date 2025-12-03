@@ -13,10 +13,7 @@ import {
   FileCheck,
   FileClock,
   FileX,
-  Newspaper,
   AlertCircle,
-  TrendingUp,
-  Eye,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -40,12 +37,6 @@ interface ContentStats {
     approved: number;
     rejected: number;
   };
-  blogPosts: {
-    total: number;
-    published: number;
-    draft: number;
-    featured: number;
-  };
 }
 
 export default function AdminDashboard() {
@@ -56,15 +47,13 @@ export default function AdminDashboard() {
   const { data: contentStats, isLoading: contentStatsLoading } = useQuery<ContentStats>({
     queryKey: ["/api/admin/content/stats"],
     queryFn: async () => {
-      const [materialsRes, quizzesRes, blogPostsRes] = await Promise.all([
+      const [materialsRes, quizzesRes] = await Promise.all([
         fetch("/api/admin/content/materials"),
         fetch("/api/admin/content/quizzes"),
-        fetch("/api/admin/blog/posts"),
       ]);
 
       const materials = await materialsRes.json();
       const quizzes = await quizzesRes.json();
-      const blogPosts = await blogPostsRes.json();
 
       return {
         materials: {
@@ -78,12 +67,6 @@ export default function AdminDashboard() {
           pending: quizzes.filter((q: any) => q.moderationStatus === 'pending').length,
           approved: quizzes.filter((q: any) => q.moderationStatus === 'approved').length,
           rejected: quizzes.filter((q: any) => q.moderationStatus === 'rejected').length,
-        },
-        blogPosts: {
-          total: blogPosts.length,
-          published: blogPosts.filter((p: any) => p.published).length,
-          draft: blogPosts.filter((p: any) => !p.published).length,
-          featured: blogPosts.filter((p: any) => p.featured).length,
         },
       };
     },
@@ -304,60 +287,6 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="hover-elevate">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Newspaper className="h-5 w-5 text-teal-600" />
-                Blog Posts
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {contentStatsLoading ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                </div>
-              ) : (
-                <>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Total</span>
-                    <Badge variant="outline">{contentStats?.blogPosts.total || 0}</Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm flex items-center gap-1">
-                      <Eye className="h-3 w-3 text-green-600" />
-                      Published
-                    </span>
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-200">
-                      {contentStats?.blogPosts.published || 0}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm flex items-center gap-1">
-                      <FileClock className="h-3 w-3 text-gray-600" />
-                      Draft
-                    </span>
-                    <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-200">
-                      {contentStats?.blogPosts.draft || 0}
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm flex items-center gap-1">
-                      <TrendingUp className="h-3 w-3 text-yellow-600" />
-                      Featured
-                    </span>
-                    <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-200">
-                      {contentStats?.blogPosts.featured || 0}
-                    </Badge>
-                  </div>
-                  <Button size="sm" className="w-full mt-2" variant="outline" asChild>
-                    <Link href="/admin/blog">Manage Blog</Link>
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
 
