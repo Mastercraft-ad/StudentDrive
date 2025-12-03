@@ -68,11 +68,14 @@ export default function SchoolLoginPage() {
         description: `Welcome back, ${data.user.firstName}!`,
       });
       
+      // Preserve subdomain in URL for testing mode
+      const subdomainParam = isTestMode && testSubdomain ? `?subdomain=${testSubdomain}` : '';
+      
       // Redirect based on role - session is managed server-side
       if (data.user.role === "parent") {
-        setLocation("/school/parent-dashboard");
+        setLocation(`/school/parent-dashboard${subdomainParam}`);
       } else {
-        setLocation("/school/dashboard");
+        setLocation(`/school/dashboard${subdomainParam}`);
       }
     },
     onError: (error: Error) => {

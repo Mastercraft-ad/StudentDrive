@@ -1,4 +1,5 @@
 import { useAuth } from "@/hooks/useAuth";
+import { useSchoolAuth } from "@/hooks/useSchoolAuth";
 import {
   Sidebar,
   SidebarContent,
@@ -9,10 +10,40 @@ import { SidebarFooter } from "@/components/sidebar/SidebarFooter";
 import { menuConfig } from "@/config/navigation";
 import { Separator } from "@/components/ui/separator";
 
-export function AppSidebar() {
-  const { user } = useAuth();
+function isInSchoolContext(): boolean {
+  const urlParams = new URLSearchParams(window.location.search);
+  const subdomainFromQuery = urlParams.get('subdomain') || urlParams.get('__school');
+  
+  if (subdomainFromQuery) {
+    return true;
+  }
+  
+  const pathname = window.location.pathname;
+  if (pathname.startsWith('/school/') && !pathname.startsWith('/school/register')) {
+    return true;
+  }
+  
+  const hostname = window.location.hostname.toLowerCase();
+  if (hostname.includes('studentdrive.com')) {
+    const parts = hostname.split('.');
+    if (parts.length > 2 && parts[0] !== 'www') {
+      return true;
+    }
+  }
+  
+  return false;
+}
 
-  const userRole = user?.role || "student";
+export function AppSidebar() {
+  const platformAuth = useAuth();
+  const schoolAuth = useSchoolAuth();
+  const inSchoolContext = isInSchoolContext();
+  
+  const user = inSchoolContext ? schoolAuth.user : platformAuth.user;
+  const userRole = inSchoolContext 
+    ? (schoolAuth.user?.role || "school_admin") 
+    : (platformAuth.user?.role || "student");
+  
   const roleConfig = menuConfig[userRole];
 
   if (!roleConfig) {

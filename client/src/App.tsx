@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/app-header";
 import { ImpersonationProvider } from "@/contexts/ImpersonationContext";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { useAuth } from "@/hooks/useAuth";
+import { useSchoolAuth } from "@/hooks/useSchoolAuth";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Login from "@/pages/auth/login";
@@ -234,14 +235,166 @@ function Router({
   );
 }
 
+function SchoolAppWithSidebar({ children }: { children: React.ReactNode }) {
+  const style = {
+    "--sidebar-width": "16rem",
+    "--sidebar-width-icon": "3rem",
+  };
+  
+  return (
+    <SidebarProvider style={style as CSSProperties}>
+      <AppSidebar />
+      <SidebarInset className="flex flex-col h-screen overflow-hidden">
+        <AppHeader />
+        <main className="flex-1 overflow-y-auto bg-muted/30">
+          {children}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
+  );
+}
+
+function SchoolApp() {
+  const { isAuthenticated, isLoading, isSchoolAdmin, isTeacher, isParent, isStudent, subdomain } = useSchoolAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) {
+    return (
+      <Switch>
+        <Route path="/school/login" component={SchoolLogin} />
+        <Route path="/school/register" component={SchoolRegister} />
+        <Route>
+          {() => {
+            window.location.href = `/school/login${subdomain ? `?subdomain=${subdomain}` : ''}`;
+            return null;
+          }}
+        </Route>
+      </Switch>
+    );
+  }
+  
+  return (
+    <SchoolAppWithSidebar>
+      <Switch>
+        {/* School Admin Routes */}
+        {isSchoolAdmin && (
+          <>
+            <Route path="/school/dashboard" component={SchoolDashboard} />
+            <Route path="/school/classes" component={SchoolClasses} />
+            <Route path="/school/subjects" component={SchoolSubjects} />
+            <Route path="/school/terms" component={SchoolTerms} />
+            <Route path="/school/attendance" component={SchoolAttendance} />
+            <Route path="/school/attendance/reports" component={SchoolAttendanceReports} />
+            <Route path="/school/grades" component={SchoolGrades} />
+            <Route path="/school/grades/results" component={SchoolGradesResults} />
+            <Route path="/school/grades/report-cards" component={SchoolReportCards} />
+            <Route path="/school/fees" component={SchoolFees} />
+            <Route path="/school/timetable" component={SchoolTimetable} />
+            <Route path="/school/announcements" component={SchoolAnnouncements} />
+            <Route path="/school/resources" component={SchoolResources} />
+            <Route path="/school/students" component={SchoolStudents} />
+            <Route path="/school/teachers" component={SchoolTeachers} />
+            <Route path="/school/parents" component={SchoolParents} />
+            <Route path="/school/parent-student-links" component={SchoolParentStudentLinks} />
+            <Route path="/school/subscription" component={SchoolSubscription} />
+            <Route path="/school/subscription/callback" component={SubscriptionCallback} />
+            <Route path="/school/settings" component={SchoolSettings} />
+            <Route path="/school/messages" component={SchoolMessaging} />
+            <Route path="/school/analytics" component={SchoolAnalytics} />
+            <Route path="/" component={SchoolDashboard} />
+          </>
+        )}
+        
+        {/* Teacher Routes */}
+        {isTeacher && (
+          <>
+            <Route path="/school/dashboard" component={SchoolDashboard} />
+            <Route path="/school/teacher/schedule" component={TeacherSchedule} />
+            <Route path="/school/attendance" component={SchoolAttendance} />
+            <Route path="/school/grades" component={SchoolGrades} />
+            <Route path="/school/announcements" component={SchoolAnnouncements} />
+            <Route path="/school/resources" component={SchoolResources} />
+            <Route path="/school/messages" component={SchoolMessaging} />
+            <Route path="/" component={SchoolDashboard} />
+          </>
+        )}
+        
+        {/* Parent Routes */}
+        {isParent && (
+          <>
+            <Route path="/school/parent-dashboard" component={ParentDashboard} />
+            <Route path="/school/parent/grades" component={ParentGrades} />
+            <Route path="/school/parent/fees" component={ParentFees} />
+            <Route path="/school/payment-callback" component={PaymentCallback} />
+            <Route path="/school/receipt/:id" component={PaymentReceipt} />
+            <Route path="/school/announcements" component={SchoolAnnouncements} />
+            <Route path="/school/messages" component={SchoolMessaging} />
+            <Route path="/" component={ParentDashboard} />
+          </>
+        )}
+        
+        {/* Student Routes */}
+        {isStudent && (
+          <>
+            <Route path="/school/student-dashboard" component={SchoolDashboard} />
+            <Route path="/school/student/timetable" component={StudentTimetable} />
+            <Route path="/school/announcements" component={SchoolAnnouncements} />
+            <Route path="/school/resources" component={SchoolResources} />
+            <Route path="/" component={SchoolDashboard} />
+          </>
+        )}
+        
+        <Route component={NotFound} />
+      </Switch>
+    </SchoolAppWithSidebar>
+  );
+}
+
+function isSchoolContext(): boolean {
+  const urlParams = new URLSearchParams(window.location.search);
+  const subdomainFromQuery = urlParams.get('subdomain') || urlParams.get('__school');
+  
+  if (subdomainFromQuery) {
+    return true;
+  }
+  
+  const pathname = window.location.pathname;
+  if (pathname.startsWith('/school/') && !pathname.startsWith('/school/register')) {
+    return true;
+  }
+  
+  const hostname = window.location.hostname.toLowerCase();
+  if (hostname.includes('studentdrive.com')) {
+    const parts = hostname.split('.');
+    if (parts.length > 2 && parts[0] !== 'www') {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 export default function App() {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const inSchoolContext = isSchoolContext();
 
   // Custom sidebar width for better content display
   const style = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
+
+  // Handle school portal separately
+  if (inSchoolContext) {
+    return <SchoolApp />;
+  }
 
   if (isLoading) {
     return (
