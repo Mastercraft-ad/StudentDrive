@@ -81,8 +81,13 @@ export async function schoolContextMiddleware(
   try {
     const hostname = req.hostname || req.get('host')?.split(':')[0] || '';
     
-    const subdomainFromQuery = req.query.__school as string | undefined;
-    const subdomain = subdomainFromQuery || extractSubdomain(hostname);
+    // Check for subdomain from various sources (for testing mode compatibility):
+    // 1. Query parameter (__school or subdomain)
+    // 2. Request body (for POST requests like login)
+    // 3. Hostname subdomain extraction
+    const subdomainFromQuery = (req.query.__school || req.query.subdomain) as string | undefined;
+    const subdomainFromBody = req.body?.subdomain as string | undefined;
+    const subdomain = subdomainFromQuery || subdomainFromBody || extractSubdomain(hostname);
     
     if (!subdomain) {
       req.isSchoolContext = false;

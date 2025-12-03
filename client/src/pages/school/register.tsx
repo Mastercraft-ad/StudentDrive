@@ -175,6 +175,16 @@ export default function SchoolRegister() {
       day: "numeric",
     });
 
+    // For testing: use current domain with subdomain as query parameter
+    // Production URL would be: https://{subdomain}.studentdrive.com
+    const isTestMode = !window.location.hostname.includes('studentdrive.com');
+    const testPortalUrl = `${window.location.origin}/school/login?subdomain=${registeredSchool.subdomain}`;
+    const productionPortalUrl = `https://${registeredSchool.subdomain}.studentdrive.com/school/login`;
+    const portalUrl = isTestMode ? testPortalUrl : productionPortalUrl;
+    const displayUrl = isTestMode 
+      ? `${window.location.host}/school/login?subdomain=${registeredSchool.subdomain}`
+      : `${registeredSchool.subdomain}.studentdrive.com`;
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
         <Card className="w-full max-w-md text-center">
@@ -188,9 +198,14 @@ export default function SchoolRegister() {
           <CardContent className="space-y-4">
             <div className="bg-muted rounded-lg p-4 space-y-2">
               <p className="text-sm text-muted-foreground">Your school portal URL:</p>
-              <p className="font-mono text-primary font-medium" data-testid="text-portal-url">
-                {registeredSchool.subdomain}.studentdrive.com
+              <p className="font-mono text-primary font-medium text-sm break-all" data-testid="text-portal-url">
+                {displayUrl}
               </p>
+              {isTestMode && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  (Testing mode - production URL will be: {registeredSchool.subdomain}.studentdrive.com)
+                </p>
+              )}
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
               <Badge variant="secondary" className="mb-2">14-Day Free Trial</Badge>
@@ -201,7 +216,7 @@ export default function SchoolRegister() {
             <div className="pt-4 space-y-2">
               <Button
                 className="w-full"
-                onClick={() => window.open(`https://${registeredSchool.subdomain}.studentdrive.com/school/login`, "_blank")}
+                onClick={() => window.open(portalUrl, "_blank")}
                 data-testid="button-go-to-portal"
               >
                 Go to School Portal
@@ -298,7 +313,11 @@ export default function SchoolRegister() {
                           data-testid="input-subdomain"
                         />
                       </div>
-                      <span className="text-muted-foreground whitespace-nowrap">.studentdrive.com</span>
+                      <span className="text-muted-foreground whitespace-nowrap text-sm">
+                        {window.location.hostname.includes('studentdrive.com') 
+                          ? '.studentdrive.com' 
+                          : '(subdomain)'}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       {subdomainStatus === "checking" && (
@@ -520,7 +539,11 @@ export default function SchoolRegister() {
                           <span className="text-muted-foreground">Name:</span>
                           <span className="font-medium" data-testid="text-review-name">{watch("name")}</span>
                           <span className="text-muted-foreground">Portal URL:</span>
-                          <span className="font-medium text-primary" data-testid="text-review-url">{watch("subdomain")}.studentdrive.com</span>
+                          <span className="font-medium text-primary text-xs break-all" data-testid="text-review-url">
+                            {window.location.hostname.includes('studentdrive.com')
+                              ? `${watch("subdomain")}.studentdrive.com`
+                              : `${window.location.host}/school/login?subdomain=${watch("subdomain")}`}
+                          </span>
                           <span className="text-muted-foreground">Email:</span>
                           <span data-testid="text-review-email">{watch("email")}</span>
                           {watch("phone") && (

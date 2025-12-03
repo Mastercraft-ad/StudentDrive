@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { GraduationCap, Loader2, Eye, EyeOff } from "lucide-react";
+import { GraduationCap, Loader2, Eye, EyeOff, Building2 } from "lucide-react";
 
 interface SchoolInfo {
   id: string;
@@ -30,6 +30,7 @@ interface LoginResponse {
 
 export default function SchoolLoginPage() {
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
@@ -37,13 +38,23 @@ export default function SchoolLoginPage() {
     password: "",
   });
 
+  // Get subdomain from query parameter (for testing mode)
+  const urlParams = new URLSearchParams(searchString);
+  const testSubdomain = urlParams.get('subdomain');
+  const isTestMode = testSubdomain && !window.location.hostname.includes('studentdrive.com');
+
   const loginMutation = useMutation({
     mutationFn: async (data: typeof formData): Promise<LoginResponse> => {
+      // Include subdomain in login request for testing mode
+      const loginData = isTestMode 
+        ? { ...data, subdomain: testSubdomain }
+        : data;
+      
       const response = await fetch("/api/school/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(data),
+        body: JSON.stringify(loginData),
       });
       if (!response.ok) {
         const error = await response.json();
@@ -90,6 +101,13 @@ export default function SchoolLoginPage() {
             <CardDescription>
               Sign in to access your school portal
             </CardDescription>
+            {isTestMode && testSubdomain && (
+              <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full text-sm">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Portal:</span>
+                <span className="font-medium text-primary">{testSubdomain}</span>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
