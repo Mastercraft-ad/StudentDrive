@@ -367,15 +367,12 @@ function isSchoolContext(): boolean {
   const urlParams = new URLSearchParams(window.location.search);
   const subdomainFromQuery = urlParams.get('subdomain') || urlParams.get('__school');
   
+  // Only consider it school context if there's a subdomain parameter
   if (subdomainFromQuery) {
     return true;
   }
   
-  const pathname = window.location.pathname;
-  if (pathname.startsWith('/school/') && !pathname.startsWith('/school/register')) {
-    return true;
-  }
-  
+  // Check for subdomain in hostname (e.g., school1.studentdrive.com)
   const hostname = window.location.hostname.toLowerCase();
   if (hostname.includes('studentdrive.com')) {
     const parts = hostname.split('.');
@@ -383,6 +380,10 @@ function isSchoolContext(): boolean {
       return true;
     }
   }
+  
+  // Note: We don't check pathname.startsWith('/school/') anymore
+  // because institution users logged in via platform auth should use
+  // the platform routing, not school-specific routing
   
   return false;
 }
