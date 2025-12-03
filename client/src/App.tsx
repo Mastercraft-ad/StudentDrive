@@ -66,6 +66,9 @@ import Quizzes from "@/pages/quizzes";
 import QuizTake from "@/pages/quiz-take";
 import Performance from "@/pages/performance";
 import Settings from "@/pages/settings";
+import BadgesPage from "@/pages/student/badges";
+import StudyGroupsPage from "@/pages/student/study-groups";
+import SpacedRepetitionReviewPage from "@/pages/student/review";
 import InstitutionsDirectory from "@/pages/institutions-directory";
 import InstitutionDetail from "@/pages/institution-detail";
 import SchoolLogin from "@/pages/school/login";
@@ -127,6 +130,9 @@ function Router({
           <Route path="/quiz/:id" component={QuizTake} />
           <Route path="/performance" component={Performance} />
           <Route path="/bookmarks" component={Bookmarks} />
+          <Route path="/badges" component={BadgesPage} />
+          <Route path="/study-groups" component={StudyGroupsPage} />
+          <Route path="/review" component={SpacedRepetitionReviewPage} />
           <Route path="/institutions" component={InstitutionsDirectory} />
           <Route path="/institutions/:slug" component={InstitutionDetail} />
           <Route path="/settings" component={Settings} />

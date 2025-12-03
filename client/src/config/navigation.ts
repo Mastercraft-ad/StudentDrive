@@ -30,6 +30,9 @@ import {
   Monitor,
   ShieldAlert,
   Link2,
+  Trophy,
+  Brain,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,11 +67,14 @@ export const menuConfig: MenuConfig = {
         { title: "Resources", url: "/resources", icon: BookOpen },
         { title: "My Library", url: "/my-library", icon: Library },
         { title: "Quizzes", url: "/quizzes", icon: ClipboardList },
+        { title: "Review", url: "/review", icon: Brain },
       ],
     },
     secondary: {
-      label: "Tools",
+      label: "Community",
       items: [
+        { title: "Badges", url: "/badges", icon: Trophy },
+        { title: "Study Groups", url: "/study-groups", icon: UsersRound },
         { title: "Upload Material", url: "/student/upload", icon: Upload },
         { title: "Performance", url: "/performance", icon: TrendingUp },
         { title: "Bookmarks", url: "/bookmarks", icon: FileText },

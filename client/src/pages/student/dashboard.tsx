@@ -13,9 +13,14 @@ import {
   Star,
   ArrowRight,
   Bookmark,
+  Brain,
+  Users,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
+import { GamificationProfile } from "@/components/gamification-profile";
+import { SpacedRepetitionWidget } from "@/components/spaced-repetition-review";
+import { LearningRecommendations } from "@/components/learning-recommendations";
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -249,48 +254,33 @@ export default function StudentDashboard() {
         </Card>
       </div>
 
-      {/* Achievements Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Recent Achievements</CardTitle>
-              <CardDescription>Celebrate your progress</CardDescription>
-            </div>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/achievements">View All</Link>
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {achievementsLoading ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-24 w-32 flex-shrink-0" />
-              ))
-            ) : achievements && achievements.length > 0 ? (
-              achievements.slice(0, 6).map((achievement: any) => (
-                <div
-                  key={achievement.id}
-                  className="flex-shrink-0 w-32 p-4 rounded-lg bg-achievement-gold/10 border border-achievement-gold/20 text-center"
-                  data-testid={`achievement-${achievement.id}`}
-                >
-                  <Star className="h-8 w-8 mx-auto mb-2 text-achievement-gold" />
-                  <p className="text-xs font-semibold">{achievement.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {achievement.date}
-                  </p>
+      {/* Gamification & Learning Section */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <GamificationProfile />
+        </div>
+        <div className="space-y-4">
+          <SpacedRepetitionWidget />
+          <Card className="hover-elevate">
+            <CardContent className="py-4">
+              <Link href="/study-groups" data-testid="link-study-groups">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <Users className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Study Groups</p>
+                      <p className="text-sm text-muted-foreground">Collaborate with peers</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
                 </div>
-              ))
-            ) : (
-              <div className="w-full text-center py-8 text-muted-foreground">
-                <Award className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                <p className="text-sm">Complete quizzes to earn achievements</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {/* Performance Overview */}
       <Card>
