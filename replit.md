@@ -115,17 +115,18 @@ student
 
 ---
 
-## System Health & Security Audit (December 2, 2025)
+## System Health & Security Audit (Last Updated: December 3, 2025)
 
 ### System Health Status
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| PostgreSQL Database | Healthy | 47 tables, all relations verified |
+| PostgreSQL Database | Healthy | 47+ tables, all relations verified |
 | Express Server | Running | Port 5000, serving frontend and API |
 | Session Store | Active | PostgreSQL-backed, 7-day TTL |
 | File Uploads | Configured | Validated types, size limits enforced |
-| Workflow | Running | npm run dev with hot reload |
+| Workflow | Running | npm run dev with hot reload (webview output) |
+| Vite Dev Server | Connected | Hot module replacement active |
 
 ### Database Tables (47 Total)
 
@@ -293,3 +294,50 @@ student
 - **Separate Session Context**: LMS users and SMS school users have distinct session handling
 - **Data Isolation**: All school queries filter by schoolId
 - **Role Scoping**: School roles are scoped to their respective school context
+
+---
+
+## Development Environment
+
+### Quick Start
+1. Run `npm install` to install dependencies
+2. Run `npm run db:push` to sync database schema
+3. Start the application with `npm run dev` (workflow configured)
+
+### Available Scripts
+| Script | Purpose |
+|--------|---------|
+| `npm run dev` | Start development server with hot reload |
+| `npm run build` | Build production bundle |
+| `npm run start` | Start production server |
+| `npm run db:push` | Push schema changes to database |
+| `npm run db:studio` | Open Drizzle Studio for database inspection |
+
+### Environment Variables
+The following environment variables are automatically configured:
+- `DATABASE_URL` - PostgreSQL connection string
+- `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` - PostgreSQL connection details
+
+### Project Structure
+```
+├── client/               # React frontend
+│   ├── src/
+│   │   ├── components/   # Reusable UI components
+│   │   ├── pages/        # Route pages
+│   │   ├── hooks/        # Custom React hooks
+│   │   └── lib/          # Utilities and query client
+├── server/               # Express backend
+│   ├── index.ts          # Server entry point
+│   ├── routes.ts         # API routes
+│   ├── storage.ts        # Database operations
+│   └── school-routes.ts  # School management routes
+├── shared/               # Shared types and schemas
+│   └── schema.ts         # Drizzle ORM schemas
+└── uploads/              # File upload directory
+```
+
+### Last Import Status
+- **Date**: December 3, 2025
+- **Status**: Fully Operational
+- **Database**: PostgreSQL provisioned and schema pushed
+- **Workflow**: Configured with webview output on port 5000
