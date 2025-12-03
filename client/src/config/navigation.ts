@@ -236,6 +236,53 @@ export const menuConfig: MenuConfig = {
       { title: "System Settings", url: "/super-admin/settings", icon: Settings },
     ],
   },
+  school_admin: {
+    primary: {
+      label: "School Management",
+      items: [
+        { title: "Dashboard", url: "/school/dashboard", icon: Home },
+        { title: "Students", url: "/school/students", icon: GraduationCap },
+        { title: "Teachers", url: "/school/teachers", icon: Users },
+        { title: "Parents", url: "/school/parents", icon: Users2 },
+        { title: "Family Links", url: "/school/parent-student-links", icon: Link2 },
+        { title: "Classes", url: "/school/classes", icon: BookOpen },
+        { title: "Subjects", url: "/school/subjects", icon: FileText },
+        { title: "Terms", url: "/school/terms", icon: Calendar },
+      ],
+    },
+    secondary: {
+      label: "Academic & Finance",
+      items: [
+        { 
+          title: "Attendance", 
+          url: "#", 
+          icon: UserCheck,
+          children: [
+            { title: "Mark Attendance", url: "/school/attendance", icon: UserCheck },
+            { title: "Reports", url: "/school/attendance/reports", icon: BarChart3 },
+          ],
+        },
+        { 
+          title: "Grades", 
+          url: "#", 
+          icon: TrendingUp,
+          children: [
+            { title: "Enter Grades", url: "/school/grades", icon: TrendingUp },
+            { title: "Term Results", url: "/school/grades/results", icon: Calculator },
+            { title: "Report Cards", url: "/school/grades/report-cards", icon: FileSpreadsheet },
+          ],
+        },
+        { title: "Fees", url: "/school/fees", icon: DollarSign },
+        { title: "Timetable", url: "/school/timetable", icon: Clock },
+        { title: "Announcements", url: "/school/announcements", icon: Bell },
+        { title: "Resources", url: "/school/resources", icon: FolderOpen },
+        { title: "Analytics", url: "/school/analytics", icon: BarChart3 },
+        { title: "Subscription", url: "/school/subscription", icon: CreditCard },
+        { title: "School Settings", url: "/school/settings", icon: Settings },
+      ],
+    },
+    footer: [],
+  },
 };
 
 export function isPathActive(itemPath: string, currentPath: string): boolean {
