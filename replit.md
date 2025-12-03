@@ -145,12 +145,65 @@ student
 - `school_conversations`, `school_messages`, `parent_student_links`
 - `subscription_plans`, `subscription_payments`
 
+**Learning Enhancement (Gamification & Personalization):**
+- `user_gamification` - XP, level, streaks, quiz stats per user
+- `badges` - Achievement badge definitions (20 badges seeded)
+- `user_badges` - Earned badges tracking with notification status
+- `user_streaks` - Daily study streak tracking
+- `daily_study_logs` - Daily activity metrics (quizzes, reviews, XP)
+- `xp_transactions` - XP earning history with source tracking
+- `spaced_repetition_cards` - Flashcards with SM-2 algorithm scheduling
+- `learning_recommendations` - Personalized content recommendations
+
 **Security & Monitoring:**
 - `sessions` - PostgreSQL session storage
 - `security_events` - Security event logging
 - `user_active_sessions` - Session tracking
 - `platform_activity_feed` - Real-time activity monitoring
 - `impersonation_logs` - Super admin impersonation audit trail
+
+### Learning Enhancement Features (December 2025)
+
+**Gamification System:**
+- XP Awards: Quiz completion (20-50 XP based on score), flashcard reviews (2-5 XP), perfect scores (+25 XP), badge earning (varies)
+- Leveling: Exponential XP curve (100 base XP * 1.5^level for next level)
+- Streaks: Daily study tracking with automatic streak updates
+- Leaderboards: Weekly, monthly, and all-time rankings with user rank display
+
+**Badge System (20 Achievement Badges):**
+| Category | Badges | Unlock Conditions |
+|----------|--------|-------------------|
+| Quiz | First Steps, Enthusiast, Master, Legend | 1, 10, 50, 100 quizzes completed |
+| Perfect | Perfect Start, Perfectionist, Flawless | 1, 5, 20 perfect scores |
+| Streak | Committed, Dedicated, Unstoppable, Habit Master | 3, 7, 14, 30 day streaks |
+| Learning | Curious Mind, Knowledge Seeker, Scholar | 10, 50, 100 materials viewed |
+| Reviews | Memory Training, Memory Master | 10, 100 flashcard reviews |
+| Level | Rising Star, Achiever, Champion, Elite | Level 5, 10, 25, 50 |
+
+**Spaced Repetition (SM-2 Algorithm):**
+- Automatic flashcard generation from wrong quiz answers
+- Quality ratings: 0-5 scale (0=forgot, 3=hard, 4=good, 5=easy)
+- Interval scheduling: 1, 6, days then multiplied by ease factor
+- Ease factor adjustment based on answer quality
+- Cards organized by course and topic
+
+**Adaptive Recommendations:**
+- Performance-based: Analyzes quiz scores to identify weak areas (<70% average)
+- Content suggestions: Materials and quizzes for improvement
+- Due review alerts: Flashcard review reminders
+- Priority scoring: Higher priority for lower performance areas
+
+**API Endpoints (Learning Enhancement):**
+- `GET /api/gamification/stats` - User XP, level, streak, progress
+- `GET /api/gamification/leaderboard` - Weekly/monthly/total rankings
+- `GET /api/gamification/xp-history` - XP transaction history
+- `GET /api/badges` - All badges with earned status
+- `GET /api/badges/earned` - User's earned badges
+- `GET /api/badges/unnotified` - Newly earned badges for notifications
+- `GET /api/spaced-repetition/cards` - All flashcards
+- `GET /api/spaced-repetition/due` - Cards due for review
+- `POST /api/spaced-repetition/cards/:id/review` - Submit review with SM-2
+- `POST /api/recommendations/generate` - Generate personalized recommendations
 
 ### Security Assessment
 

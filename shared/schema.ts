@@ -2025,3 +2025,302 @@ export const insertSecurityEventSchema = createInsertSchema(securityEvents).omit
 
 export type InsertSecurityEvent = z.infer<typeof insertSecurityEventSchema>;
 export type SecurityEvent = typeof securityEvents.$inferSelect;
+
+// ============================================
+// LEARNING ENHANCEMENT FEATURES
+// ============================================
+
+// Badges - Achievement definitions
+export const badges = pgTable("badges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description").notNull(),
+  icon: varchar("icon", { length: 50 }).notNull(), // lucide icon name
+  category: varchar("category", { length: 50 }).notNull(), // quiz, streak, learning, social, milestone
+  xpReward: integer("xp_reward").default(0).notNull(),
+  
+  // Unlock conditions (stored as JSON for flexibility)
+  unlockCondition: jsonb("unlock_condition").notNull(),
+  // Example conditions:
+  // { type: "quiz_count", value: 1 } - Complete 1 quiz
+  // { type: "streak_days", value: 7 } - 7-day streak
+  // { type: "quiz_score", value: 100, count: 5 } - 5 perfect scores
+  // { type: "materials_viewed", value: 50 } - View 50 materials
+  
+  rarity: varchar("rarity", { length: 20 }).default("common").notNull(), // common, uncommon, rare, epic, legendary
+  isActive: boolean("is_active").default(true).notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBadgeSchema = createInsertSchema(badges).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBadge = z.infer<typeof insertBadgeSchema>;
+export type Badge = typeof badges.$inferSelect;
+
+// User Badges - Earned achievements
+export const userBadges = pgTable("user_badges", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  badgeId: varchar("badge_id").references(() => badges.id, { onDelete: 'cascade' }).notNull(),
+  earnedAt: timestamp("earned_at").defaultNow().notNull(),
+  notified: boolean("notified").default(false), // Whether user was notified
+}, (table) => [
+  index("IDX_user_badges_user").on(table.userId),
+  index("IDX_user_badges_badge").on(table.badgeId),
+]);
+
+export const userBadgesRelations = relations(userBadges, ({ one }) => ({
+  user: one(users, {
+    fields: [userBadges.userId],
+    references: [users.id],
+  }),
+  badge: one(badges, {
+    fields: [userBadges.badgeId],
+    references: [badges.id],
+  }),
+}));
+
+export const insertUserBadgeSchema = createInsertSchema(userBadges).omit({
+  id: true,
+  earnedAt: true,
+});
+
+export type InsertUserBadge = z.infer<typeof insertUserBadgeSchema>;
+export type UserBadge = typeof userBadges.$inferSelect;
+
+// User Gamification - XP, levels, and points
+export const userGamification = pgTable("user_gamification", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").unique().references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Experience points
+  totalXp: integer("total_xp").default(0).notNull(),
+  weeklyXp: integer("weekly_xp").default(0).notNull(),
+  monthlyXp: integer("monthly_xp").default(0).notNull(),
+  
+  // Level system (calculated from totalXp)
+  level: integer("level").default(1).notNull(),
+  
+  // Streak tracking
+  currentStreak: integer("current_streak").default(0).notNull(),
+  longestStreak: integer("longest_streak").default(0).notNull(),
+  lastActivityDate: timestamp("last_activity_date"),
+  
+  // Activity counts for badge checking
+  quizzesCompleted: integer("quizzes_completed").default(0).notNull(),
+  perfectScores: integer("perfect_scores").default(0).notNull(),
+  materialsViewed: integer("materials_viewed").default(0).notNull(),
+  reviewsCompleted: integer("reviews_completed").default(0).notNull(),
+  
+  // Weekly reset tracking
+  weekStartDate: timestamp("week_start_date"),
+  monthStartDate: timestamp("month_start_date"),
+  
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_user_gamification_user").on(table.userId),
+  index("IDX_user_gamification_xp").on(table.totalXp),
+  index("IDX_user_gamification_level").on(table.level),
+  index("IDX_user_gamification_weekly_xp").on(table.weeklyXp),
+]);
+
+export const userGamificationRelations = relations(userGamification, ({ one }) => ({
+  user: one(users, {
+    fields: [userGamification.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertUserGamificationSchema = createInsertSchema(userGamification).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertUserGamification = z.infer<typeof insertUserGamificationSchema>;
+export type UserGamification = typeof userGamification.$inferSelect;
+
+// XP Transactions - Log of all XP earned
+export const xpTransactions = pgTable("xp_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  amount: integer("amount").notNull(),
+  source: varchar("source", { length: 50 }).notNull(), // quiz_complete, perfect_score, streak_bonus, badge_earned, material_view, review_complete
+  sourceId: varchar("source_id"), // Related entity ID (quizId, badgeId, etc.)
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_xp_transactions_user").on(table.userId),
+  index("IDX_xp_transactions_source").on(table.source),
+  index("IDX_xp_transactions_created").on(table.createdAt),
+]);
+
+export const xpTransactionsRelations = relations(xpTransactions, ({ one }) => ({
+  user: one(users, {
+    fields: [xpTransactions.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertXpTransactionSchema = createInsertSchema(xpTransactions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertXpTransaction = z.infer<typeof insertXpTransactionSchema>;
+export type XpTransaction = typeof xpTransactions.$inferSelect;
+
+// Spaced Repetition Cards - For memory retention
+export const spacedRepetitionCards = pgTable("spaced_repetition_cards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Card content
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  
+  // Source tracking
+  sourceType: varchar("source_type", { length: 20 }).notNull(), // quiz, material, manual
+  sourceId: varchar("source_id"), // quizQuestionId, materialId, etc.
+  courseId: varchar("course_id").references(() => courses.id, { onDelete: 'set null' }),
+  topic: varchar("topic", { length: 255 }),
+  
+  // SM-2 Algorithm fields
+  easeFactor: real("ease_factor").default(2.5).notNull(), // Initial ease factor
+  interval: integer("interval").default(1).notNull(), // Days until next review
+  repetitions: integer("repetitions").default(0).notNull(), // Successful reviews in a row
+  
+  // Scheduling
+  nextReviewDate: timestamp("next_review_date").defaultNow().notNull(),
+  lastReviewDate: timestamp("last_review_date"),
+  
+  // Stats
+  totalReviews: integer("total_reviews").default(0).notNull(),
+  correctReviews: integer("correct_reviews").default(0).notNull(),
+  
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_sr_cards_user").on(table.userId),
+  index("IDX_sr_cards_next_review").on(table.nextReviewDate),
+  index("IDX_sr_cards_course").on(table.courseId),
+  index("IDX_sr_cards_source").on(table.sourceType, table.sourceId),
+]);
+
+export const spacedRepetitionCardsRelations = relations(spacedRepetitionCards, ({ one }) => ({
+  user: one(users, {
+    fields: [spacedRepetitionCards.userId],
+    references: [users.id],
+  }),
+  course: one(courses, {
+    fields: [spacedRepetitionCards.courseId],
+    references: [courses.id],
+  }),
+}));
+
+export const insertSpacedRepetitionCardSchema = createInsertSchema(spacedRepetitionCards).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSpacedRepetitionCard = z.infer<typeof insertSpacedRepetitionCardSchema>;
+export type SpacedRepetitionCard = typeof spacedRepetitionCards.$inferSelect;
+
+// Learning Recommendations - Personalized suggestions
+export const learningRecommendations = pgTable("learning_recommendations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Recommendation type and target
+  type: varchar("type", { length: 30 }).notNull(), // material, quiz, course, review
+  targetId: varchar("target_id").notNull(), // ID of the recommended item
+  targetTitle: varchar("target_title", { length: 255 }).notNull(),
+  
+  // Context
+  reason: text("reason").notNull(), // Why this was recommended
+  priority: integer("priority").default(50).notNull(), // 1-100, higher = more important
+  courseId: varchar("course_id").references(() => courses.id, { onDelete: 'set null' }),
+  
+  // Performance context
+  relatedScore: integer("related_score"), // Quiz score that triggered this
+  weakTopics: text("weak_topics").array(), // Topics user struggled with
+  
+  // Status
+  status: varchar("status", { length: 20 }).default("active").notNull(), // active, viewed, completed, dismissed
+  viewedAt: timestamp("viewed_at"),
+  completedAt: timestamp("completed_at"),
+  dismissedAt: timestamp("dismissed_at"),
+  
+  expiresAt: timestamp("expires_at"), // Recommendations can expire
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_recommendations_user").on(table.userId),
+  index("IDX_recommendations_status").on(table.status),
+  index("IDX_recommendations_type").on(table.type),
+  index("IDX_recommendations_priority").on(table.priority),
+]);
+
+export const learningRecommendationsRelations = relations(learningRecommendations, ({ one }) => ({
+  user: one(users, {
+    fields: [learningRecommendations.userId],
+    references: [users.id],
+  }),
+  course: one(courses, {
+    fields: [learningRecommendations.courseId],
+    references: [courses.id],
+  }),
+}));
+
+export const insertLearningRecommendationSchema = createInsertSchema(learningRecommendations).omit({
+  id: true,
+  createdAt: true,
+  viewedAt: true,
+  completedAt: true,
+  dismissedAt: true,
+});
+
+export type InsertLearningRecommendation = z.infer<typeof insertLearningRecommendationSchema>;
+export type LearningRecommendation = typeof learningRecommendations.$inferSelect;
+
+// Daily Study Logs - Track daily activity for streak calculation
+export const dailyStudyLogs = pgTable("daily_study_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  date: timestamp("date").notNull(), // The calendar date (normalized to midnight UTC)
+  
+  // Activity counts for the day
+  quizzesTaken: integer("quizzes_taken").default(0).notNull(),
+  materialsViewed: integer("materials_viewed").default(0).notNull(),
+  reviewsCompleted: integer("reviews_completed").default(0).notNull(),
+  xpEarned: integer("xp_earned").default(0).notNull(),
+  
+  // Time tracking
+  studyMinutes: integer("study_minutes").default(0).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_daily_study_user").on(table.userId),
+  index("IDX_daily_study_date").on(table.date),
+]);
+
+export const dailyStudyLogsRelations = relations(dailyStudyLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [dailyStudyLogs.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertDailyStudyLogSchema = createInsertSchema(dailyStudyLogs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertDailyStudyLog = z.infer<typeof insertDailyStudyLogSchema>;
+export type DailyStudyLog = typeof dailyStudyLogs.$inferSelect;

@@ -39,6 +39,13 @@ import {
   subscriptionPayments,
   schoolConversations,
   schoolMessages,
+  badges,
+  userBadges,
+  userGamification,
+  xpTransactions,
+  spacedRepetitionCards,
+  learningRecommendations,
+  dailyStudyLogs,
   type User,
   type UpsertUser,
   type Institution,
@@ -119,9 +126,23 @@ import {
   type InsertSchoolConversation,
   type SchoolMessage,
   type InsertSchoolMessage,
+  type Badge,
+  type InsertBadge,
+  type UserBadge,
+  type InsertUserBadge,
+  type UserGamification,
+  type InsertUserGamification,
+  type XpTransaction,
+  type InsertXpTransaction,
+  type SpacedRepetitionCard,
+  type InsertSpacedRepetitionCard,
+  type LearningRecommendation,
+  type InsertLearningRecommendation,
+  type DailyStudyLog,
+  type InsertDailyStudyLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql, ne } from "drizzle-orm";
+import { eq, and, desc, sql, ne, lte, gte, asc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -2374,6 +2395,469 @@ export class DatabaseStorage implements IStorage {
     
     const countField = userType === 'parent' ? 'parentUnreadCount' : 'teacherUnreadCount';
     return conversations.reduce((total, conv) => total + (conv[countField] || 0), 0);
+  }
+
+  // ============================================
+  // LEARNING ENHANCEMENT - BADGES
+  // ============================================
+
+  async getBadges(): Promise<Badge[]> {
+    return await db.select()
+      .from(badges)
+      .where(eq(badges.isActive, true))
+      .orderBy(badges.sortOrder);
+  }
+
+  async getBadge(id: string): Promise<Badge | undefined> {
+    const [badge] = await db.select()
+      .from(badges)
+      .where(eq(badges.id, id));
+    return badge;
+  }
+
+  async createBadge(badgeData: InsertBadge): Promise<Badge> {
+    const [badge] = await db.insert(badges)
+      .values(badgeData)
+      .returning();
+    return badge;
+  }
+
+  async getUserBadges(userId: string): Promise<(UserBadge & { badge: Badge })[]> {
+    const results = await db.select()
+      .from(userBadges)
+      .innerJoin(badges, eq(userBadges.badgeId, badges.id))
+      .where(eq(userBadges.userId, userId))
+      .orderBy(desc(userBadges.earnedAt));
+    
+    return results.map(r => ({
+      ...r.user_badges,
+      badge: r.badges
+    }));
+  }
+
+  async hasUserBadge(userId: string, badgeId: string): Promise<boolean> {
+    const [result] = await db.select()
+      .from(userBadges)
+      .where(and(
+        eq(userBadges.userId, userId),
+        eq(userBadges.badgeId, badgeId)
+      ));
+    return !!result;
+  }
+
+  async awardBadge(userId: string, badgeId: string): Promise<UserBadge> {
+    const [userBadge] = await db.insert(userBadges)
+      .values({ userId, badgeId })
+      .returning();
+    return userBadge;
+  }
+
+  async getUnnotifiedBadges(userId: string): Promise<(UserBadge & { badge: Badge })[]> {
+    const results = await db.select()
+      .from(userBadges)
+      .innerJoin(badges, eq(userBadges.badgeId, badges.id))
+      .where(and(
+        eq(userBadges.userId, userId),
+        eq(userBadges.notified, false)
+      ))
+      .orderBy(desc(userBadges.earnedAt));
+    
+    return results.map(r => ({
+      ...r.user_badges,
+      badge: r.badges
+    }));
+  }
+
+  async markBadgeNotified(userBadgeId: string): Promise<void> {
+    await db.update(userBadges)
+      .set({ notified: true })
+      .where(eq(userBadges.id, userBadgeId));
+  }
+
+  // ============================================
+  // LEARNING ENHANCEMENT - GAMIFICATION
+  // ============================================
+
+  async getUserGamification(userId: string): Promise<UserGamification | undefined> {
+    const [result] = await db.select()
+      .from(userGamification)
+      .where(eq(userGamification.userId, userId));
+    return result;
+  }
+
+  async createUserGamification(userId: string): Promise<UserGamification> {
+    const now = new Date();
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    
+    const [result] = await db.insert(userGamification)
+      .values({
+        userId,
+        weekStartDate: weekStart,
+        monthStartDate: monthStart,
+      })
+      .returning();
+    return result;
+  }
+
+  async getOrCreateUserGamification(userId: string): Promise<UserGamification> {
+    let gamification = await this.getUserGamification(userId);
+    if (!gamification) {
+      gamification = await this.createUserGamification(userId);
+    }
+    return gamification;
+  }
+
+  async updateUserGamification(userId: string, updates: Partial<UserGamification>): Promise<UserGamification> {
+    const [result] = await db.update(userGamification)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(userGamification.userId, userId))
+      .returning();
+    return result;
+  }
+
+  async addXp(userId: string, amount: number, source: string, sourceId?: string, description?: string): Promise<XpTransaction> {
+    const gamification = await this.getOrCreateUserGamification(userId);
+    
+    const newTotalXp = gamification.totalXp + amount;
+    const newWeeklyXp = gamification.weeklyXp + amount;
+    const newMonthlyXp = gamification.monthlyXp + amount;
+    const newLevel = this.calculateLevel(newTotalXp);
+    
+    await this.updateUserGamification(userId, {
+      totalXp: newTotalXp,
+      weeklyXp: newWeeklyXp,
+      monthlyXp: newMonthlyXp,
+      level: newLevel,
+    });
+    
+    const [transaction] = await db.insert(xpTransactions)
+      .values({ userId, amount, source, sourceId, description })
+      .returning();
+    
+    return transaction;
+  }
+
+  calculateLevel(totalXp: number): number {
+    const xpPerLevel = 100;
+    const levelMultiplier = 1.5;
+    
+    let level = 1;
+    let xpRequired = xpPerLevel;
+    let xpRemaining = totalXp;
+    
+    while (xpRemaining >= xpRequired) {
+      xpRemaining -= xpRequired;
+      level++;
+      xpRequired = Math.floor(xpPerLevel * Math.pow(levelMultiplier, level - 1));
+    }
+    
+    return level;
+  }
+
+  async getXpTransactions(userId: string, limit: number = 20): Promise<XpTransaction[]> {
+    return await db.select()
+      .from(xpTransactions)
+      .where(eq(xpTransactions.userId, userId))
+      .orderBy(desc(xpTransactions.createdAt))
+      .limit(limit);
+  }
+
+  async getLeaderboard(limit: number = 10, type: 'total' | 'weekly' | 'monthly' = 'weekly'): Promise<(UserGamification & { user: User })[]> {
+    const orderColumn = type === 'total' 
+      ? userGamification.totalXp 
+      : type === 'weekly' 
+        ? userGamification.weeklyXp 
+        : userGamification.monthlyXp;
+    
+    const results = await db.select()
+      .from(userGamification)
+      .innerJoin(users, eq(userGamification.userId, users.id))
+      .orderBy(desc(orderColumn))
+      .limit(limit);
+    
+    return results.map(r => ({
+      ...r.user_gamification,
+      user: r.users
+    }));
+  }
+
+  // ============================================
+  // LEARNING ENHANCEMENT - STREAKS
+  // ============================================
+
+  async updateStreak(userId: string): Promise<{ currentStreak: number; longestStreak: number; isNewDay: boolean }> {
+    const gamification = await this.getOrCreateUserGamification(userId);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const lastActivity = gamification.lastActivityDate 
+      ? new Date(gamification.lastActivityDate.getFullYear(), gamification.lastActivityDate.getMonth(), gamification.lastActivityDate.getDate())
+      : null;
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    
+    let currentStreak = gamification.currentStreak;
+    let longestStreak = gamification.longestStreak;
+    let isNewDay = false;
+    
+    if (!lastActivity || lastActivity.getTime() < today.getTime()) {
+      isNewDay = true;
+      
+      if (lastActivity && lastActivity.getTime() === yesterday.getTime()) {
+        currentStreak += 1;
+      } else if (!lastActivity || lastActivity.getTime() < yesterday.getTime()) {
+        currentStreak = 1;
+      }
+      
+      if (currentStreak > longestStreak) {
+        longestStreak = currentStreak;
+      }
+      
+      await this.updateUserGamification(userId, {
+        currentStreak,
+        longestStreak,
+        lastActivityDate: now,
+      });
+    }
+    
+    return { currentStreak, longestStreak, isNewDay };
+  }
+
+  async getDailyStudyLog(userId: string, date: Date): Promise<DailyStudyLog | undefined> {
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+    
+    const [log] = await db.select()
+      .from(dailyStudyLogs)
+      .where(and(
+        eq(dailyStudyLogs.userId, userId),
+        gte(dailyStudyLogs.date, dayStart),
+        lte(dailyStudyLogs.date, dayEnd)
+      ));
+    return log;
+  }
+
+  async updateDailyStudyLog(userId: string, updates: { quizzesTaken?: number; materialsViewed?: number; reviewsCompleted?: number; xpEarned?: number; studyMinutes?: number }): Promise<DailyStudyLog> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let log = await this.getDailyStudyLog(userId, today);
+    
+    if (!log) {
+      const [newLog] = await db.insert(dailyStudyLogs)
+        .values({
+          userId,
+          date: today,
+          ...updates
+        })
+        .returning();
+      return newLog;
+    }
+    
+    const updateData: any = { updatedAt: new Date() };
+    if (updates.quizzesTaken) updateData.quizzesTaken = sql`${dailyStudyLogs.quizzesTaken} + ${updates.quizzesTaken}`;
+    if (updates.materialsViewed) updateData.materialsViewed = sql`${dailyStudyLogs.materialsViewed} + ${updates.materialsViewed}`;
+    if (updates.reviewsCompleted) updateData.reviewsCompleted = sql`${dailyStudyLogs.reviewsCompleted} + ${updates.reviewsCompleted}`;
+    if (updates.xpEarned) updateData.xpEarned = sql`${dailyStudyLogs.xpEarned} + ${updates.xpEarned}`;
+    if (updates.studyMinutes) updateData.studyMinutes = sql`${dailyStudyLogs.studyMinutes} + ${updates.studyMinutes}`;
+    
+    const [updatedLog] = await db.update(dailyStudyLogs)
+      .set(updateData)
+      .where(eq(dailyStudyLogs.id, log.id))
+      .returning();
+    
+    return updatedLog;
+  }
+
+  async getStudyHistory(userId: string, days: number = 30): Promise<DailyStudyLog[]> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+    
+    return await db.select()
+      .from(dailyStudyLogs)
+      .where(and(
+        eq(dailyStudyLogs.userId, userId),
+        gte(dailyStudyLogs.date, startDate)
+      ))
+      .orderBy(desc(dailyStudyLogs.date));
+  }
+
+  // ============================================
+  // LEARNING ENHANCEMENT - SPACED REPETITION
+  // ============================================
+
+  async getSpacedRepetitionCards(userId: string): Promise<SpacedRepetitionCard[]> {
+    return await db.select()
+      .from(spacedRepetitionCards)
+      .where(and(
+        eq(spacedRepetitionCards.userId, userId),
+        eq(spacedRepetitionCards.isActive, true)
+      ))
+      .orderBy(asc(spacedRepetitionCards.nextReviewDate));
+  }
+
+  async getDueCards(userId: string, limit: number = 20): Promise<SpacedRepetitionCard[]> {
+    const now = new Date();
+    return await db.select()
+      .from(spacedRepetitionCards)
+      .where(and(
+        eq(spacedRepetitionCards.userId, userId),
+        eq(spacedRepetitionCards.isActive, true),
+        lte(spacedRepetitionCards.nextReviewDate, now)
+      ))
+      .orderBy(asc(spacedRepetitionCards.nextReviewDate))
+      .limit(limit);
+  }
+
+  async getSpacedRepetitionCard(id: string): Promise<SpacedRepetitionCard | undefined> {
+    const [card] = await db.select()
+      .from(spacedRepetitionCards)
+      .where(eq(spacedRepetitionCards.id, id));
+    return card;
+  }
+
+  async createSpacedRepetitionCard(cardData: InsertSpacedRepetitionCard): Promise<SpacedRepetitionCard> {
+    const [card] = await db.insert(spacedRepetitionCards)
+      .values(cardData)
+      .returning();
+    return card;
+  }
+
+  async updateSpacedRepetitionCard(id: string, updates: Partial<SpacedRepetitionCard>): Promise<SpacedRepetitionCard> {
+    const [card] = await db.update(spacedRepetitionCards)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(spacedRepetitionCards.id, id))
+      .returning();
+    return card;
+  }
+
+  async reviewCard(cardId: string, quality: number): Promise<SpacedRepetitionCard> {
+    const card = await this.getSpacedRepetitionCard(cardId);
+    if (!card) throw new Error('Card not found');
+    
+    let easeFactor = card.easeFactor;
+    let interval = card.interval;
+    let repetitions = card.repetitions;
+    
+    if (quality >= 3) {
+      if (repetitions === 0) {
+        interval = 1;
+      } else if (repetitions === 1) {
+        interval = 6;
+      } else {
+        interval = Math.round(interval * easeFactor);
+      }
+      repetitions += 1;
+      easeFactor = Math.max(1.3, easeFactor + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
+    } else {
+      repetitions = 0;
+      interval = 1;
+      if (quality < 2) {
+        easeFactor = Math.max(1.3, easeFactor - 0.2);
+      }
+    }
+    
+    const nextReviewDate = new Date();
+    nextReviewDate.setDate(nextReviewDate.getDate() + interval);
+    
+    const isCorrect = quality >= 3;
+    
+    return await this.updateSpacedRepetitionCard(cardId, {
+      easeFactor,
+      interval,
+      repetitions,
+      nextReviewDate,
+      lastReviewDate: new Date(),
+      totalReviews: card.totalReviews + 1,
+      correctReviews: isCorrect ? card.correctReviews + 1 : card.correctReviews,
+    });
+  }
+
+  async deleteSpacedRepetitionCard(id: string): Promise<void> {
+    await db.update(spacedRepetitionCards)
+      .set({ isActive: false })
+      .where(eq(spacedRepetitionCards.id, id));
+  }
+
+  async getCardsByCourse(userId: string, courseId: string): Promise<SpacedRepetitionCard[]> {
+    return await db.select()
+      .from(spacedRepetitionCards)
+      .where(and(
+        eq(spacedRepetitionCards.userId, userId),
+        eq(spacedRepetitionCards.courseId, courseId),
+        eq(spacedRepetitionCards.isActive, true)
+      ))
+      .orderBy(asc(spacedRepetitionCards.nextReviewDate));
+  }
+
+  // ============================================
+  // LEARNING ENHANCEMENT - RECOMMENDATIONS
+  // ============================================
+
+  async getRecommendations(userId: string, limit: number = 10): Promise<LearningRecommendation[]> {
+    return await db.select()
+      .from(learningRecommendations)
+      .where(and(
+        eq(learningRecommendations.userId, userId),
+        eq(learningRecommendations.status, 'active')
+      ))
+      .orderBy(desc(learningRecommendations.priority))
+      .limit(limit);
+  }
+
+  async getRecommendation(id: string): Promise<LearningRecommendation | undefined> {
+    const [rec] = await db.select()
+      .from(learningRecommendations)
+      .where(eq(learningRecommendations.id, id));
+    return rec;
+  }
+
+  async createRecommendation(recData: InsertLearningRecommendation): Promise<LearningRecommendation> {
+    const [rec] = await db.insert(learningRecommendations)
+      .values(recData as any)
+      .returning();
+    return rec;
+  }
+
+  async updateRecommendationStatus(id: string, status: 'viewed' | 'completed' | 'dismissed'): Promise<LearningRecommendation> {
+    const updateData: any = { status };
+    
+    if (status === 'viewed') updateData.viewedAt = new Date();
+    if (status === 'completed') updateData.completedAt = new Date();
+    if (status === 'dismissed') updateData.dismissedAt = new Date();
+    
+    const [rec] = await db.update(learningRecommendations)
+      .set(updateData)
+      .where(eq(learningRecommendations.id, id))
+      .returning();
+    return rec;
+  }
+
+  async deleteExpiredRecommendations(): Promise<void> {
+    const now = new Date();
+    await db.update(learningRecommendations)
+      .set({ status: 'dismissed', dismissedAt: now })
+      .where(and(
+        eq(learningRecommendations.status, 'active'),
+        lte(learningRecommendations.expiresAt, now)
+      ));
+  }
+
+  async clearUserRecommendations(userId: string, type?: string): Promise<void> {
+    const conditions = [eq(learningRecommendations.userId, userId)];
+    if (type) {
+      conditions.push(eq(learningRecommendations.type, type));
+    }
+    
+    await db.delete(learningRecommendations)
+      .where(and(...conditions));
   }
 }
 

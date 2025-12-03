@@ -102,6 +102,57 @@ const upload = multer({
   }
 });
 
+// Helper function to check and award badges based on current progress
+async function checkAndAwardBadges(userId: string): Promise<void> {
+  try {
+    const gamification = await storage.getOrCreateUserGamification(userId);
+    const allBadges = await storage.getBadges();
+    const earnedBadgeIds = (await storage.getUserBadges(userId)).map(ub => ub.badgeId);
+    
+    for (const badge of allBadges) {
+      if (earnedBadgeIds.includes(badge.id)) continue;
+      
+      const condition = badge.unlockCondition as any;
+      let shouldAward = false;
+      
+      switch (condition.type) {
+        case 'quiz_count':
+          shouldAward = gamification.quizzesCompleted >= condition.value;
+          break;
+        case 'perfect_score':
+          shouldAward = gamification.perfectScores >= condition.value;
+          break;
+        case 'streak_days':
+          shouldAward = gamification.currentStreak >= condition.value;
+          break;
+        case 'materials_viewed':
+          shouldAward = gamification.materialsViewed >= condition.value;
+          break;
+        case 'reviews_completed':
+          shouldAward = gamification.reviewsCompleted >= condition.value;
+          break;
+        case 'level':
+          shouldAward = gamification.level >= condition.value;
+          break;
+        case 'total_xp':
+          shouldAward = gamification.totalXp >= condition.value;
+          break;
+      }
+      
+      if (shouldAward) {
+        await storage.awardBadge(userId, badge.id);
+        
+        // Award XP for earning badge
+        if (badge.xpReward > 0) {
+          await storage.addXp(userId, badge.xpReward, 'badge_earned', badge.id, `Earned badge: ${badge.name}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error checking badges:", error);
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
   
@@ -785,6 +836,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalQuestions,
         passed,
       });
+
+      // GAMIFICATION: Award XP and update stats
+      try {
+        // Base XP for completing a quiz
+        let xpEarned = 20;
+        
+        // Bonus XP based on score
+        if (scorePercentage >= 90) xpEarned += 30;
+        else if (scorePercentage >= 70) xpEarned += 15;
+        else if (scorePercentage >= 50) xpEarned += 5;
+        
+        // Award XP
+        await storage.addXp(req.user.id, xpEarned, 'quiz_complete', quizId, `Completed quiz: ${quiz.title} (${Math.round(scorePercentage)}%)`);
+        
+        // Update streak
+        const streakResult = await storage.updateStreak(req.user.id);
+        
+        // Update daily study log
+        await storage.updateDailyStudyLog(req.user.id, { quizzesTaken: 1, xpEarned });
+        
+        // Update gamification stats
+        const gamification = await storage.getOrCreateUserGamification(req.user.id);
+        const updateData: any = {
+          quizzesCompleted: gamification.quizzesCompleted + 1,
+        };
+        
+        // Track perfect scores
+        if (scorePercentage === 100) {
+          updateData.perfectScores = gamification.perfectScores + 1;
+          
+          // Bonus XP for perfect score
+          await storage.addXp(req.user.id, 25, 'perfect_score', quizId, `Perfect score on: ${quiz.title}`);
+        }
+        
+        await storage.updateUserGamification(req.user.id, updateData);
+        
+        // Generate flashcards from wrong answers for spaced repetition
+        const wrongQuestions = questions.filter(q => {
+          const userAnswer = answers[q.id];
+          return !userAnswer || userAnswer.toLowerCase() !== q.correctAnswer.toLowerCase();
+        });
+        
+        for (const question of wrongQuestions) {
+          await storage.createSpacedRepetitionCard({
+            userId: req.user.id,
+            question: question.question,
+            answer: question.correctAnswer,
+            sourceType: 'quiz',
+            sourceId: question.id,
+            courseId: quiz.courseId || null,
+            topic: quiz.title,
+            nextReviewDate: new Date(),
+          });
+        }
+        
+        // Check and award any earned badges
+        await checkAndAwardBadges(req.user.id);
+        
+      } catch (gamificationError) {
+        console.error("Error updating gamification:", gamificationError);
+        // Don't fail the quiz submission if gamification fails
+      }
 
       res.json({
         ...attempt,
@@ -2035,6 +2148,534 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error deleting all notifications:", error);
       res.status(500).json({ message: "Failed to delete all notifications" });
+    }
+  });
+
+  // ============================================
+  // LEARNING ENHANCEMENT - GAMIFICATION
+  // ============================================
+
+  // Get user's gamification stats (XP, level, streak)
+  app.get("/api/gamification/stats", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const stats = await storage.getOrCreateUserGamification(req.user.id);
+      
+      // Calculate XP needed for next level
+      const xpPerLevel = 100;
+      const levelMultiplier = 1.5;
+      let xpForCurrentLevel = 0;
+      let xpForNextLevel = xpPerLevel;
+      
+      for (let i = 1; i < stats.level; i++) {
+        xpForCurrentLevel += Math.floor(xpPerLevel * Math.pow(levelMultiplier, i - 1));
+      }
+      xpForNextLevel = xpForCurrentLevel + Math.floor(xpPerLevel * Math.pow(levelMultiplier, stats.level - 1));
+      
+      const xpInCurrentLevel = stats.totalXp - xpForCurrentLevel;
+      const xpNeededForNextLevel = xpForNextLevel - xpForCurrentLevel;
+      const progressPercentage = Math.round((xpInCurrentLevel / xpNeededForNextLevel) * 100);
+      
+      res.json({
+        ...stats,
+        xpInCurrentLevel,
+        xpNeededForNextLevel,
+        progressPercentage,
+      });
+    } catch (error: any) {
+      console.error("Error fetching gamification stats:", error);
+      res.status(500).json({ message: "Failed to fetch gamification stats" });
+    }
+  });
+
+  // Get XP transaction history
+  app.get("/api/gamification/xp-history", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const transactions = await storage.getXpTransactions(req.user.id, limit);
+      res.json(transactions);
+    } catch (error: any) {
+      console.error("Error fetching XP history:", error);
+      res.status(500).json({ message: "Failed to fetch XP history" });
+    }
+  });
+
+  // Get leaderboard
+  app.get("/api/gamification/leaderboard", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const type = (req.query.type as 'total' | 'weekly' | 'monthly') || 'weekly';
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      
+      const leaderboard = await storage.getLeaderboard(limit, type);
+      
+      // Find current user's rank
+      const allUsers = await storage.getLeaderboard(100, type);
+      const userRank = allUsers.findIndex(u => u.userId === req.user.id) + 1;
+      
+      res.json({
+        leaderboard: leaderboard.map((entry, index) => ({
+          rank: index + 1,
+          userId: entry.userId,
+          firstName: entry.user.firstName,
+          lastName: entry.user.lastName,
+          profileImageUrl: entry.user.profileImageUrl,
+          level: entry.level,
+          xp: type === 'total' ? entry.totalXp : type === 'weekly' ? entry.weeklyXp : entry.monthlyXp,
+          isCurrentUser: entry.userId === req.user.id,
+        })),
+        userRank: userRank > 0 ? userRank : null,
+      });
+    } catch (error: any) {
+      console.error("Error fetching leaderboard:", error);
+      res.status(500).json({ message: "Failed to fetch leaderboard" });
+    }
+  });
+
+  // Get study history (daily activity)
+  app.get("/api/gamification/study-history", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const days = req.query.days ? parseInt(req.query.days as string) : 30;
+      const history = await storage.getStudyHistory(req.user.id, days);
+      res.json(history);
+    } catch (error: any) {
+      console.error("Error fetching study history:", error);
+      res.status(500).json({ message: "Failed to fetch study history" });
+    }
+  });
+
+  // ============================================
+  // LEARNING ENHANCEMENT - BADGES
+  // ============================================
+
+  // Get all available badges
+  app.get("/api/badges", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const allBadges = await storage.getBadges();
+      const userBadges = await storage.getUserBadges(req.user.id);
+      const earnedBadgeIds = new Set(userBadges.map(ub => ub.badgeId));
+      
+      res.json(allBadges.map(badge => ({
+        ...badge,
+        earned: earnedBadgeIds.has(badge.id),
+        earnedAt: userBadges.find(ub => ub.badgeId === badge.id)?.earnedAt,
+      })));
+    } catch (error: any) {
+      console.error("Error fetching badges:", error);
+      res.status(500).json({ message: "Failed to fetch badges" });
+    }
+  });
+
+  // Get user's earned badges
+  app.get("/api/badges/earned", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const userBadges = await storage.getUserBadges(req.user.id);
+      res.json(userBadges);
+    } catch (error: any) {
+      console.error("Error fetching earned badges:", error);
+      res.status(500).json({ message: "Failed to fetch earned badges" });
+    }
+  });
+
+  // Get unnotified badges (for showing toast notifications)
+  app.get("/api/badges/unnotified", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const unnotified = await storage.getUnnotifiedBadges(req.user.id);
+      res.json(unnotified);
+    } catch (error: any) {
+      console.error("Error fetching unnotified badges:", error);
+      res.status(500).json({ message: "Failed to fetch unnotified badges" });
+    }
+  });
+
+  // Mark badge as notified
+  app.patch("/api/badges/:id/notified", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      await storage.markBadgeNotified(req.params.id);
+      res.json({ message: "Badge marked as notified" });
+    } catch (error: any) {
+      console.error("Error marking badge notified:", error);
+      res.status(500).json({ message: "Failed to mark badge as notified" });
+    }
+  });
+
+  // ============================================
+  // LEARNING ENHANCEMENT - SPACED REPETITION
+  // ============================================
+
+  // Get all cards for user
+  app.get("/api/spaced-repetition/cards", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const cards = await storage.getSpacedRepetitionCards(req.user.id);
+      res.json(cards);
+    } catch (error: any) {
+      console.error("Error fetching cards:", error);
+      res.status(500).json({ message: "Failed to fetch cards" });
+    }
+  });
+
+  // Get due cards for review
+  app.get("/api/spaced-repetition/due", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+      const cards = await storage.getDueCards(req.user.id, limit);
+      
+      // Get total due count
+      const allDue = await storage.getDueCards(req.user.id, 1000);
+      
+      res.json({
+        cards,
+        totalDue: allDue.length,
+        reviewsCompleted: 0, // Will be updated from daily log
+      });
+    } catch (error: any) {
+      console.error("Error fetching due cards:", error);
+      res.status(500).json({ message: "Failed to fetch due cards" });
+    }
+  });
+
+  // Create a new card manually
+  app.post("/api/spaced-repetition/cards", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const { question, answer, courseId, topic } = req.body;
+      
+      if (!question || !answer) {
+        return res.status(400).json({ message: "Question and answer are required" });
+      }
+      
+      const card = await storage.createSpacedRepetitionCard({
+        userId: req.user.id,
+        question,
+        answer,
+        sourceType: 'manual',
+        courseId: courseId || null,
+        topic: topic || null,
+        nextReviewDate: new Date(),
+      });
+      
+      res.json(card);
+    } catch (error: any) {
+      console.error("Error creating card:", error);
+      res.status(500).json({ message: "Failed to create card" });
+    }
+  });
+
+  // Review a card (submit answer quality)
+  app.post("/api/spaced-repetition/cards/:id/review", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const { quality } = req.body; // 0-5 scale (0=forgot, 3=hard, 4=good, 5=easy)
+      
+      if (quality === undefined || quality < 0 || quality > 5) {
+        return res.status(400).json({ message: "Quality must be between 0 and 5" });
+      }
+      
+      const card = await storage.reviewCard(req.params.id, quality);
+      
+      // Update daily study log and gamification
+      await storage.updateDailyStudyLog(req.user.id, { reviewsCompleted: 1 });
+      
+      // Award XP for review
+      const xpAmount = quality >= 3 ? 5 : 2;
+      await storage.addXp(req.user.id, xpAmount, 'review_complete', card.id, 'Completed flashcard review');
+      
+      // Update streak
+      await storage.updateStreak(req.user.id);
+      
+      // Update gamification stats
+      const gamification = await storage.getOrCreateUserGamification(req.user.id);
+      await storage.updateUserGamification(req.user.id, {
+        reviewsCompleted: gamification.reviewsCompleted + 1,
+      });
+      
+      // Check and award badges
+      await checkAndAwardBadges(req.user.id);
+      
+      res.json(card);
+    } catch (error: any) {
+      console.error("Error reviewing card:", error);
+      res.status(500).json({ message: "Failed to review card" });
+    }
+  });
+
+  // Delete a card
+  app.delete("/api/spaced-repetition/cards/:id", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      await storage.deleteSpacedRepetitionCard(req.params.id);
+      res.json({ message: "Card deleted" });
+    } catch (error: any) {
+      console.error("Error deleting card:", error);
+      res.status(500).json({ message: "Failed to delete card" });
+    }
+  });
+
+  // Generate cards from a quiz
+  app.post("/api/spaced-repetition/generate-from-quiz/:quizId", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const quiz = await storage.getQuiz(req.params.quizId);
+      if (!quiz) {
+        return res.status(404).json({ message: "Quiz not found" });
+      }
+      
+      const questions = await storage.getQuizQuestions(req.params.quizId);
+      const cards = [];
+      
+      for (const question of questions) {
+        const card = await storage.createSpacedRepetitionCard({
+          userId: req.user.id,
+          question: question.question,
+          answer: question.correctAnswer,
+          sourceType: 'quiz',
+          sourceId: question.id,
+          courseId: quiz.courseId || null,
+          topic: quiz.title,
+          nextReviewDate: new Date(),
+        });
+        cards.push(card);
+      }
+      
+      res.json({
+        message: `Created ${cards.length} flashcards from quiz`,
+        cards,
+      });
+    } catch (error: any) {
+      console.error("Error generating cards from quiz:", error);
+      res.status(500).json({ message: "Failed to generate cards" });
+    }
+  });
+
+  // ============================================
+  // LEARNING ENHANCEMENT - RECOMMENDATIONS
+  // ============================================
+
+  // Get personalized recommendations
+  app.get("/api/recommendations", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
+      const recommendations = await storage.getRecommendations(req.user.id, limit);
+      res.json(recommendations);
+    } catch (error: any) {
+      console.error("Error fetching recommendations:", error);
+      res.status(500).json({ message: "Failed to fetch recommendations" });
+    }
+  });
+
+  // Generate new recommendations based on performance
+  app.post("/api/recommendations/generate", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      // Clear old recommendations
+      await storage.clearUserRecommendations(req.user.id);
+      
+      // Get user's quiz attempts
+      const attempts = await storage.getQuizAttempts(req.user.id);
+      
+      // Analyze performance by course
+      const coursePerformance: Record<string, { scores: number[]; quizIds: string[] }> = {};
+      
+      for (const attempt of attempts) {
+        const quiz = await storage.getQuiz(attempt.quizId!);
+        if (quiz && quiz.courseId) {
+          if (!coursePerformance[quiz.courseId]) {
+            coursePerformance[quiz.courseId] = { scores: [], quizIds: [] };
+          }
+          const score = (attempt.score / attempt.totalQuestions) * 100;
+          coursePerformance[quiz.courseId].scores.push(score);
+          coursePerformance[quiz.courseId].quizIds.push(quiz.id);
+        }
+      }
+      
+      const recommendations = [];
+      
+      // Find weak areas (average score < 70%)
+      for (const [courseId, data] of Object.entries(coursePerformance)) {
+        const avgScore = data.scores.reduce((a, b) => a + b, 0) / data.scores.length;
+        
+        if (avgScore < 70) {
+          const course = await storage.getCourse(courseId);
+          if (course) {
+            // Recommend materials for this course
+            const materials = await storage.getMaterials();
+            const courseMaterials = materials.filter(m => m.courseId === courseId).slice(0, 3);
+            
+            for (const material of courseMaterials) {
+              const rec = await storage.createRecommendation({
+                userId: req.user.id,
+                type: 'material',
+                targetId: material.id,
+                targetTitle: material.title,
+                reason: `Your average score in ${course.title} is ${Math.round(avgScore)}%. Review this material to improve.`,
+                priority: Math.round(100 - avgScore),
+                courseId,
+                relatedScore: Math.round(avgScore),
+                status: 'active',
+              });
+              recommendations.push(rec);
+            }
+            
+            // Recommend quizzes for practice
+            const courseQuizzes = (await storage.getQuizzes()).filter(
+              q => q.courseId === courseId && !data.quizIds.includes(q.id)
+            ).slice(0, 2);
+            
+            for (const quiz of courseQuizzes) {
+              const rec = await storage.createRecommendation({
+                userId: req.user.id,
+                type: 'quiz',
+                targetId: quiz.id,
+                targetTitle: quiz.title,
+                reason: `Practice more quizzes in ${course.title} to improve your ${Math.round(avgScore)}% average.`,
+                priority: Math.round(90 - avgScore),
+                courseId,
+                relatedScore: Math.round(avgScore),
+                status: 'active',
+              });
+              recommendations.push(rec);
+            }
+          }
+        }
+      }
+      
+      // If user has due flashcards, recommend reviewing them
+      const dueCards = await storage.getDueCards(req.user.id, 1);
+      if (dueCards.length > 0) {
+        const allDue = await storage.getDueCards(req.user.id, 1000);
+        const rec = await storage.createRecommendation({
+          userId: req.user.id,
+          type: 'review',
+          targetId: 'spaced-repetition',
+          targetTitle: 'Review Flashcards',
+          reason: `You have ${allDue.length} flashcard${allDue.length > 1 ? 's' : ''} due for review.`,
+          priority: 95,
+          status: 'active',
+        });
+        recommendations.push(rec);
+      }
+      
+      // If user has no or few quiz attempts, recommend popular courses/quizzes
+      if (attempts.length < 3) {
+        const allQuizzes = await storage.getQuizzes();
+        const takenQuizIds = new Set(attempts.map(a => a.quizId));
+        const untakenQuizzes = allQuizzes.filter(q => !takenQuizIds.has(q.id)).slice(0, 3);
+        
+        for (const quiz of untakenQuizzes) {
+          const rec = await storage.createRecommendation({
+            userId: req.user.id,
+            type: 'quiz',
+            targetId: quiz.id,
+            targetTitle: quiz.title,
+            reason: 'Start your learning journey by taking quizzes to build knowledge and earn XP!',
+            priority: 80,
+            courseId: quiz.courseId || undefined,
+            status: 'active',
+          });
+          recommendations.push(rec);
+        }
+      }
+      
+      // Check streak status and encourage maintaining it
+      const gamification = await storage.getOrCreateUserGamification(req.user.id);
+      if (gamification.currentStreak > 0 && gamification.currentStreak < 7) {
+        const rec = await storage.createRecommendation({
+          userId: req.user.id,
+          type: 'streak',
+          targetId: 'maintain-streak',
+          targetTitle: 'Keep Your Streak Going!',
+          reason: `You're on a ${gamification.currentStreak}-day streak! Complete any activity today to keep it going.`,
+          priority: 90,
+          status: 'active',
+        });
+        recommendations.push(rec);
+      }
+      
+      // Sort by priority and return
+      recommendations.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+      
+      res.json({
+        message: `Generated ${recommendations.length} recommendations`,
+        recommendations,
+      });
+    } catch (error: any) {
+      console.error("Error generating recommendations:", error);
+      res.status(500).json({ message: "Failed to generate recommendations" });
+    }
+  });
+
+  // Update recommendation status
+  app.patch("/api/recommendations/:id", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const { status } = req.body;
+      
+      if (!['viewed', 'completed', 'dismissed'].includes(status)) {
+        return res.status(400).json({ message: "Invalid status" });
+      }
+      
+      const rec = await storage.updateRecommendationStatus(req.params.id, status);
+      res.json(rec);
+    } catch (error: any) {
+      console.error("Error updating recommendation:", error);
+      res.status(500).json({ message: "Failed to update recommendation" });
+    }
+  });
+
+  // ============================================
+  // LEARNING ENHANCEMENT - BADGE CHECKING
+  // ============================================
+
+  // Check and award badges based on current progress
+  app.post("/api/gamification/check-badges", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const gamification = await storage.getOrCreateUserGamification(req.user.id);
+      const allBadges = await storage.getBadges();
+      const earnedBadgeIds = (await storage.getUserBadges(req.user.id)).map(ub => ub.badgeId);
+      
+      const newBadges = [];
+      
+      for (const badge of allBadges) {
+        if (earnedBadgeIds.includes(badge.id)) continue;
+        
+        const condition = badge.unlockCondition as any;
+        let shouldAward = false;
+        
+        switch (condition.type) {
+          case 'quiz_count':
+            shouldAward = gamification.quizzesCompleted >= condition.value;
+            break;
+          case 'perfect_score':
+            shouldAward = gamification.perfectScores >= condition.value;
+            break;
+          case 'streak_days':
+            shouldAward = gamification.currentStreak >= condition.value;
+            break;
+          case 'materials_viewed':
+            shouldAward = gamification.materialsViewed >= condition.value;
+            break;
+          case 'reviews_completed':
+            shouldAward = gamification.reviewsCompleted >= condition.value;
+            break;
+          case 'level':
+            shouldAward = gamification.level >= condition.value;
+            break;
+          case 'total_xp':
+            shouldAward = gamification.totalXp >= condition.value;
+            break;
+        }
+        
+        if (shouldAward) {
+          await storage.awardBadge(req.user.id, badge.id);
+          
+          // Award XP for earning badge
+          if (badge.xpReward > 0) {
+            await storage.addXp(req.user.id, badge.xpReward, 'badge_earned', badge.id, `Earned badge: ${badge.name}`);
+          }
+          
+          newBadges.push(badge);
+        }
+      }
+      
+      res.json({
+        newBadges,
+        message: newBadges.length > 0 ? `Earned ${newBadges.length} new badge(s)!` : 'No new badges earned',
+      });
+    } catch (error: any) {
+      console.error("Error checking badges:", error);
+      res.status(500).json({ message: "Failed to check badges" });
     }
   });
 
