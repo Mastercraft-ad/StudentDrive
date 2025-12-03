@@ -29,13 +29,12 @@ The project employs a full-stack architecture. The frontend uses React, TypeScri
 
 **UI/UX Decisions:**
 - Clean, professional design with card-based sections and clear visual hierarchy.
-- WordPress-style blog editor with advanced formatting, media management, and SEO features.
 - Interactive elements like checkbox-based selections and real-time previews.
 - Efficient administrative experience with search, filter, and bulk actions for user management.
 
 **Technical Implementations & Features:**
 - **User Management:** Role-based access (Student, Institution, Admin, Parent, Teacher, School Student, Super Admin) with email verification, comprehensive admin dashboards, and bulk user actions.
-- **Content Management:** Course, material, quiz, and blog system management.
+- **Content Management:** Course, material, and quiz management.
 - **Institution Review System:** Public directory, star ratings, verified reviews, and slug generation.
 - **Data Tracking:** Extensive user statistics and activity logging.
 - **Security:** Admin-only API endpoints, authorization checks, and secure session management with PostgreSQL session storage.
@@ -59,7 +58,7 @@ The project employs a full-stack architecture. The frontend uses React, TypeScri
 |------|-------------|----------------|
 | `student` | Individual learner | LMS resources, quizzes, library, performance |
 | `institution` | School admin | Full school management (SMS features) |
-| `admin` | Platform admin | User/content moderation, blog management |
+| `admin` | Platform admin | User/content moderation |
 | `super_admin` | Super administrator | Platform oversight, impersonation, analytics |
 
 **School Context Roles (school_users table):**
@@ -97,7 +96,6 @@ student
 | Grades | - | ✓ | - | - | ✓ | View | View |
 | Fees Management | - | ✓ | - | - | - | Pay | - |
 | Timetable | - | ✓ | - | - | View | - | View |
-| Blog Management | - | - | ✓ | ✓ | - | - | - |
 | User Management | - | - | ✓ | ✓ | - | - | - |
 | Impersonation | - | - | - | ✓ | - | - | - |
 | Platform Analytics | - | - | - | ✓ | - | - | - |
@@ -123,20 +121,19 @@ student
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| PostgreSQL Database | Healthy | 53 tables, all relations verified |
+| PostgreSQL Database | Healthy | 47 tables, all relations verified |
 | Express Server | Running | Port 5000, serving frontend and API |
 | Session Store | Active | PostgreSQL-backed, 7-day TTL |
 | File Uploads | Configured | Validated types, size limits enforced |
 | Workflow | Running | npm run dev with hot reload |
 
-### Database Tables (53 Total)
+### Database Tables (47 Total)
 
 **LMS Platform (Learning Management System):**
 - `users`, `courses`, `materials`, `quizzes`, `quiz_questions`, `quiz_attempts`
 - `bookmarks`, `notifications`, `user_activity_logs`, `user_statistics`
 - `institutions`, `institution_reviews`, `programmes`
 - `material_ratings`, `material_reports`, `material_reviews`
-- `blog_posts`, `blog_categories`, `blog_tags`, `blog_comments`, `blog_post_likes`, `blog_post_bookmarks`
 
 **SMS Platform (School Management System):**
 - `schools`, `school_users`, `school_classes`, `school_subjects`, `class_subjects`
@@ -192,7 +189,6 @@ student
 | Upload Type | Size Limit | Allowed Types |
 |-------------|------------|---------------|
 | LMS Materials | 10MB | PDF, DOC, DOCX, PPT, PPTX, TXT, JPG, JPEG, PNG |
-| Blog Images | 5MB | JPEG, JPG, PNG, GIF, WebP |
 | School Materials | 50MB | PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, TXT, JPG, PNG, GIF, MP4, MP3, ZIP |
 
 ### API Route Summary
