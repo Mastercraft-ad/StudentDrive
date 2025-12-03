@@ -2679,6 +2679,276 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // STUDY GROUPS - Peer Collaboration
+  // ============================================
+
+  // Get all public study groups or user's groups
+  app.get("/api/study-groups", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const { courseId, onlyMine } = req.query;
+      
+      if (onlyMine === 'true') {
+        const groups = await storage.getUserStudyGroups(req.user.id);
+        const groupsWithCount = await Promise.all(groups.map(async (g) => ({
+          ...g,
+          memberCount: await storage.getStudyGroupMemberCount(g.id)
+        })));
+        return res.json(groupsWithCount);
+      }
+      
+      const groups = await storage.getStudyGroups({ 
+        courseId: courseId as string,
+        isPublic: true,
+        limit: 50
+      });
+      
+      const groupsWithDetails = await Promise.all(groups.map(async (g) => ({
+        ...g,
+        memberCount: await storage.getStudyGroupMemberCount(g.id),
+        isMember: !!(await storage.getStudyGroupMember(g.id, req.user.id))
+      })));
+      
+      res.json(groupsWithDetails);
+    } catch (error: any) {
+      console.error("Error fetching study groups:", error);
+      res.status(500).json({ message: "Failed to fetch study groups" });
+    }
+  });
+
+  // Get single study group with details
+  app.get("/api/study-groups/:id", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const group = await storage.getStudyGroup(req.params.id);
+      if (!group) {
+        return res.status(404).json({ message: "Study group not found" });
+      }
+      
+      const membership = await storage.getStudyGroupMember(group.id, req.user.id);
+      const members = await storage.getStudyGroupMembers(group.id);
+      
+      res.json({
+        ...group,
+        isMember: !!membership,
+        memberRole: membership?.role,
+        members,
+        memberCount: members.length
+      });
+    } catch (error: any) {
+      console.error("Error fetching study group:", error);
+      res.status(500).json({ message: "Failed to fetch study group" });
+    }
+  });
+
+  // Create a new study group
+  app.post("/api/study-groups", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const { name, description, courseId, isPublic, maxMembers } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: "Group name is required" });
+      }
+      
+      const group = await storage.createStudyGroup({
+        name,
+        description,
+        courseId,
+        isPublic: isPublic !== false,
+        maxMembers: maxMembers || 10,
+        createdById: req.user.id
+      });
+      
+      // Award XP for creating a study group
+      await storage.addXp(req.user.id, 15, 'study_group_created', group.id, `Created study group: ${name}`);
+      
+      res.status(201).json(group);
+    } catch (error: any) {
+      console.error("Error creating study group:", error);
+      res.status(500).json({ message: "Failed to create study group" });
+    }
+  });
+
+  // Update a study group
+  app.patch("/api/study-groups/:id", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const group = await storage.getStudyGroup(req.params.id);
+      if (!group) {
+        return res.status(404).json({ message: "Study group not found" });
+      }
+      
+      const membership = await storage.getStudyGroupMember(group.id, req.user.id);
+      if (!membership || !['owner', 'admin'].includes(membership.role)) {
+        return res.status(403).json({ message: "Only group owners and admins can update the group" });
+      }
+      
+      const { name, description, isPublic, maxMembers } = req.body;
+      const updated = await storage.updateStudyGroup(group.id, {
+        name,
+        description,
+        isPublic,
+        maxMembers
+      });
+      
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Error updating study group:", error);
+      res.status(500).json({ message: "Failed to update study group" });
+    }
+  });
+
+  // Delete a study group
+  app.delete("/api/study-groups/:id", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const group = await storage.getStudyGroup(req.params.id);
+      if (!group) {
+        return res.status(404).json({ message: "Study group not found" });
+      }
+      
+      if (group.createdById !== req.user.id) {
+        return res.status(403).json({ message: "Only the group owner can delete the group" });
+      }
+      
+      await storage.deleteStudyGroup(group.id);
+      res.json({ message: "Study group deleted successfully" });
+    } catch (error: any) {
+      console.error("Error deleting study group:", error);
+      res.status(500).json({ message: "Failed to delete study group" });
+    }
+  });
+
+  // Join a study group
+  app.post("/api/study-groups/:id/join", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const group = await storage.getStudyGroup(req.params.id);
+      if (!group) {
+        return res.status(404).json({ message: "Study group not found" });
+      }
+      
+      const existingMember = await storage.getStudyGroupMember(group.id, req.user.id);
+      if (existingMember) {
+        return res.status(400).json({ message: "You are already a member of this group" });
+      }
+      
+      const memberCount = await storage.getStudyGroupMemberCount(group.id);
+      if (group.maxMembers && memberCount >= group.maxMembers) {
+        return res.status(400).json({ message: "Group is full" });
+      }
+      
+      if (!group.isPublic) {
+        return res.status(403).json({ message: "This is a private group. You need an invite to join." });
+      }
+      
+      const member = await storage.joinStudyGroup(group.id, req.user.id);
+      
+      // Award XP for joining a study group
+      await storage.addXp(req.user.id, 5, 'study_group_joined', group.id, `Joined study group: ${group.name}`);
+      
+      res.status(201).json(member);
+    } catch (error: any) {
+      console.error("Error joining study group:", error);
+      res.status(500).json({ message: "Failed to join study group" });
+    }
+  });
+
+  // Leave a study group
+  app.post("/api/study-groups/:id/leave", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const group = await storage.getStudyGroup(req.params.id);
+      if (!group) {
+        return res.status(404).json({ message: "Study group not found" });
+      }
+      
+      const membership = await storage.getStudyGroupMember(group.id, req.user.id);
+      if (!membership) {
+        return res.status(400).json({ message: "You are not a member of this group" });
+      }
+      
+      if (membership.role === 'owner') {
+        return res.status(400).json({ message: "The group owner cannot leave. Delete the group instead." });
+      }
+      
+      await storage.leaveStudyGroup(group.id, req.user.id);
+      res.json({ message: "Left the study group successfully" });
+    } catch (error: any) {
+      console.error("Error leaving study group:", error);
+      res.status(500).json({ message: "Failed to leave study group" });
+    }
+  });
+
+  // Get study group messages
+  app.get("/api/study-groups/:id/messages", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const group = await storage.getStudyGroup(req.params.id);
+      if (!group) {
+        return res.status(404).json({ message: "Study group not found" });
+      }
+      
+      const membership = await storage.getStudyGroupMember(group.id, req.user.id);
+      if (!membership) {
+        return res.status(403).json({ message: "You must be a member to view messages" });
+      }
+      
+      const limit = parseInt(req.query.limit as string) || 50;
+      const messages = await storage.getStudyGroupMessages(group.id, limit);
+      res.json(messages);
+    } catch (error: any) {
+      console.error("Error fetching study group messages:", error);
+      res.status(500).json({ message: "Failed to fetch messages" });
+    }
+  });
+
+  // Send a message to a study group
+  app.post("/api/study-groups/:id/messages", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const group = await storage.getStudyGroup(req.params.id);
+      if (!group) {
+        return res.status(404).json({ message: "Study group not found" });
+      }
+      
+      const membership = await storage.getStudyGroupMember(group.id, req.user.id);
+      if (!membership) {
+        return res.status(403).json({ message: "You must be a member to send messages" });
+      }
+      
+      const { content, attachmentType, attachmentId } = req.body;
+      if (!content) {
+        return res.status(400).json({ message: "Message content is required" });
+      }
+      
+      const message = await storage.createStudyGroupMessage({
+        groupId: group.id,
+        userId: req.user.id,
+        content,
+        attachmentType,
+        attachmentId
+      });
+      
+      // Award small XP for engagement
+      await storage.addXp(req.user.id, 1, 'study_group_message', message.id, 'Sent a study group message');
+      
+      res.status(201).json(message);
+    } catch (error: any) {
+      console.error("Error sending study group message:", error);
+      res.status(500).json({ message: "Failed to send message" });
+    }
+  });
+
+  // Get study group members
+  app.get("/api/study-groups/:id/members", isAuthenticated, requireOnboarding, async (req: any, res: Response) => {
+    try {
+      const group = await storage.getStudyGroup(req.params.id);
+      if (!group) {
+        return res.status(404).json({ message: "Study group not found" });
+      }
+      
+      const members = await storage.getStudyGroupMembers(group.id);
+      res.json(members);
+    } catch (error: any) {
+      console.error("Error fetching study group members:", error);
+      res.status(500).json({ message: "Failed to fetch members" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

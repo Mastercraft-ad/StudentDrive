@@ -2324,3 +2324,140 @@ export const insertDailyStudyLogSchema = createInsertSchema(dailyStudyLogs).omit
 
 export type InsertDailyStudyLog = z.infer<typeof insertDailyStudyLogSchema>;
 export type DailyStudyLog = typeof dailyStudyLogs.$inferSelect;
+
+// ============================================
+// STUDY GROUPS - Peer Collaboration
+// ============================================
+
+// Study Groups - For collaborative learning
+export const studyGroups = pgTable("study_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  courseId: varchar("course_id").references(() => courses.id, { onDelete: 'set null' }),
+  
+  // Group settings
+  isPublic: boolean("is_public").default(true).notNull(), // Can others join without invite
+  maxMembers: integer("max_members").default(10),
+  
+  // Creator/owner
+  createdById: varchar("created_by_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Activity tracking
+  lastActivityAt: timestamp("last_activity_at").defaultNow(),
+  totalXpEarned: integer("total_xp_earned").default(0).notNull(),
+  
+  // Status
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("IDX_study_groups_course").on(table.courseId),
+  index("IDX_study_groups_creator").on(table.createdById),
+  index("IDX_study_groups_public").on(table.isPublic),
+]);
+
+export const studyGroupsRelations = relations(studyGroups, ({ one, many }) => ({
+  course: one(courses, {
+    fields: [studyGroups.courseId],
+    references: [courses.id],
+  }),
+  createdBy: one(users, {
+    fields: [studyGroups.createdById],
+    references: [users.id],
+  }),
+  members: many(studyGroupMembers),
+  messages: many(studyGroupMessages),
+}));
+
+export const insertStudyGroupSchema = createInsertSchema(studyGroups).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastActivityAt: true,
+  totalXpEarned: true,
+});
+
+export type InsertStudyGroup = z.infer<typeof insertStudyGroupSchema>;
+export type StudyGroup = typeof studyGroups.$inferSelect;
+
+// Study Group Members - Track membership and roles
+export const studyGroupMembers = pgTable("study_group_members", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").references(() => studyGroups.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  
+  // Role in group
+  role: varchar("role", { length: 20 }).default("member").notNull(), // owner, admin, member
+  
+  // Contribution tracking
+  xpContributed: integer("xp_contributed").default(0).notNull(),
+  messagesCount: integer("messages_count").default(0).notNull(),
+  
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  lastActiveAt: timestamp("last_active_at").defaultNow(),
+}, (table) => [
+  index("IDX_study_group_members_group").on(table.groupId),
+  index("IDX_study_group_members_user").on(table.userId),
+]);
+
+export const studyGroupMembersRelations = relations(studyGroupMembers, ({ one }) => ({
+  group: one(studyGroups, {
+    fields: [studyGroupMembers.groupId],
+    references: [studyGroups.id],
+  }),
+  user: one(users, {
+    fields: [studyGroupMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertStudyGroupMemberSchema = createInsertSchema(studyGroupMembers).omit({
+  id: true,
+  joinedAt: true,
+  lastActiveAt: true,
+  xpContributed: true,
+  messagesCount: true,
+});
+
+export type InsertStudyGroupMember = z.infer<typeof insertStudyGroupMemberSchema>;
+export type StudyGroupMember = typeof studyGroupMembers.$inferSelect;
+
+// Study Group Messages - Chat/discussion within groups
+export const studyGroupMessages = pgTable("study_group_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").references(() => studyGroups.id, { onDelete: 'cascade' }).notNull(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  
+  content: text("content").notNull(),
+  
+  // Optional attachment (for sharing materials)
+  attachmentType: varchar("attachment_type", { length: 20 }), // material, quiz, link
+  attachmentId: varchar("attachment_id"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("IDX_study_group_messages_group").on(table.groupId),
+  index("IDX_study_group_messages_user").on(table.userId),
+  index("IDX_study_group_messages_created").on(table.createdAt),
+]);
+
+export const studyGroupMessagesRelations = relations(studyGroupMessages, ({ one }) => ({
+  group: one(studyGroups, {
+    fields: [studyGroupMessages.groupId],
+    references: [studyGroups.id],
+  }),
+  user: one(users, {
+    fields: [studyGroupMessages.userId],
+    references: [users.id],
+  }),
+}));
+
+export const insertStudyGroupMessageSchema = createInsertSchema(studyGroupMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertStudyGroupMessage = z.infer<typeof insertStudyGroupMessageSchema>;
+export type StudyGroupMessage = typeof studyGroupMessages.$inferSelect;
