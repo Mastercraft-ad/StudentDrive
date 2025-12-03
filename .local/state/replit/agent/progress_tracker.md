@@ -623,3 +623,10 @@
 [x] 558. school_admin now has proper sidebar navigation with all school management features
 [x] 559. Verified application running successfully on port 5000
 [x] 560. School admin can now access /school/dashboard after login
+[x] 561. Sidebar Header Redesign (Dec 3, 2025)
+[x] 562. Removed user profile (avatar, name, role) from sidebar header
+[x] 563. Added site logo (GraduationCap icon) with "StudentDrive" name and "School Management" tagline
+[x] 564. Added toggle button (PanelLeftClose/PanelLeft icons) to collapse/expand sidebar
+[x] 565. When collapsed: Shows logo icon and toggle button stacked vertically
+[x] 566. When expanded: Shows logo, site name, tagline, and toggle button in a row
+[x] 567. All data-testid attributes added for testing compliance

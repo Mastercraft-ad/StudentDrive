@@ -55,13 +55,7 @@ export function AppSidebar() {
       collapsible="icon" 
       className="border-r border-border bg-card"
     >
-      <SidebarProfile
-        firstName={user?.firstName}
-        lastName={user?.lastName}
-        email={user?.email}
-        role={user?.role}
-        profileImageUrl={user?.profileImageUrl}
-      />
+      <SidebarProfile />
 
       <SidebarContent className="py-4">
         <SidebarSection section={roleConfig.primary} />
