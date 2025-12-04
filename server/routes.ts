@@ -2949,6 +2949,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // INSTITUTION USER - SCHOOL MANAGEMENT
+  // ============================================
+  
+  // Get schools owned by the current institution user
+  app.get("/api/institution/my-schools", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      if (req.user.role !== 'institution') {
+        return res.status(403).json({ message: "Only institution users can access this endpoint" });
+      }
+      
+      const schools = await storage.getSchoolsByOwner(req.user.id);
+      res.json(schools);
+    } catch (error: any) {
+      console.error("Error fetching user's schools:", error);
+      res.status(500).json({ message: "Failed to fetch schools" });
+    }
+  });
+  
+  // Get the current active school for the institution user
+  app.get("/api/institution/current-school", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      if (req.user.role !== 'institution') {
+        return res.status(403).json({ message: "Only institution users can access this endpoint" });
+      }
+      
+      const schools = await storage.getSchoolsByOwner(req.user.id);
+      if (schools.length === 0) {
+        return res.json(null);
+      }
+      
+      // Return the first active school (or most recently created one)
+      const activeSchool = schools.find(s => s.isActive) || schools[0];
+      res.json({
+        id: activeSchool.id,
+        name: activeSchool.name,
+        subdomain: activeSchool.subdomain,
+        slug: activeSchool.slug,
+        logoUrl: activeSchool.logoUrl,
+        subscriptionStatus: activeSchool.subscriptionStatus,
+        trialEndDate: activeSchool.trialEndDate,
+      });
+    } catch (error: any) {
+      console.error("Error fetching current school:", error);
+      res.status(500).json({ message: "Failed to fetch current school" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
