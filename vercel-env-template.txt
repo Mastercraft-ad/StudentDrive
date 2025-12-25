@@ -1,0 +1,17 @@
+# Copy these to Vercel Settings → Environment Variables → Add Environment Variables
+
+# PRODUCTION ENVIRONMENT
+DATABASE_URL=postgresql://neondb_owner:npg_sGtkezK2r6Xc@ep-ancient-dream-ah872g75-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+SESSION_SECRET=your-secure-production-secret-here
+NODE_ENV=production
+
+# Apply to: Production
+
+---
+
+# PREVIEW ENVIRONMENT  
+DATABASE_URL=postgresql://neondb_owner:npg_sGtkezK2r6Xc@ep-ancient-dream-ah872g75-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+SESSION_SECRET=your-preview-secret-here
+NODE_ENV=development
+
+# Apply to: Preview
