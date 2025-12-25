@@ -372,3 +372,7 @@
 [x] 372. Confirmed: ✓ Changes applied - all tables created successfully in Neon database
 [x] 373. IMPORTANT: Configure DATABASE_URL to use Neon database in Replit environment
 [x] 374. Current DATABASE_URL points to helium database - needs to be updated to Neon
+[x] 375. DATABASE_URL secret added to Replit (Dec 25, 2025 - 9:15 PM)
+[x] 376. IMPORTANT: DATABASE_URL value contains 'psql' prefix - needs correction
+[x] 377. User needs to update SECRET in Replit lock icon to remove 'psql' prefix
+[x] 378. Correct value: postgresql://neondb_owner:npg_sGtkezK2r6Xc@ep-ancient-dream-ah872g75-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
